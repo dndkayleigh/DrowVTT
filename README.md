@@ -1,275 +1,236 @@
-# AI Tactical Virtual Table Top (VTT)
+# Web VTT + AI Turn Controller (Prototype)
 
-![License](https://img.shields.io/badge/license-MIT-green)
-![Status](https://img.shields.io/badge/status-experimental-blue)
-![Built With](https://img.shields.io/badge/built%20with-JavaScript-yellow)
-![AI Ready](https://img.shields.io/badge/AI-assisted-combat-purple)
+A lightweight, browser-based **virtual tabletop (VTT)** for grid combat with **snap-to-grid tokens**, **map-image alignment tools**, and a **backend endpoint** that can call **ChatGPT/OpenAI** to produce **structured, auto-applicable turn decisions**.
 
-A lightweight **AI-assisted virtual tabletop for tactical D&D combat**.
-
-This tool exports the current battle state as a structured prompt so an AI model can **control monsters, PCs, or both**, returning JSON actions that can be applied directly to the battlefield.
-
-Unlike traditional VTTs, this project treats the AI as an **active tactical combatant**.
+This repo is intentionally minimal: a single-page frontend you can open in the browser, plus an optional Node/Express backend that relays your VTT state to an AI model and returns an `apply` JSON payload.
 
 ---
 
-# Demo Concept
+## ✨ Highlights
 
-AI Tactical VTT allows combat like this:
+- **Grid-based battlemap**
+  - Adjustable grid size (px)
+  - Snap modes (center or top-left)
+  - Camera pan (Space + drag) and zoom (wheel)
 
-1. Export combat state
-2. Ask an AI what the monster should do
-3. Paste the response
-4. The battlefield updates automatically
+- **Map image alignment**
+  - Load a map image as a layer
+  - Translate / nudge the map to align embedded pixel grids
+  - Optional map **scale**, **rotation**, and **opacity** controls
 
-Example AI response:
+- **Tokens**
+  - PC / NPC / Monster tokens
+  - Snap-to-grid movement
+  - Simple per-token fields: **AC**, **HP**, **Speed**, **Notes**, **Statblock**
+  - “Current turn token” is linked to selection
+
+- **AI integration**
+  - Frontend generates a **turn packet** (prompt) including map + token state
+  - Backend calls ChatGPT/OpenAI and returns **strict JSON**
+  - Frontend can **auto-apply** AI responses via a checkbox
+
+---
+
+## Repository layout (suggested)
+
+```
+.
+├─ frontend/
+│  └─ index.html        # the VTT single-file UI (paste the provided HTML here)
+└─ backend/
+   ├─ server.js         # Express API endpoint that calls OpenAI
+   ├─ package.json
+   └─ .env              # OPENAI_API_KEY, PORT
+```
+
+You can also keep everything in one folder if you prefer.
+
+---
+
+## ✅ Quick start (Frontend only)
+
+1. Create `frontend/index.html` and paste in the full VTT HTML you generated.
+2. Open it directly:
+   - Double-click `index.html`, or
+   - Use a static server (recommended):
+
+```bash
+cd frontend
+python -m http.server 8080
+# then open http://localhost:8080
+```
+
+Why a static server? Browsers sometimes restrict local `file://` behavior, and serving over `http://` avoids headaches.
+
+---
+
+## 🧠 AI backend (Node/Express)
+
+### 1) Install
+
+```bash
+mkdir -p backend
+cd backend
+npm init -y
+npm install express cors openai dotenv
+```
+
+> If you use `import ... from`, set `"type": "module"` in `backend/package.json`.
+
+### 2) Add environment variables
+
+Create `backend/.env`:
+
+```bash
+OPENAI_API_KEY=YOUR_KEY_HERE
+PORT=3000
+```
+
+### 3) Create `backend/server.js`
+
+Use your backend code that:
+- accepts `POST /api/vtt`
+- reads `req.body.aiExport` (the prompt/turn packet)
+- calls OpenAI
+- returns a strict JSON response
+
+Example behavior:
+- request: VTT state JSON
+- response: `{"moves":[...],"actions":[...],"end_turn":true}`
+
+### 4) Run
+
+```bash
+cd backend
+node server.js
+```
+
+Backend will listen at:
+
+- `http://localhost:3000/api/vtt`
+
+---
+
+## 🔌 Connecting the frontend to the backend
+
+In the VTT UI:
+
+1. Set **Backend endpoint** to:
+
+```
+http://localhost:3000/api/vtt
+```
+
+2. Click **Send state to backend**
+3. The UI will:
+   - receive the JSON response
+   - paste it into “Apply AI JSON”
+   - optionally auto-apply it if **Auto-apply AI response** is checked
+
+---
+
+## 📦 API contract
+
+### Request (from VTT to backend)
+
+Your frontend sends a JSON payload similar to:
 
 ```json
 {
-  "moves": [{"token":"Goblin A","to":[4,6]}],
-  "actions":[{"token":"Goblin A","type":"attack","target":"Aria"}],
+  "gridSize": 64,
+  "snapMode": "center",
+  "view": { "zoom": 1, "panX": 0, "panY": 0 },
+  "map": { "width": 2000, "height": 1400, "offX": 0, "offY": 0, "scale": 1, "rot": 0, "opacity": 1 },
+  "tokens": [
+    { "name": "Aria", "type": "PC", "cell": { "x": 10, "y": 12 }, "ac": 15, "hp": "18/18", "speed": 30 }
+  ],
+  "turn": { "aiControls": "Monsters", "round": 1, "currentTurnTokenId": "abc123" },
+  "aiExport": "SYSTEM: You are the tactical controller ..."
+}
+```
+
+### Response (from backend to VTT)
+
+Must match:
+
+```json
+{
+  "moves": [{"token":"Name","to":[x,y]}],
+  "actions": [{"token":"Name","type":"attack|dash|dodge|hide|disengage|other","target":"Name|null","details":"..."}],
   "end_turn": true
 }
 ```
 
----
+The VTT applies moves by matching `token` to token **name**.
 
-# Features
-
-## Battle Map System
-
-- Upload any battle map image
-- Translate, rotate, and scale the map
-- Align pixel grids to the VTT grid
-- Adjustable grid size
-- Map opacity controls
-
-## Token System
-
-- PC / NPC / Monster tokens
-- Drag-and-drop movement
-- Snap-to-grid positioning
-- Multi-cell creatures
-- Color coding
-- Selection independent from turn order
-
-## Combat Metadata
-
-Each token supports:
-
-- AC
-- HP
-- Speed
-- Notes
-- Full statblock text
-
-Statblocks are automatically included in AI prompts.
-
-## Turn Control
-
-Combat state includes:
-
-- Round number
-- Current turn token
-- Which side AI controls
-  - PCs
-  - Monsters
-  - Both
-  - None
-
-## AI Combat Integration
-
-The system generates a **complete combat prompt** including:
-
-- token locations
-- token sizes
-- combat stats
-- map information
-- acting creature statblock
-- strict output schema
-
-AI responses can be pasted back and **applied automatically**.
+> Tip: Token names should be unique to avoid ambiguity.
 
 ---
 
-# Architecture
+## 🔐 Security notes
 
-The project uses a **modular ES-module architecture**.
-
-```
-src/
- ├── app/
- │   ├── App.js
- │   └── State.js
- │
- ├── models/
- │   ├── Token.js
- │   └── MapLayer.js
- │
- ├── ui/
- │   ├── CanvasStage.js
- │   ├── Sidebar.js
- │   ├── MapPanel.js
- │   ├── TokenList.js
- │   ├── TurnPanel.js
- │   └── ExportPanel.js
- │
- ├── services/
- │   ├── AiExport.js
- │   ├── Backend.js
- │   └── Apply.js
- │
- └── utils/
-     ├── geom.js
-     └── dom.js
-```
-
-Key components:
-
-| Component | Purpose |
-|-----------|---------|
-| App | Application controller |
-| State | Reactive state store |
-| CanvasStage | Map and token rendering |
-| Sidebar | UI controls |
-| AiExport | AI prompt generation |
-| Apply | Applies AI JSON actions |
+- **Do not** put API keys in the frontend.
+- Add **CORS allowlist** in production (avoid `*`).
+- Consider adding an **auth token** header from the frontend to your backend.
+- Add rate limiting (per-IP or per-session).
 
 ---
 
-# Installation
+## 🧭 Recommended workflow (maps with embedded grids)
 
-No build system required.
-
-Clone the repo:
-
-```
-git clone https://github.com/yourname/ai-tactical-vtt.git
-cd ai-tactical-vtt
-```
-
-Run a simple local server:
-
-```
-python -m http.server
-```
-
-Open:
-
-```
-http://localhost:8000
-```
-
-Or simply open:
-
-```
-index.html
-```
+1. Load the map image
+2. Set grid size (px) to your desired VTT cell size
+3. Switch to **Drag: Map**
+4. Drag/nudge until the embedded grid lines up
+5. If needed, adjust:
+   - **Map scale** to match spacing
+   - **Map rotation** if the scan is slightly tilted
+   - **Opacity** to see grid alignment better
 
 ---
 
-# How to Use
+## 🧰 Troubleshooting
 
-### 1. Load a Map
+### “Send failed: CORS …”
+- Your backend must enable CORS for your frontend origin.
+- For local dev, `app.use(cors())` is fine.
+- For production, use an allowlist.
 
-Upload a battle map and align it with the grid.
+### “Invalid JSON” in Apply
+- Ensure your backend always returns valid JSON.
+- If the model occasionally outputs text, enforce structured output (JSON schema) or add a server-side validation/retry.
 
-### 2. Add Tokens
-
-Create PCs and monsters.
-
-### 3. Select Current Turn
-
-Choose which creature is acting.
-
-### 4. Export AI Turn Packet
-
-Copy the generated prompt.
-
-### 5. Ask an AI
-
-Paste the prompt into ChatGPT or another model.
-
-### 6. Apply Response
-
-Paste the JSON response into the **Apply panel**.
-
-The system will:
-
-- move tokens
-- log actions
-- end the turn
+### Tokens don’t move
+- Confirm response token names match VTT token names exactly.
+- Confirm coordinates are integer grid cells.
 
 ---
 
-# Example Use Cases
+## Roadmap ideas
 
-### AI-Controlled Monsters
-
-Let the AI decide enemy tactics.
-
-### Solo DM Assistant
-
-Use AI to help run combat.
-
-### AI vs AI Battles
-
-Set AI control to **Both**.
-
-### Encounter Simulation
-
-Use AI to test encounter balance.
+- Initiative tracker + turn order advancement
+- AoE templates, measurement ruler, and movement validation
+- Walls/doors + line-of-sight and cover
+- Condition tracking and damage application
+- Multi-user realtime sync (WebSocket/WebRTC)
+- “2-click calibration” for embedded grids (auto scale/rotation)
 
 ---
 
-# Screenshots
+## License
 
-*(Add screenshots here later)*
+Choose one:
+- MIT (most common for prototypes)
+- Apache-2.0 (explicit patent grant)
+- Proprietary (if you intend to keep it closed)
 
-```
-docs/screenshot-map.png
-docs/screenshot-ai-export.png
-docs/screenshot-combat.png
-```
-
----
-
-# Roadmap
-
-Planned improvements:
-
-- Initiative order tracker
-- Difficult terrain
-- Line-of-sight calculations
-- Area-of-effect templates
-- Fog of war
-- Roll automation
-- Multiplayer synchronization
-- AI combat memory
+If you want, tell me which license you prefer and I’ll add the exact `LICENSE` file.
 
 ---
 
-# Design Goals
+## Credits
 
-This project is designed to be:
-
-**AI-first**
-
-Built around structured interaction with AI.
-
-**Lightweight**
-
-No frameworks or build tools.
-
-**Flexible**
-
-Works with any battle map.
-
-**Extensible**
-
-Easy to add new modules.
-
----
+Built as a rapid prototype for AI-assisted grid combat and map alignment.
 
 ## Map Credits
 
