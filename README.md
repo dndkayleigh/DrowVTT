@@ -1,264 +1,292 @@
-AI Tactical VTT
+# AI Tactical VTT
 
-A lightweight AI-assisted virtual tabletop for tactical D&D combat.
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-experimental-blue)
+![Built With](https://img.shields.io/badge/built%20with-JavaScript-yellow)
+![AI Ready](https://img.shields.io/badge/AI-assisted-combat-purple)
 
-This tool exports the current battle state to an AI model and allows the AI to control monsters, PCs, or both through structured JSON actions applied directly to the board.
+A lightweight **AI-assisted virtual tabletop for tactical D&D combat**.
 
-It is designed for fast tactical encounters, not as a full VTT replacement.
+This tool exports the current battle state as a structured prompt so an AI model can **control monsters, PCs, or both**, returning JSON actions that can be applied directly to the battlefield.
 
-Core Idea
+Unlike traditional VTTs, this project treats the AI as an **active tactical combatant**.
 
-Traditional virtual tabletops focus on managing tokens and maps.
+---
 
-AI Tactical VTT adds a new concept:
+# Demo Concept
 
-The combat state can be exported as a structured prompt so an AI model can:
+AI Tactical VTT allows combat like this:
 
-decide movement
+1. Export combat state
+2. Ask an AI what the monster should do
+3. Paste the response
+4. The battlefield updates automatically
 
-choose attacks
+Example AI response:
 
-use abilities
-
-end its turn
-
-The AI returns structured JSON that can be applied directly to the battlefield.
-
-Example response:
-
+```json
 {
   "moves": [{"token":"Goblin A","to":[4,6]}],
   "actions":[{"token":"Goblin A","type":"attack","target":"Aria"}],
   "end_turn": true
 }
+```
 
-This enables AI-controlled combatants or even fully AI-driven battles.
+---
 
-Features
-Battle Map System
+# Features
 
-Upload any battle map image
+## Battle Map System
 
-Translate, rotate, and scale the map
+- Upload any battle map image
+- Translate, rotate, and scale the map
+- Align pixel grids to the VTT grid
+- Adjustable grid size
+- Map opacity controls
 
-Align pixel grids to the VTT grid
+## Token System
 
-Adjustable grid size
+- PC / NPC / Monster tokens
+- Drag-and-drop movement
+- Snap-to-grid positioning
+- Multi-cell creatures
+- Color coding
+- Selection independent from turn order
 
-Map opacity controls
-
-Token System
-
-PC / NPC / Monster tokens
-
-Drag and drop movement
-
-Snap-to-grid positioning
-
-Multi-cell creatures
-
-Color coding
-
-Independent selection vs turn token
-
-Combat Metadata
+## Combat Metadata
 
 Each token supports:
 
-AC
+- AC
+- HP
+- Speed
+- Notes
+- Full statblock text
 
-HP
+Statblocks are automatically included in AI prompts.
 
-Speed
-
-Notes
-
-Full statblock text
-
-Statblocks are automatically included in AI turn prompts.
-
-Turn Control
+## Turn Control
 
 Combat state includes:
 
-Round number
+- Round number
+- Current turn token
+- Which side AI controls
+  - PCs
+  - Monsters
+  - Both
+  - None
 
-Current turn token
+## AI Combat Integration
 
-Which side the AI controls
+The system generates a **complete combat prompt** including:
 
-PCs
+- token locations
+- token sizes
+- combat stats
+- map information
+- acting creature statblock
+- strict output schema
 
-Monsters
+AI responses can be pasted back and **applied automatically**.
 
-Both
+---
 
-None
+# Architecture
 
-AI Combat Integration
+The project uses a **modular ES-module architecture**.
 
-The system generates a complete combat prompt containing:
-
-token positions
-
-token sizes
-
-combat stats
-
-map information
-
-acting creature statblock
-
-strict output schema
-
-AI responses can then be applied directly to the board.
-
-JSON Action Application
-
-Paste an AI response and the system will:
-
-move tokens
-
-log actions
-
-end the turn
-
-Architecture
-
-The project uses a modular ES-module architecture.
-
+```
 src/
- app/        Application state + orchestration
- models/     Token and map data models
- ui/         Canvas rendering and panels
- services/   AI export + backend integration
- utils/      Geometry + DOM helpers
+ ├── app/
+ │   ├── App.js
+ │   └── State.js
+ │
+ ├── models/
+ │   ├── Token.js
+ │   └── MapLayer.js
+ │
+ ├── ui/
+ │   ├── CanvasStage.js
+ │   ├── Sidebar.js
+ │   ├── MapPanel.js
+ │   ├── TokenList.js
+ │   ├── TurnPanel.js
+ │   └── ExportPanel.js
+ │
+ ├── services/
+ │   ├── AiExport.js
+ │   ├── Backend.js
+ │   └── Apply.js
+ │
+ └── utils/
+     ├── geom.js
+     └── dom.js
+```
 
 Key components:
 
-Module	Responsibility
-App	Main application controller
-State	Reactive state management
-CanvasStage	Map + token rendering
-Sidebar	UI controls
-AiExport	AI prompt generation
-Apply	Apply AI actions to game state
-Design Goals
+| Component | Purpose |
+|-----------|---------|
+| App | Application controller |
+| State | Reactive state store |
+| CanvasStage | Map and token rendering |
+| Sidebar | UI controls |
+| AiExport | AI prompt generation |
+| Apply | Applies AI JSON actions |
 
-This project was built with several principles:
+---
 
-AI-First Combat
+# Installation
 
-The UI is designed around exporting and applying structured AI decisions.
+No build system required.
 
-Lightweight
+Clone the repo:
 
-No frameworks, no build tools.
+```
+git clone https://github.com/yourname/ai-tactical-vtt.git
+cd ai-tactical-vtt
+```
 
-Just:
+Run a simple local server:
 
-HTML
-
-CSS
-
-modern JavaScript modules
-
-Tactical Focus
-
-Optimized for combat encounters, not full campaigns.
-
-Flexible Map Alignment
-
-Many battle maps have embedded grids that don't match VTT grids.
-This tool allows fine control over map scaling, rotation, and offsets.
-
-Installation
-
-No installation required.
-
-Simply open the project.
-
-index.html
-
-or run a lightweight server:
-
+```
 python -m http.server
+```
 
-Then open:
+Open:
 
+```
 http://localhost:8000
-How to Use
-1. Load a Battle Map
+```
 
-Upload a map image and align it to the grid.
+Or simply open:
 
-2. Add Tokens
+```
+index.html
+```
 
-Create tokens for PCs and monsters.
+---
 
-3. Select Current Turn
+# How to Use
+
+### 1. Load a Map
+
+Upload a battle map and align it with the grid.
+
+### 2. Add Tokens
+
+Create PCs and monsters.
+
+### 3. Select Current Turn
 
 Choose which creature is acting.
 
-4. Export AI Turn Packet
+### 4. Export AI Turn Packet
 
 Copy the generated prompt.
 
-5. Ask an AI Model
+### 5. Ask an AI
 
 Paste the prompt into ChatGPT or another model.
 
-6. Apply AI Actions
+### 6. Apply Response
 
-Paste the returned JSON into the Apply panel.
+Paste the JSON response into the **Apply panel**.
 
-The battlefield will update automatically.
+The system will:
 
-Example Use Cases
-AI-Controlled Monsters
+- move tokens
+- log actions
+- end the turn
 
-Let the AI control enemy tactics during combat.
+---
 
-Solo DM Assistant
+# Example Use Cases
 
-Use AI to handle enemy decision-making.
+### AI-Controlled Monsters
 
-AI vs AI Combat
+Let the AI decide enemy tactics.
 
-Set AI control to Both and watch battles play out.
+### Solo DM Assistant
 
-Encounter Simulation
+Use AI to help run combat.
 
-Test encounter balance automatically.
+### AI vs AI Battles
 
-Roadmap
+Set AI control to **Both**.
+
+### Encounter Simulation
+
+Use AI to test encounter balance.
+
+---
+
+# Screenshots
+
+*(Add screenshots here later)*
+
+```
+docs/screenshot-map.png
+docs/screenshot-ai-export.png
+docs/screenshot-combat.png
+```
+
+---
+
+# Roadmap
 
 Planned improvements:
 
-Initiative order tracker
+- Initiative order tracker
+- Difficult terrain
+- Line-of-sight calculations
+- Area-of-effect templates
+- Fog of war
+- Roll automation
+- Multiplayer synchronization
+- AI combat memory
 
-Difficult terrain / obstacles
+---
 
-Line of sight calculations
+# Design Goals
 
-Area-of-effect templates
+This project is designed to be:
 
-Fog of war
+**AI-first**
 
-AI combat memory
+Built around structured interaction with AI.
 
-Roll automation
+**Lightweight**
 
-Multiplayer synchronization
+No frameworks or build tools.
 
-License
+**Flexible**
+
+Works with any battle map.
+
+**Extensible**
+
+Easy to add new modules.
+
+---
+
+# License
 
 MIT License
 
 Free for personal and commercial use.
 
-Why This Project Exists
+---
 
-Modern LLMs are extremely good at tactical reasoning, but there is no good interface for connecting them to tabletop combat.
+# Why This Exists
 
-This project explores the idea of AI as an active participant in tabletop gameplay.
+Large language models are extremely good at **tactical reasoning**, but there is no good interface for connecting them to tabletop combat.
+
+This project explores a new idea:
+
+**AI as a tactical participant in tabletop gameplay.**
+
+---
+
+⭐ If you find this project interesting, consider starring the repository!
