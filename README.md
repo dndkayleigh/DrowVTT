@@ -217,17 +217,6 @@ The VTT applies moves by matching `token` to token **name**.
 
 ---
 
-## License
-
-Choose one:
-- MIT (most common for prototypes)
-- Apache-2.0 (explicit patent grant)
-- Proprietary (if you intend to keep it closed)
-
-If you want, tell me which license you prefer and I’ll add the exact `LICENSE` file.
-
----
-
 ## Credits
 
 Built as a rapid prototype for AI-assisted grid combat and map alignment.
