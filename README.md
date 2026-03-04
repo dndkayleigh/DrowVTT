@@ -1,4 +1,4 @@
-# AI Tactical VTT
+# AI Tactical Virtual Table Top (VTT)
 
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Status](https://img.shields.io/badge/status-experimental-blue)
