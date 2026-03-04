@@ -271,6 +271,28 @@ Easy to add new modules.
 
 ---
 
+## Map Credits
+
+The example map included in this repository is:
+
+**"The Dreadwarren"** by **Dyson Logos**
+
+Source:  
+https://dysonlogos.blog/2025/08/the-dreadwarren/
+
+© Dyson Logos
+
+Dyson Logos generously provides many of his maps for **commercial and non-commercial use with attribution**.  
+This project includes the map as an example battle map for testing and demonstration purposes.
+
+If you use or redistribute this project with the included map, please retain this attribution.
+
+Please consider supporting Dyson Logos and his work:
+
+- Website: https://dysonlogos.blog  
+- Patreon: https://www.patreon.com/dysonlogos
+
+
 # License
 
 MIT License
