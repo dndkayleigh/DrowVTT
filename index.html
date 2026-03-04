@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple D&D Web VTT (Grid + Tokens + AI Export)</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --panel: #121a2a;
+      --panel2: #0f1524;
+      --text: #e7eefc;
+      --muted: #9fb1d1;
+      --accent: #5aa9ff;
+      --danger: #ff5a7a;
+      --grid: rgba(180, 210, 255, 0.25);
+      --grid-bold: rgba(180, 210, 255, 0.38);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color: var(--text);
+      background: linear-gradient(180deg, #070a12, #0b0f19 35%, #060812);
+      height: 100vh;
+      overflow: hidden;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      height: 100vh;
+      gap: 10px;
+      padding: 10px;
+    }
+    .sidebar {
+      background: rgba(18, 26, 42, 0.86);
+      border: 1px solid rgba(110, 150, 210, 0.18);
+      border-radius: 14px;
+      padding: 12px;
+      overflow: auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    .stageWrap {
+      background: rgba(18, 26, 42, 0.45);
+      border: 1px solid rgba(110, 150, 210, 0.18);
+      border-radius: 14px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    .topbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid rgba(110, 150, 210, 0.14);
+      background: rgba(15, 21, 36, 0.85);
+    }
+    .topbar .hint { color: var(--muted); font-size: 12px; }
+    canvas { display: block; width: 100%; height: calc(100% - 56px); background: #081022; cursor: grab; }
+    canvas.dragging { cursor: grabbing; }
+
+    h2 {
+      margin: 8px 0 10px;
+      font-size: 15px;
+      letter-spacing: 0.2px;
+      color: #eaf2ff;
+    }
+    .card {
+      background: rgba(15, 21, 36, 0.75);
+      border: 1px solid rgba(110, 150, 210, 0.14);
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(110, 150, 210, 0.20);
+      padding: 9px 10px;
+      background: rgba(8, 12, 22, 0.75);
+      color: var(--text);
+      outline: none;
+    }
+    textarea { min-height: 140px; resize: vertical; }
+    .btnbar { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      border: 1px solid rgba(110, 150, 210, 0.20);
+      background: rgba(10, 18, 35, 0.85);
+      color: var(--text);
+      padding: 9px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    button:hover { border-color: rgba(110, 150, 210, 0.35); }
+    button.primary { background: rgba(90, 169, 255, 0.18); border-color: rgba(90, 169, 255, 0.35); }
+    button.danger { background: rgba(255, 90, 122, 0.12); border-color: rgba(255, 90, 122, 0.35); }
+    .small { font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(8, 12, 22, 0.65);
+      border: 1px solid rgba(110, 150, 210, 0.16);
+      color: var(--muted);
+    }
+    .list {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .tokRow {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border-radius: 10px;
+      background: rgba(8, 12, 22, 0.55);
+      border: 1px solid rgba(110, 150, 210, 0.12);
+    }
+    .tokRow b { font-size: 12px; }
+    .tokRow .meta { font-size: 11px; color: var(--muted); }
+    .tokRow button { padding: 6px 8px; border-radius: 9px; }
+    .footerNote { margin-top: 8px; font-size: 11px; color: var(--muted); }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; font-size: 11px; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h2>Map & Grid</h2>
+      <div class="card">
+        <label>Load map image</label>
+        <input id="mapFile" type="file" accept="image/*" />
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label>Grid size (px)</label>
+            <input id="gridSize" type="number" min="10" max="200" step="1" value="64" />
+          </div>
+          <div>
+            <label>Snap</label>
+            <select id="snapMode">
+              <option value="center">Token to cell center</option>
+              <option value="topleft">Token to cell top-left</option>
+            </select>
+          </div>
+        </div>
+        <div class="btnbar" style="margin-top:10px;">
+          <button id="fitMap" class="primary">Fit map to canvas</button>
+          <button id="resetView">Reset view</button>
+        </div>
+        <div class="small" style="margin-top:10px;">
+          Pan: hold <span class="kbd">Space</span> and drag, or middle-mouse drag.<br/>
+          Zoom: mouse wheel / trackpad scroll.<br/>
+          Drag tokens: click and drag token.
+        </div>
+      </div>
+
+      <h2>Tokens</h2>
+      <div class="card">
+        <div class="row">
+          <div>
+            <label>Name</label>
+            <input id="tokName" type="text" value="Goblin A" />
+          </div>
+          <div>
+            <label>Type</label>
+            <select id="tokType">
+              <option value="NPC">NPC</option>
+              <option value="Monster" selected>Monster</option>
+              <option value="PC">PC</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div>
+            <label>Size (cells)</label>
+            <select id="tokSize">
+              <option value="1" selected>1×1</option>
+              <option value="2">2×2</option>
+              <option value="3">3×3</option>
+            </select>
+          </div>
+          <div>
+            <label>Color</label>
+            <select id="tokColor">
+              <option value="#5aa9ff">Blue</option>
+              <option value="#7dffb2">Green</option>
+              <option value="#ffd36a">Gold</option>
+              <option value="#ff5a7a" selected>Red</option>
+              <option value="#caa7ff">Purple</option>
+            </select>
+          </div>
+        </div>
+        <div class="btnbar" style="margin-top:10px;">
+          <button id="addToken" class="primary">Add token</button>
+          <button id="clearTokens" class="danger">Clear all</button>
+        </div>
+
+        <div class="list" id="tokenList"></div>
+        <div class="footerNote">Tip: the selected token has a thicker outline.</div>
+      </div>
+
+      <h2>AI Export + Backend</h2>
+      <div class="card">
+        <label>AI instructions (copy/paste into chat)</label>
+        <textarea id="aiExport" spellcheck="false"></textarea>
+        <div class="btnbar" style="margin-top:10px;">
+          <button id="copyExport" class="primary">Copy</button>
+          <button id="refreshExport">Refresh</button>
+        </div>
+        <hr style="border:none;border-top:1px solid rgba(110,150,210,0.14);margin:10px 0;">
+        <label>Backend endpoint (POST JSON)</label>
+        <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
+        <div class="btnbar" style="margin-top:10px;">
+          <button id="sendState" class="primary">Send state to backend</button>
+        </div>
+        <div class="small" id="sendStatus" style="margin-top:8px;"></div>
+      </div>
+    </aside>
+
+    <main class="stageWrap">
+      <div class="topbar">
+        <span class="pill" id="viewPill">Zoom: 100% • Pan: (0,0)</span>
+        <span class="pill" id="gridPill">Grid: 64px</span>
+        <span class="hint">This is a lightweight prototype: no auth, fog, vision, or initiative yet.</span>
+      </div>
+      <canvas id="stage" width="1400" height="900"></canvas>
+    </main>
+  </div>
+
+<script>
+(() => {
+  // ---------- Canvas + State ----------
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  function resizeCanvasToCSS() {
+    // Match internal canvas resolution to displayed size for crispness.
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(600, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(400, Math.floor((rect.height) * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // draw in CSS pixels
+    draw();
+  }
+
+  window.addEventListener('resize', resizeCanvasToCSS);
+
+  const state = {
+    gridSize: 64,
+    snapMode: 'center', // center or topleft
+    // world->screen: screen = world*zoom + pan
+    view: { zoom: 1, panX: 0, panY: 0 },
+    map: { img: null, w: 0, h: 0 },
+    tokens: [],
+    selectedTokenId: null,
+    draggingToken: null,
+    draggingPan: false,
+    dragOffset: { x: 0, y: 0 },
+    lastMouse: { x: 0, y: 0 },
+    spaceDown: false,
+  };
+
+  // ---------- Helpers ----------
+  const uid = () => Math.random().toString(36).slice(2, 10);
+
+  function screenToWorld(x, y) {
+    const { zoom, panX, panY } = state.view;
+    return { x: (x - panX) / zoom, y: (y - panY) / zoom };
+  }
+  function worldToScreen(x, y) {
+    const { zoom, panX, panY } = state.view;
+    return { x: x * zoom + panX, y: y * zoom + panY };
+  }
+
+  function snapWorldPoint(x, y, sizeCells=1) {
+    const g = state.gridSize;
+    const cellX = Math.floor(x / g);
+    const cellY = Math.floor(y / g);
+
+    if (state.snapMode === 'topleft') {
+      return { x: cellX * g, y: cellY * g };
+    }
+    // center: place token center at cell center (for 1x1) and align larger sizes to center on cell grid.
+    const centerX = (cellX + 0.5) * g;
+    const centerY = (cellY + 0.5) * g;
+    // For NxN token, we still store token center, and draw accordingly.
+    return { x: centerX, y: centerY };
+  }
+
+  function tokenRadiusPx(token) {
+    // visual size: ~0.42 * cell * size
+    return state.gridSize * 0.42 * token.sizeCells;
+  }
+
+  function tokenHitTest(worldX, worldY) {
+    // Return top-most token under cursor
+    for (let i = state.tokens.length - 1; i >= 0; i--) {
+      const t = state.tokens[i];
+      const r = tokenRadiusPx(t);
+      const dx = worldX - t.x;
+      const dy = worldY - t.y;
+      if (dx*dx + dy*dy <= r*r) return t;
+    }
+    return null;
+  }
+
+  // ---------- Drawing ----------
+  function drawGrid() {
+    const g = state.gridSize;
+    const { zoom, panX, panY } = state.view;
+
+    // Visible world bounds
+    const w = canvas.getBoundingClientRect().width;
+    const h = canvas.getBoundingClientRect().height;
+    const topLeft = screenToWorld(0, 0);
+    const bottomRight = screenToWorld(w, h);
+
+    const startX = Math.floor(topLeft.x / g) * g - g * 2;
+    const endX   = Math.ceil(bottomRight.x / g) * g + g * 2;
+    const startY = Math.floor(topLeft.y / g) * g - g * 2;
+    const endY   = Math.ceil(bottomRight.y / g) * g + g * 2;
+
+    ctx.save();
+    ctx.lineWidth = 1;
+    for (let x = startX; x <= endX; x += g) {
+      const sx = x * zoom + panX;
+      ctx.strokeStyle = (Math.round(x / g) % 5 === 0) ? getCss('--grid-bold') : getCss('--grid');
+      ctx.beginPath();
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, h);
+      ctx.stroke();
+    }
+    for (let y = startY; y <= endY; y += g) {
+      const sy = y * zoom + panY;
+      ctx.strokeStyle = (Math.round(y / g) % 5 === 0) ? getCss('--grid-bold') : getCss('--grid');
+      ctx.beginPath();
+      ctx.moveTo(0, sy);
+      ctx.lineTo(w, sy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawMap() {
+    if (!state.map.img) return;
+    const { zoom, panX, panY } = state.view;
+    const img = state.map.img;
+    const x = 0, y = 0; // map anchored at world origin
+    const sx = x * zoom + panX;
+    const sy = y * zoom + panY;
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.drawImage(img, sx, sy, state.map.w * zoom, state.map.h * zoom);
+    ctx.restore();
+  }
+
+  function drawTokens() {
+    const { zoom, panX, panY } = state.view;
+    for (const t of state.tokens) {
+      const s = worldToScreen(t.x, t.y);
+      const r = tokenRadiusPx(t) * zoom;
+      ctx.save();
+
+      // token disc
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = t.color;
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+
+      // outline
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = (t.id === state.selectedTokenId) ? 4 : 2;
+      ctx.strokeStyle = (t.id === state.selectedTokenId) ? '#ffffff' : 'rgba(255,255,255,0.75)';
+      ctx.stroke();
+
+      // label
+      ctx.font = `${Math.max(11, 12 * zoom)}px ui-sans-serif, system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(0,0,0,0.65)';
+      ctx.fillText(t.name, s.x + 1, s.y + r + 14);
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.fillText(t.name, s.x, s.y + r + 13);
+
+      // type badge
+      ctx.font = `${Math.max(10, 11 * zoom)}px ui-sans-serif, system-ui`;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(s.x - 30, s.y - r - 22, 60, 18);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillText(t.type, s.x, s.y - r - 13);
+
+      ctx.restore();
+    }
+  }
+
+  function clear() {
+    const w = canvas.getBoundingClientRect().width;
+    const h = canvas.getBoundingClientRect().height;
+    ctx.clearRect(0, 0, w, h);
+    // background
+    ctx.fillStyle = '#081022';
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  function draw() {
+    clear();
+    drawMap();
+    drawGrid();
+    drawTokens();
+    updatePills();
+  }
+
+  function updatePills() {
+    const viewPill = document.getElementById('viewPill');
+    const gridPill = document.getElementById('gridPill');
+    viewPill.textContent = `Zoom: ${Math.round(state.view.zoom * 100)}% • Pan: (${Math.round(state.view.panX)},${Math.round(state.view.panY)})`;
+    gridPill.textContent = `Grid: ${state.gridSize}px`;
+  }
+
+  function getCss(varName) {
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+
+  // ---------- Map Loading + Fit ----------
+  const mapFile = document.getElementById('mapFile');
+  mapFile.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      state.map.img = img;
+      state.map.w = img.naturalWidth;
+      state.map.h = img.naturalHeight;
+      fitMapToCanvas();
+      draw();
+      refreshExport();
+    };
+    img.src = URL.createObjectURL(file);
+  });
+
+  function fitMapToCanvas() {
+    if (!state.map.img) return;
+    const w = canvas.getBoundingClientRect().width;
+    const h = canvas.getBoundingClientRect().height;
+    const mw = state.map.w;
+    const mh = state.map.h;
+
+    // Fit map to canvas, preserve aspect. Then snap zoom so 1 grid cell corresponds nicely.
+    const fitZoom = Math.min(w / mw, h / mh);
+    state.view.zoom = fitZoom;
+
+    // Center map
+    state.view.panX = (w - mw * state.view.zoom) / 2;
+    state.view.panY = (h - mh * state.view.zoom) / 2;
+
+    draw();
+  }
+
+  document.getElementById('fitMap').addEventListener('click', fitMapToCanvas);
+
+  document.getElementById('resetView').addEventListener('click', () => {
+    state.view.zoom = 1;
+    state.view.panX = 0;
+    state.view.panY = 0;
+    draw();
+  });
+
+  // ---------- Grid Controls ----------
+  const gridSizeInput = document.getElementById('gridSize');
+  gridSizeInput.addEventListener('input', () => {
+    const v = Number(gridSizeInput.value);
+    if (!Number.isFinite(v) || v < 10) return;
+    state.gridSize = v;
+    // re-snap tokens so they remain aligned
+    for (const t of state.tokens) {
+      const snapped = snapWorldPoint(t.x, t.y, t.sizeCells);
+      t.x = snapped.x; t.y = snapped.y;
+    }
+    draw();
+    refreshExport();
+    renderTokenList();
+  });
+
+  const snapMode = document.getElementById('snapMode');
+  snapMode.addEventListener('change', () => {
+    state.snapMode = snapMode.value;
+    for (const t of state.tokens) {
+      const snapped = snapWorldPoint(t.x, t.y, t.sizeCells);
+      t.x = snapped.x; t.y = snapped.y;
+    }
+    draw();
+    refreshExport();
+    renderTokenList();
+  });
+
+  // ---------- Token Management ----------
+  const tokenListEl = document.getElementById('tokenList');
+
+  function addToken({ name, type, sizeCells, color }) {
+    // default spawn around top-left visible area
+    const w = canvas.getBoundingClientRect().width;
+    const h = canvas.getBoundingClientRect().height;
+    const worldTL = screenToWorld(60, 60);
+
+    const snapped = snapWorldPoint(worldTL.x, worldTL.y, sizeCells);
+    const t = {
+      id: uid(),
+      name,
+      type,
+      sizeCells,
+      color,
+      x: snapped.x,
+      y: snapped.y,
+    };
+    state.tokens.push(t);
+    state.selectedTokenId = t.id;
+    draw();
+    refreshExport();
+    renderTokenList();
+  }
+
+  document.getElementById('addToken').addEventListener('click', () => {
+    addToken({
+      name: document.getElementById('tokName').value.trim() || 'Token',
+      type: document.getElementById('tokType').value,
+      sizeCells: Number(document.getElementById('tokSize').value),
+      color: document.getElementById('tokColor').value,
+    });
+  });
+
+  document.getElementById('clearTokens').addEventListener('click', () => {
+    state.tokens = [];
+    state.selectedTokenId = null;
+    draw();
+    refreshExport();
+    renderTokenList();
+  });
+
+  function renderTokenList() {
+    tokenListEl.innerHTML = '';
+    for (const t of state.tokens) {
+      const row = document.createElement('div');
+      row.className = 'tokRow';
+
+      const left = document.createElement('div');
+      left.innerHTML = `<b>${escapeHtml(t.name)}</b><div class="meta">${t.type} • ${t.sizeCells}×${t.sizeCells} • ${gridCoordsText(t)}</div>`;
+      row.appendChild(left);
+
+      const selBtn = document.createElement('button');
+      selBtn.textContent = (t.id === state.selectedTokenId) ? 'Selected' : 'Select';
+      selBtn.className = (t.id === state.selectedTokenId) ? 'primary' : '';
+      selBtn.addEventListener('click', () => {
+        state.selectedTokenId = t.id;
+        draw();
+        renderTokenList();
+      });
+      row.appendChild(selBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.textContent = 'Delete';
+      delBtn.className = 'danger';
+      delBtn.addEventListener('click', () => {
+        state.tokens = state.tokens.filter(x => x.id !== t.id);
+        if (state.selectedTokenId === t.id) state.selectedTokenId = state.tokens[0]?.id ?? null;
+        draw();
+        refreshExport();
+        renderTokenList();
+      });
+      row.appendChild(delBtn);
+
+      row.addEventListener('click', () => {
+        state.selectedTokenId = t.id;
+        draw();
+        renderTokenList();
+      });
+
+      tokenListEl.appendChild(row);
+    }
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+    }[c]));
+  }
+
+  // ---------- Export for AI ----------
+  const exportBox = document.getElementById('aiExport');
+
+  function gridCoords(token) {
+    const g = state.gridSize;
+    // We report 0-based cell indices by default; you can change to 1-based easily.
+    let cellX, cellY;
+
+    if (state.snapMode === 'topleft') {
+      cellX = Math.round(token.x / g);
+      cellY = Math.round(token.y / g);
+    } else {
+      // token stores center at (cell+0.5)*g
+      cellX = Math.round((token.x / g) - 0.5);
+      cellY = Math.round((token.y / g) - 0.5);
+    }
+    return { cellX, cellY };
+  }
+
+  function gridCoordsText(token) {
+    const { cellX, cellY } = gridCoords(token);
+    return `cell=(${cellX},${cellY})`;
+  }
+
+  function buildAiExportText() {
+    const lines = [];
+    lines.push("You are tracking movement on a grid-based D&D battlemap.");
+    lines.push("Interpret positions as integer grid cells (x,y), 0-based, where x increases right and y increases down.");
+    lines.push(`Grid cell size: ${state.gridSize}px. Snap mode: ${state.snapMode}.`);
+    lines.push("");
+    lines.push("TOKENS:");
+    if (state.tokens.length === 0) {
+      lines.push("- (none)");
+    } else {
+      for (const t of state.tokens) {
+        const { cellX, cellY } = gridCoords(t);
+        lines.push(`- ${t.type}: "${t.name}" at (${cellX}, ${cellY}), size ${t.sizeCells}x${t.sizeCells}`);
+      }
+    }
+    lines.push("");
+    lines.push("When you describe movement, return updated positions in the same format: name -> (x,y).");
+    return lines.join("\n");
+  }
+
+  function refreshExport() {
+    exportBox.value = buildAiExportText();
+  }
+
+  document.getElementById('refreshExport').addEventListener('click', refreshExport);
+
+  document.getElementById('copyExport').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(exportBox.value);
+    } catch {
+      exportBox.select();
+      document.execCommand('copy');
+    }
+  });
+
+  // ---------- Backend transmit (stub) ----------
+  async function sendStateToBackend() {
+    const url = document.getElementById('apiUrl').value.trim();
+    const status = document.getElementById('sendStatus');
+    if (!url) return;
+
+    const payload = {
+      timestamp: new Date().toISOString(),
+      gridSize: state.gridSize,
+      snapMode: state.snapMode,
+      view: { ...state.view },
+      map: state.map.img ? { width: state.map.w, height: state.map.h } : null,
+      tokens: state.tokens.map(t => ({
+        id: t.id,
+        name: t.name,
+        type: t.type,
+        sizeCells: t.sizeCells,
+        color: t.color,
+        world: { x: t.x, y: t.y },
+        cell: gridCoords(t),
+      })),
+      aiExport: exportBox.value,
+    };
+
+    status.textContent = "Sending…";
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      status.textContent = "Sent ✓";
+    } catch (err) {
+      status.textContent = `Send failed: ${err.message || err}`;
+    }
+  }
+
+  document.getElementById('sendState').addEventListener('click', sendStateToBackend);
+
+  // ---------- Mouse / Touch Interaction ----------
+  function getMousePos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  canvas.addEventListener('mousedown', (e) => {
+    const m = getMousePos(e);
+    state.lastMouse = m;
+
+    const world = screenToWorld(m.x, m.y);
+    const hit = tokenHitTest(world.x, world.y);
+
+    const isMiddle = e.button === 1;
+    const wantPan = state.spaceDown || isMiddle;
+
+    if (hit && !wantPan) {
+      state.selectedTokenId = hit.id;
+      state.draggingToken = hit;
+
+      // store offset between cursor and token position in world coords
+      state.dragOffset.x = world.x - hit.x;
+      state.dragOffset.y = world.y - hit.y;
+      draw();
+      renderTokenList();
+      return;
+    }
+
+    // Start panning
+    state.draggingPan = true;
+    canvas.classList.add('dragging');
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (state.draggingToken) {
+      // snap on drop
+      const t = state.draggingToken;
+      const snapped = snapWorldPoint(t.x, t.y, t.sizeCells);
+      t.x = snapped.x; t.y = snapped.y;
+      state.draggingToken = null;
+      refreshExport();
+      renderTokenList();
+      draw();
+    }
+    if (state.draggingPan) {
+      state.draggingPan = false;
+      canvas.classList.remove('dragging');
+      draw();
+    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+      // still allow dragging if active
+    }
+    const m = getMousePos(e);
+    const dx = m.x - state.lastMouse.x;
+    const dy = m.y - state.lastMouse.y;
+    state.lastMouse = m;
+
+    if (state.draggingToken) {
+      const world = screenToWorld(m.x, m.y);
+      const t = state.draggingToken;
+      t.x = world.x - state.dragOffset.x;
+      t.y = world.y - state.dragOffset.y;
+
+      // live snap while dragging (feels better for grid play)
+      const snapped = snapWorldPoint(t.x, t.y, t.sizeCells);
+      t.x = snapped.x; t.y = snapped.y;
+
+      draw();
+      refreshExport();
+      renderTokenList();
+      return;
+    }
+
+    if (state.draggingPan) {
+      state.view.panX += dx;
+      state.view.panY += dy;
+      draw();
+    }
+  });
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const m = getMousePos(e);
+    const zoomFactor = (e.deltaY < 0) ? 1.08 : 1 / 1.08;
+
+    // zoom about mouse pointer
+    const before = screenToWorld(m.x, m.y);
+    state.view.zoom = clamp(state.view.zoom * zoomFactor, 0.15, 6);
+    const after = screenToWorld(m.x, m.y);
+
+    state.view.panX += (after.x - before.x) * state.view.zoom;
+    state.view.panY += (after.y - before.y) * state.view.zoom;
+
+    draw();
+  }, { passive: false });
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  // Keyboard: Space for pan mode
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') state.spaceDown = true;
+  });
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') state.spaceDown = false;
+  });
+
+  // Fit map button also intended as “adapt scale of image to grid”
+  // (You can extend this by adding “set grid origin” and “grid calibration” clicks.)
+  // For now: grid size determines your working scale; you can zoom/pan to align.
+  document.getElementById('fitMap').addEventListener('click', () => {
+    fitMapToCanvas();
+    refreshExport();
+  });
+
+  // ---------- Init ----------
+  // Add a couple starter tokens
+  addToken({ name: "PC: Aria", type: "PC", sizeCells: 1, color: "#5aa9ff" });
+  addToken({ name: "Goblin A", type: "Monster", sizeCells: 1, color: "#ff5a7a" });
+  refreshExport();
+  renderTokenList();
+
+  // ensure proper sizing
+  setTimeout(resizeCanvasToCSS, 0);
+})();
+</script>
+</body>
+</html>
