@@ -35,9 +35,8 @@ This repo is intentionally minimal: a single-page frontend you can open in the b
 
 ```
 .
-├─ frontend/
-│  └─ index.html        # the VTT single-file UI (paste the provided HTML here)
-└─ backend/
+├─ index.html   # the VTT single-file UI (paste the provided HTML here)
+└─ frontend/
    ├─ server.js         # Express API endpoint that calls OpenAI
    ├─ package.json
    └─ .env              # OPENAI_API_KEY, PORT
