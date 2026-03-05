@@ -9,24 +9,38 @@ app.use(express.json({ limit: '2mb' }));
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+const ALLOWED_MODELS = new Set([
+  "gpt-4.1-mini",
+  "gpt-4.1",
+  "gpt-5"
+]);
+
 /**
  * POST /api/vtt
  * Body: your VTT state payload (tokens, grid, turn packet, etc.)
  * Returns: strict JSON that matches your VTT "Apply AI JSON" contract
  */
 app.post('/api/vtt', async (req, res) => {
+  const reqId = req.get('X-Client-Req-Id') || `req-${Date.now()}`;
+  const t0 = Date.now();
+
   try {
-    const vttState = req.body;
+    const turnPacket = req.body?.aiExport;
+    if (!turnPacket) return res.status(400).json({ error: "Missing aiExport" });
 
-    // Your UI already builds this turn packet string:
-    const turnPacket = vttState?.aiExport;
-    if (!turnPacket) {
-      return res.status(400).json({ error: 'Missing aiExport turn packet in request body.' });
-    }
+    const tPrep = Date.now();
 
-    // Call OpenAI Responses API (recommended)
+    console.log(`[vtt] ${reqId} start payloadBytes=${Buffer.byteLength(turnPacket, 'utf8')}`);
+
+    const tOpen0 = Date.now();
+    const requestedModel = req.body?.model || "gpt-4.1-mini";
+
+    const model = ALLOWED_MODELS.has(requestedModel)
+      ? requestedModel
+      : "gpt-4.1-mini";
+
     const response = await client.responses.create({
-      model: 'gpt-5', // choose the model you have access to
+      model,
       input: turnPacket,
       // Strongly nudge it to output only JSON (your contract)
       text: {
@@ -75,18 +89,36 @@ app.post('/api/vtt', async (req, res) => {
         }
       }
     });
+    const tOpen1 = Date.now();
 
-    // The SDK returns structured output in response.output_text (stringified JSON)
-    // Parse and send to the browser as JSON
+    const tParse0 = Date.now();
     const jsonText = response.output_text;
     const parsed = JSON.parse(jsonText);
+    const tParse1 = Date.now();
+
+    const t1 = Date.now();
+
+    parsed._timing = {
+      req_id: reqId,
+      total_ms: t1 - t0,
+      prep_ms: tPrep - t0,
+      openai_ms: tOpen1 - tOpen0,
+      parse_ms: tParse1 - tParse0
+    };
+
+    parsed._timing.model = model;
+
+    console.log(
+      `[vtt] ${reqId} done total=${t1 - t0}ms openai=${tOpen1 - tOpen0}ms parse=${tParse1 - tParse0}ms`
+    );
 
     res.json(parsed);
   } catch (err) {
-    console.error(err);
+    console.error(`[vtt] ${reqId} error`, err);
     res.status(500).json({
-      error: 'Backend failed calling OpenAI or parsing the response.',
-      details: err?.message ?? String(err)
+      error: "Backend failed",
+      details: err?.message ?? String(err),
+      _timing: { req_id: reqId, total_ms: Date.now() - t0 }
     });
   }
 });
