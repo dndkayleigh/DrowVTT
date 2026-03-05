@@ -35,7 +35,7 @@ This repo is intentionally minimal: a single-page frontend you can open in the b
 
 ```
 .
-├─ index.html   # the VTT single-file UI (paste the provided HTML here)
+├─ index.html   # the VTT single-file UI
 └─ frontend/
    ├─ server.js         # Express API endpoint that calls OpenAI
    ├─ package.json
@@ -43,23 +43,6 @@ This repo is intentionally minimal: a single-page frontend you can open in the b
 ```
 
 You can also keep everything in one folder if you prefer.
-
----
-
-## ✅ Quick start (Frontend only)
-
-1. Create `frontend/index.html` and paste in the full VTT HTML you generated.
-2. Open it directly:
-   - Double-click `index.html`, or
-   - Use a static server (recommended):
-
-```bash
-cd frontend
-python -m http.server 8080
-# then open http://localhost:8080
-```
-
-Why a static server? Browsers sometimes restrict local `file://` behavior, and serving over `http://` avoids headaches.
 
 ---
 
@@ -85,19 +68,7 @@ OPENAI_API_KEY=YOUR_KEY_HERE
 PORT=3000
 ```
 
-### 3) Create `backend/server.js`
-
-Use your backend code that:
-- accepts `POST /api/vtt`
-- reads `req.body.aiExport` (the prompt/turn packet)
-- calls OpenAI
-- returns a strict JSON response
-
-Example behavior:
-- request: VTT state JSON
-- response: `{"moves":[...],"actions":[...],"end_turn":true}`
-
-### 4) Run
+### 3) Run
 
 ```bash
 cd backend
@@ -132,7 +103,7 @@ http://localhost:3000/api/vtt
 
 ### Request (from VTT to backend)
 
-Your frontend sends a JSON payload similar to:
+The frontend sends a JSON payload similar to:
 
 ```json
 {
