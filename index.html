@@ -268,6 +268,17 @@
       <label>Backend endpoint (POST JSON)</label>
       <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
 
+      <div class="row">
+      <div>
+        <label>AI Model</label>
+        <select id="aiModel">
+          <option value="gpt-4.1-mini">gpt-4.1-mini (fast)</option>
+          <option value="gpt-4.1">gpt-4.1</option>
+          <option value="gpt-5">gpt-5 (slow)</option>
+        </select>
+      </div>
+      </div>
+
       <!-- NEW: Auto-apply checkbox -->
       <div class="checkRow">
         <input id="autoApplyAI" type="checkbox" />
@@ -387,6 +398,9 @@
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
     }[c]));
   }
+
+  function nowMs() { return performance.now(); }
+  function ms(n) { return `${Math.round(n)}ms`; }
 
   // ---------- Drawing ----------
   function clear() {
@@ -896,53 +910,93 @@
     const autoApply = document.getElementById('autoApplyAI').checked;
     if (!url) return;
 
+    // ---- Timing markers ----
+    const t0 = nowMs();
+
+    // Build payload (recommended: keep it small for speed)
+    // If you want to time your larger payload, you can keep your old payload builder,
+    // but this smaller one is faster and measures OpenAI turn latency cleanly.
     const payload = {
-      timestamp: new Date().toISOString(),
-      gridSize: state.gridSize,
-      snapMode: state.snapMode,
-      view: { ...state.view },
-      map: state.map.img ? {
-        width: state.map.w, height: state.map.h,
-        offX: state.map.offX, offY: state.map.offY,
-        scale: state.map.scale, rot: state.map.rot,
-        opacity: state.map.opacity
-      } : null,
-      tokens: state.tokens.map(t => ({
-        id: t.id, name: t.name, type: t.type, sizeCells: t.sizeCells, color: t.color,
-        ac: t.ac, hp: t.hp, speed: t.speed, notes: t.notes,
-        statblock: t.statblock,
-        world: { x: t.x, y: t.y },
-        cell: gridCoords(t)
-      })),
-      turn: { aiControls: state.aiControls, round: state.round, currentTurnTokenId: state.currentTurnTokenId },
-      aiExport: exportBox.value
+      aiExport: exportBox.value,
+      model: document.getElementById("aiModel").value
     };
 
+    const t1 = nowMs(); // payload built
+
+    let body;
+    try {
+      body = JSON.stringify(payload);
+    } catch (e) {
+      status.textContent = "Failed to serialize payload.";
+      return;
+    }
+    const t2 = nowMs(); // serialized
+
+    // Payload size (helps diagnose slowness)
+    pushLog(`Payload bytes: ${body.length}`);
+
     status.textContent = "Sending…";
+
+    // Correlate logs between browser + server
+    const reqId = (crypto.randomUUID?.() || String(Date.now()));
 
     try {
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Req-Id': reqId
+        },
+        body
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const t3 = nowMs(); // response headers received (TTFB-ish)
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      
+      // Response size (if server provides Content-Length)
+      const contentLen = res.headers.get('content-length');
+      if (contentLen) pushLog(`Response bytes (header): ${contentLen}`);
 
       const aiObj = await res.json();
+      const t4 = nowMs(); // parsed JSON
 
       // Put response into Apply box for transparency
       document.getElementById('applyJson').value = JSON.stringify(aiObj, null, 2);
-
-      status.textContent = autoApply ? "AI response received ✓ (auto-applied)" : "AI response received ✓";
-      pushLog("Backend: AI response received");
+      const t5 = nowMs(); // UI updated
 
       if (autoApply) {
         applyAiObject(aiObj);
-        applyStatus.textContent = "Applied ✓ (auto)";
       }
+      const t6 = nowMs(); // applied
+
+      // Backend timing if included
+      const serverTiming = aiObj?._timing || null;
+
+      pushLog(
+        `Req ${reqId} timing: total=${ms(t6 - t0)} | build=${ms(t1 - t0)} ` +
+        `json=${ms(t2 - t1)} net+server=${ms(t3 - t2)} parse=${ms(t4 - t3)} ` +
+        `ui=${ms(t5 - t4)} apply=${ms(t6 - t5)}`
+      );
+
+      if (serverTiming) {
+        pushLog(
+          `Backend _timing: total=${serverTiming.total_ms}ms ` +
+          `openai=${serverTiming.openai_ms}ms ` +
+          `prep=${serverTiming.prep_ms}ms parse=${serverTiming.parse_ms}ms`
+        );
+      }
+
+      status.textContent = autoApply
+        ? `AI response ✓ (auto) total ${Math.round(t6 - t0)}ms`
+        : `AI response ✓ total ${Math.round(t6 - t0)}ms`;
 
     } catch (err) {
       status.textContent = `Send failed: ${err.message || err}`;
+      pushLog(`Req ${reqId} failed: ${err.message || err}`);
     }
   }
   document.getElementById('sendState').addEventListener('click', sendStateToBackend);
