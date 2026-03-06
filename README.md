@@ -1,8 +1,88 @@
-# Web VTT + AI Turn Controller (Prototype)
+# Web VTT + AI Turn Controller
 
 A lightweight, browser-based **virtual tabletop (VTT)** for grid combat with **snap-to-grid tokens**, **map-image alignment tools**, and a **backend endpoint** that can call **ChatGPT/OpenAI** to produce **structured, auto-applicable turn decisions**.
 
 This repo is intentionally minimal: a single-page frontend you can open in the browser, plus an optional Node/Express backend that relays your VTT state to an AI model and returns an `apply` JSON payload.
+
+## Why did I do this?
+
+# DevLog: Why Build an Open-Source Tactical VTT?
+
+Lately I’ve been experimenting with different ways people run tabletop RPGs when a full group isn’t available. One style that really influenced this project is **solo RPG play**, where a single player generates story and encounters using inspiration tables or tools like the **Mythic Game Master Emulator**.
+
+In some versions of this style, the solo player effectively becomes both **DM and player**, simulating both sides of the game. I found this approach surprisingly useful when trying to learn new campaign modules.
+
+## Learning a Module by Simulation
+
+While preparing to run *Out of the Abyss*, I tried simulating encounters ahead of time to understand how they might unfold. The opening prison escape sequence includes many NPC prisoners and requires juggling their motivations, abilities, and possible escape strategies.
+
+What I discovered is that the module is difficult to run tactically from the book alone. Information is spread across multiple pages, and there isn’t always a clear structure for how certain NPCs should behave during combat.
+
+When I began simulating both sides of the encounter, the tactical portion quickly became awkward. Running combat while also deciding what the enemies should do felt like **playing chess against yourself**. It works, but it isn’t very satisfying.
+
+That led to a simple question:
+
+**Could AI handle the tactical decisions instead?**
+
+## Treating the Battlemap Like a Board Game
+
+A tactical battlemap is essentially a grid with pieces on it. If the AI knows:
+
+* the grid
+* where every creature is located
+* what abilities each creature has
+
+then it has everything it needs to make a tactical decision.
+
+To enable this, the board state is exported as a **structured JSON schema** describing the map, tokens, and stat blocks. That payload can be sent to an AI model, which returns a structured response describing how a creature should move and act.
+
+Initially I experimented by copying the board state into a chat window and pasting the response back into the VTT. It worked—but it was clunky.
+
+## Building the AI Loop
+
+The next step was adding a simple backend pipeline:
+
+1. The VTT exports the board state.
+2. The backend sends it to the **OpenAI API**.
+3. The model returns a tactical decision.
+4. The VTT updates the board automatically.
+
+With that loop in place, the AI can effectively **control monsters or NPCs in combat**.
+
+## Trying It at the Table
+
+My players convinced me to try the prototype during one of our sessions. We were running a **Pirate Borg** campaign, so I swapped the monster stat blocks to match that system.
+
+The VTT doesn’t roll dice—players still roll their own. The board is simply shared over **Google Meet**, and players tell me where they want to move and what actions they take.
+
+This setup actually worked very smoothly.
+
+One interesting feature that emerged is that the AI can explain its reasoning. For example, if a goblin prefers ranged tactics, the system can include a note like:
+
+> “The goblin retreats to maintain distance and fires its shortbow.”
+
+These explanations help players understand why enemies act the way they do, making the AI feel less like a black box.
+
+## Why Open Source?
+
+Tabletop gaming thrives on experimentation. Every group plays differently, and no single VTT fits every table.
+
+By keeping the system **open source**, the important pieces remain accessible:
+
+* the grid-based board
+* the structured game-state schema
+* the AI decision pipeline
+
+That makes it easy for others to experiment with different playstyles, rule systems, and AI behaviors.
+
+At its core, the idea is simple:
+
+a board, a set of pieces, and an AI that can decide how those pieces move.
+
+And sometimes that’s all you need to answer a surprisingly practical question:
+
+**What happens when you let AI move the goblins?**
+
 
 ---
 
