@@ -5,6 +5,28 @@ A lightweight, browser-based **virtual tabletop (VTT)** for grid combat with **s
 
 This repo is intentionally minimal: a single-page frontend you can open in the browser, plus an optional Node/Express backend that relays your VTT state to an AI model and returns an `apply` JSON payload.
 
+## Table of Contents
+
+- [Why Build an Open-Source Tactical VTT?](#why-build-an-open-source-tactical-vtt)
+- [Learning a Module by Simulation](#learning-a-module-by-simulation)
+- [Treating the Battlemap Like a Board Game](#treating-the-battlemap-like-a-board-game)
+- [Building the AI Loop](#building-the-ai-loop)
+- [Trying It at the Table](#trying-it-at-the-table)
+- [Why Open Source?](#why-open-source)
+- [Highlights](#-highlights)
+- [Repository Layout](#repository-layout-suggested)
+- [AI Backend](#-ai-backend-nodeexpress)
+- [Connecting the Frontend to the Backend](#-connecting-the-frontend-to-the-backend)
+- [API Contract](#-api-contract)
+- [Security Notes](#-security-notes)
+- [Recommended Workflow](#-recommended-workflow-maps-with-embedded-grids)
+- [Troubleshooting](#-troubleshooting)
+- [Roadmap Ideas](#roadmap-ideas)
+- [Credits](#credits)
+- [Map Credits](#map-credits)
+- [License](#license)
+- [Why This Exists](#why-this-exists)
+
 ## Why Build an Open-Source Tactical VTT?
 
 Lately I’ve been experimenting with different ways people run tabletop RPGs when a full group isn’t available. One style that really influenced this project is **solo RPG play**, where a single player generates story and encounters using inspiration tables or tools like the **Mythic Game Master Emulator**.
