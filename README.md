@@ -1,4 +1,4 @@
-# Web VTT + AI Turn Controller
+# Drow VTT (A lightweight open source VTT and tactical AI controller)
 
 A lightweight, browser-based **virtual tabletop (VTT)** for grid combat with **snap-to-grid tokens**, **map-image alignment tools**, and a **backend endpoint** that can call **ChatGPT/OpenAI** to produce **structured, auto-applicable turn decisions**.
 
