@@ -4,9 +4,7 @@ A lightweight, browser-based **virtual tabletop (VTT)** for grid combat with **s
 
 This repo is intentionally minimal: a single-page frontend you can open in the browser, plus an optional Node/Express backend that relays your VTT state to an AI model and returns an `apply` JSON payload.
 
-## Why did I do this?
-
-# DevLog: Why Build an Open-Source Tactical VTT?
+## Why Build an Open-Source Tactical VTT?
 
 Lately I’ve been experimenting with different ways people run tabletop RPGs when a full group isn’t available. One style that really influenced this project is **solo RPG play**, where a single player generates story and encounters using inspiration tables or tools like the **Mythic Game Master Emulator**.
 
