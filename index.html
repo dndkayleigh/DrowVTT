@@ -8,6 +8,7 @@
     :root{
       --bg:#0b0f19;--panel:#121a2a;--panel2:#0f1524;--text:#e7eefc;--muted:#9fb1d1;
       --accent:#5aa9ff;--danger:#ff5a7a;--grid:rgba(180,210,255,.25);--grid-bold:rgba(180,210,255,.38);
+      --surface:rgba(15,21,36,.75);--surface-soft:rgba(8,12,22,.38);--line:rgba(110,150,210,.14);
     }
     *{box-sizing:border-box}
     body{
@@ -16,32 +17,73 @@
       background:linear-gradient(180deg,#070a12,#0b0f19 35%,#060812);
       height:100vh;overflow:hidden;
     }
-    .app{display:grid;grid-template-columns:400px 1fr;height:100vh;gap:10px;padding:10px}
+    .app{display:grid;grid-template-columns:380px 1fr;height:100vh;gap:10px;padding:10px}
     .sidebar{
       background:rgba(18,26,42,.86);
       border:1px solid rgba(110,150,210,.18);
-      border-radius:14px;padding:12px;overflow:auto;
-      box-shadow:0 10px 30px rgba(0,0,0,.35);
+      border-radius:14px;padding:10px;overflow:auto;
+      box-shadow:0 8px 24px rgba(0,0,0,.28);
     }
     .stageWrap{
+      display:grid;
+      grid-template-rows:auto auto minmax(0,1fr);
       background:rgba(18,26,42,.45);
       border:1px solid rgba(110,150,210,.18);
       border-radius:14px;overflow:hidden;position:relative;
-      box-shadow:0 10px 30px rgba(0,0,0,.35);
+      box-shadow:0 8px 24px rgba(0,0,0,.28);
     }
     .topbar{
-      display:flex;gap:10px;align-items:center;padding:10px;
+      display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;
       border-bottom:1px solid rgba(110,150,210,.14);
       background:rgba(15,21,36,.85);
     }
     .topbar .hint{color:var(--muted);font-size:12px}
-    canvas{display:block;width:100%;height:calc(100% - 56px);background:#081022;cursor:grab}
+    .stageTools{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+      align-items:start;
+      padding:10px;
+      border-bottom:1px solid var(--line);
+      background:var(--surface-soft);
+    }
+    .stageTools .cluster{
+      display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+      padding:8px;border-radius:12px;background:var(--surface-soft);border:1px solid var(--line);
+    }
+    .miniPanel{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+      padding:8px;
+      border-radius:12px;
+      background:var(--surface-soft);
+      border:1px solid var(--line);
+    }
+    .miniField{
+      display:grid;
+      gap:4px;
+      min-width:84px;
+    }
+    .miniField label{
+      font-size:10px;
+      margin-bottom:0;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+    .miniField input,.miniField select{
+      padding:7px 8px;
+      font-size:12px;
+    }
+    canvas{display:block;width:100%;height:100%;min-height:320px;background:#081022;cursor:grab}
     canvas.dragging{cursor:grabbing}
-    h2{margin:8px 0 10px;font-size:15px;letter-spacing:.2px;color:#eaf2ff}
+    h2{margin:6px 0 8px;font-size:14px;letter-spacing:.2px;color:#eaf2ff}
     .card{
-      background:rgba(15,21,36,.75);
-      border:1px solid rgba(110,150,210,.14);
-      border-radius:12px;padding:10px;margin-bottom:10px;
+      background:var(--surface);
+      border:1px solid var(--line);
+      border-radius:12px;padding:9px;margin-bottom:8px;
     }
     .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
@@ -49,7 +91,7 @@
       width:100%;border-radius:10px;border:1px solid rgba(110,150,210,.20);
       padding:9px 10px;background:rgba(8,12,22,.75);color:var(--text);outline:none;
     }
-    textarea{min-height:140px;resize:vertical}
+    textarea{min-height:120px;resize:vertical}
     .btnbar{display:flex;gap:8px;flex-wrap:wrap}
     button{
       border:1px solid rgba(110,150,210,.20);
@@ -61,20 +103,31 @@
     button.primary{background:rgba(90,169,255,.18);border-color:rgba(90,169,255,.35)}
     button.danger{background:rgba(255,90,122,.12);border-color:rgba(255,90,122,.35)}
     .small{font-size:12px;color:var(--muted);line-height:1.35}
+    .sectionNote{font-size:11px;color:var(--muted);line-height:1.35;margin-top:8px}
+    .stack{display:grid;gap:8px}
+    .subcard{
+      background:var(--surface-soft);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:8px;
+    }
     .pill{
       display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px;
-      background:rgba(8,12,22,.65);border:1px solid rgba(110,150,210,.16);color:var(--muted);
+      background:var(--surface-soft);border:1px solid var(--line);color:var(--muted);
     }
     .list{display:grid;gap:6px;margin-top:8px}
     .tokRow{
       display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;
-      padding:8px;border-radius:10px;background:rgba(8,12,22,.55);
-      border:1px solid rgba(110,150,210,.12);
+      padding:8px;border-radius:12px;background:var(--surface-soft);
+      border:1px solid var(--line);
     }
     .tokRow b{font-size:12px}
     .tokRow .meta{font-size:11px;color:var(--muted)}
     .tokRow button{padding:6px 8px;border-radius:9px}
     .footerNote{margin-top:8px;font-size:11px;color:var(--muted)}
+    .subtleLabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+    .statusRow{min-height:16px}
+    .logBox{max-height:140px;overflow:auto}
     .kbd{
       font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono";
       font-size:11px;padding:2px 6px;border-radius:6px;background:rgba(0,0,0,.25);
@@ -86,6 +139,21 @@
       color:var(--muted);font-size:12px;
     }
     input[type="checkbox"]{transform:scale(1.1)}
+    @media (max-width: 1180px){
+      .app{grid-template-columns:340px 1fr}
+      .stageTools{grid-template-columns:1fr}
+      .miniPanel{justify-content:flex-start}
+    }
+    @media (max-width: 900px){
+      body{height:auto;overflow:auto}
+      .app{grid-template-columns:1fr;height:auto}
+      .sidebar{max-height:none}
+      .stageWrap{min-height:70vh}
+      .row{grid-template-columns:1fr}
+      .stageTools{padding:8px}
+      .miniField{min-width:72px}
+      .pill{font-size:11px;padding:5px 8px}
+    }
   </style>
 </head>
 <body>
@@ -93,14 +161,18 @@
   <aside class="sidebar">
     <h2>Map & Grid</h2>
     <div class="card">
-      <label>Load map image</label>
-      <input id="mapFile" type="file" accept="image/*" />
-
-      <div class="row" style="margin-top:10px;">
+      <div class="row">
+        <div>
+          <label>Load map image</label>
+          <input id="mapFile" type="file" accept="image/*" />
+        </div>
         <div>
           <label>Grid size (px)</label>
           <input id="gridSize" type="number" min="10" max="200" step="1" value="64" />
         </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
         <div>
           <label>Snap</label>
           <select id="snapMode">
@@ -108,47 +180,15 @@
             <option value="topleft">Token to cell top-left</option>
           </select>
         </div>
-      </div>
-
-      <div class="btnbar" style="margin-top:10px;">
-        <button id="fitMap" class="primary">Fit map to canvas</button>
-        <button id="resetView">Reset view</button>
-      </div>
-
-      <div class="btnbar" style="margin-top:10px;">
-        <button id="dragModeBtn" class="primary">Drag: Tokens</button>
-        <button id="nudgeLeft">◀</button>
-        <button id="nudgeRight">▶</button>
-        <button id="nudgeUp">▲</button>
-        <button id="nudgeDown">▼</button>
-      </div>
-
-      <div class="row" style="margin-top:8px;">
         <div>
           <label>Nudge (cells)</label>
           <input id="nudgeCells" type="number" min="0.1" step="0.1" value="0.5" />
         </div>
-        <div>
-          <label>Map scale</label>
-          <input id="mapScale" type="number" min="0.1" step="0.01" value="1" />
-        </div>
       </div>
 
-      <div class="row" style="margin-top:8px;">
-        <div>
-          <label>Map rotation (deg)</label>
-          <input id="mapRotDeg" type="number" min="-10" max="10" step="0.05" value="0" />
-        </div>
-        <div>
-          <label>Opacity</label>
-          <input id="mapOpacity" type="number" min="0.05" max="1" step="0.05" value="1" />
-        </div>
-      </div>
-
-      <div class="small" style="margin-top:10px;">
-        Pan camera: hold <span class="kbd">Space</span> and drag, or middle-mouse drag.<br/>
-        Zoom camera: mouse wheel / trackpad scroll.<br/>
-        Align embedded map grid: switch to <b>Drag: Map</b>, then drag/nudge/scale/rotate the map until it matches the VTT grid.
+      <div class="sectionNote">
+        Pan with <span class="kbd">Space</span> + drag. Zoom with the wheel.
+        Map alignment controls live on the board side for quicker tweaking.
       </div>
     </div>
 
@@ -196,10 +236,10 @@
       </div>
 
       <div class="list" id="tokenList"></div>
-      <div class="footerNote">Selection and Current Turn are linked (change either, both update).</div>
+      <div class="footerNote">Selection and current turn stay in sync.</div>
     </div>
 
-    <h2>Turn & Statblock</h2>
+    <h2>Turn</h2>
     <div class="card">
       <div class="row">
         <div>
@@ -218,88 +258,118 @@
       </div>
 
       <div style="margin-top:8px;">
-        <label>Current turn token</label>
+        <label>Current token</label>
         <select id="turnToken"></select>
       </div>
 
       <div class="row" style="margin-top:8px;">
         <div>
-          <label>AC (current turn token)</label>
+          <label>AC</label>
           <input id="selAC" type="number" min="1" step="1" value="15" />
         </div>
         <div>
-          <label>HP (current turn token)</label>
+          <label>HP</label>
           <input id="selHP" type="text" value="7/7" />
         </div>
       </div>
 
       <div class="row" style="margin-top:8px;">
         <div>
-          <label>Speed ft (current turn token)</label>
+          <label>Size</label>
+          <select id="selSize">
+            <option value="1">1×1</option>
+            <option value="2">2×2</option>
+            <option value="3">3×3</option>
+            <option value="4">4×4</option>
+          </select>
+        </div>
+        <div>
+          <label>Color</label>
+          <select id="selColor">
+            <option value="#5aa9ff">Blue</option>
+            <option value="#7dffb2">Green</option>
+            <option value="#ffd36a">Gold</option>
+            <option value="#ff5a7a">Red</option>
+            <option value="#caa7ff">Purple</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px;">
+        <div>
+          <label>Speed ft</label>
           <input id="selSpeed" type="number" min="0" step="5" value="30" />
         </div>
         <div>
-          <label>Notes (current turn token)</label>
+          <label>Notes</label>
           <input id="selNotes" type="text" value="" />
         </div>
       </div>
 
       <div style="margin-top:8px;">
-        <label>Statblock / actions (current turn token)</label>
+        <label>Statblock / actions</label>
         <textarea id="selStatblock" spellcheck="false"></textarea>
       </div>
 
-      <div class="small" style="margin-top:8px;">
-        Changing <b>Current turn token</b> updates these fields immediately. Editing these fields updates that token.
+      <div class="sectionNote" id="turnRuleNote">
+        These fields edit the current token. Movement obeys turn, speed, and overlap rules.
       </div>
     </div>
 
-    <h2>AI Export + Backend</h2>
+    <h2>AI</h2>
     <div class="card">
-      <label>AI turn packet (copy/paste into chat)</label>
-      <textarea id="aiExport" spellcheck="false"></textarea>
-      <div class="btnbar" style="margin-top:10px;">
-        <button id="copyExport" class="primary">Copy</button>
-        <button id="refreshExport">Refresh</button>
+      <div class="stack">
+        <div class="subcard">
+          <div class="subtleLabel">Packet</div>
+          <label>Turn packet</label>
+          <textarea id="aiExport" spellcheck="false"></textarea>
+          <div class="btnbar" style="margin-top:10px;">
+            <button id="copyExport" class="primary">Copy</button>
+            <button id="refreshExport">Refresh</button>
+          </div>
+        </div>
+
+        <div class="subcard">
+          <div class="subtleLabel">Send</div>
+          <label>Backend endpoint</label>
+          <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
+
+          <div class="row" style="margin-top:8px;">
+            <div>
+              <label>AI Model</label>
+              <select id="aiModel">
+                <option value="gpt-4.1-mini">gpt-4.1-mini (fast)</option>
+                <option value="gpt-4.1">gpt-4.1</option>
+                <option value="gpt-5">gpt-5 (slow)</option>
+              </select>
+            </div>
+            <div>
+              <label>Response</label>
+              <div class="checkRow" style="margin-top:0;height:40px;">
+                <input id="autoApplyAI" type="checkbox" />
+                <label for="autoApplyAI" style="margin:0;color:var(--muted)">Auto-apply</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="btnbar" style="margin-top:10px;">
+            <button id="sendState" class="primary">Send state to backend</button>
+          </div>
+          <div class="small statusRow" id="sendStatus" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="subcard">
+          <div class="subtleLabel">Apply</div>
+          <label>Apply JSON</label>
+          <textarea id="applyJson" spellcheck="false" placeholder='{"moves":[...],"actions":[...],"end_turn":true}'></textarea>
+          <div class="btnbar" style="margin-top:10px;">
+            <button id="applyBtn" class="primary">Apply</button>
+            <button id="clearLog">Clear log</button>
+          </div>
+          <div class="small statusRow" id="applyStatus" style="margin-top:8px;"></div>
+          <div class="small logBox" style="margin-top:8px;white-space:pre-wrap" id="logBox"></div>
+        </div>
       </div>
-
-      <hr>
-
-      <label>Backend endpoint (POST JSON)</label>
-      <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
-
-      <div class="row">
-      <div>
-        <label>AI Model</label>
-        <select id="aiModel">
-          <option value="gpt-4.1-mini">gpt-4.1-mini (fast)</option>
-          <option value="gpt-4.1">gpt-4.1</option>
-          <option value="gpt-5">gpt-5 (slow)</option>
-        </select>
-      </div>
-      </div>
-
-      <!-- NEW: Auto-apply checkbox -->
-      <div class="checkRow">
-        <input id="autoApplyAI" type="checkbox" />
-        <label for="autoApplyAI" style="margin:0;color:var(--muted)">Auto-apply AI response (move tokens automatically)</label>
-      </div>
-
-      <div class="btnbar" style="margin-top:10px;">
-        <button id="sendState" class="primary">Send state to backend</button>
-      </div>
-      <div class="small" id="sendStatus" style="margin-top:8px;"></div>
-
-      <hr>
-
-      <label>Apply AI JSON (paste response here)</label>
-      <textarea id="applyJson" spellcheck="false" placeholder='{"moves":[...],"actions":[...],"end_turn":true}'></textarea>
-      <div class="btnbar" style="margin-top:10px;">
-        <button id="applyBtn" class="primary">Apply</button>
-        <button id="clearLog">Clear log</button>
-      </div>
-      <div class="small" id="applyStatus" style="margin-top:8px;"></div>
-      <div class="small" style="margin-top:8px;white-space:pre-wrap" id="logBox"></div>
     </div>
   </aside>
 
@@ -308,7 +378,32 @@
       <span class="pill" id="viewPill">Zoom: 100% • Pan: (0,0)</span>
       <span class="pill" id="gridPill">Grid: 64px</span>
       <span class="pill" id="mapPill">Map: off(0,0) scale 1 rot 0°</span>
-      <span class="hint">Prototype: grid+tokens+map alignment + AI turn packet.</span>
+      <span class="hint">Grid combat, map alignment, and AI-assisted turns.</span>
+    </div>
+    <div class="stageTools">
+      <div class="cluster">
+        <button id="fitMap" class="primary">Fit map</button>
+        <button id="resetView">Reset view</button>
+        <button id="dragModeBtn" class="primary">Drag: Tokens</button>
+        <button id="nudgeLeft">◀</button>
+        <button id="nudgeRight">▶</button>
+        <button id="nudgeUp">▲</button>
+        <button id="nudgeDown">▼</button>
+      </div>
+      <div class="miniPanel">
+        <div class="miniField">
+          <label for="mapScale">Scale</label>
+          <input id="mapScale" type="number" min="0.1" step="0.01" value="1" />
+        </div>
+        <div class="miniField">
+          <label for="mapRotDeg">Rotate</label>
+          <input id="mapRotDeg" type="number" min="-10" max="10" step="0.05" value="0" />
+        </div>
+        <div class="miniField">
+          <label for="mapOpacity">Opacity</label>
+          <input id="mapOpacity" type="number" min="0.05" max="1" step="0.05" value="1" />
+        </div>
+      </div>
     </div>
     <canvas id="stage"></canvas>
   </main>
@@ -343,6 +438,7 @@
     draggingPan: false,
     draggingMap: false,
     dragOffset: { x: 0, y: 0 },
+    dragOriginCell: null,
     lastMouse: { x: 0, y: 0 },
     spaceDown: false,
     dragMode: 'tokens',
@@ -366,12 +462,46 @@
     return { x: x * zoom + panX, y: y * zoom + panY };
   }
 
-  function snapWorldPoint(x, y) {
+  function normalizeSizeCells(sizeCells) {
+    return Math.max(1, Math.round(Number(sizeCells) || 1));
+  }
+
+  function centerFromGridCell(cellX, cellY, sizeCells = 1) {
     const g = state.gridSize;
-    const cellX = Math.floor(x / g);
-    const cellY = Math.floor(y / g);
+    const footprint = normalizeSizeCells(sizeCells);
     if (state.snapMode === 'topleft') return { x: cellX * g, y: cellY * g };
-    return { x: (cellX + 0.5) * g, y: (cellY + 0.5) * g };
+    return { x: (cellX + footprint / 2) * g, y: (cellY + footprint / 2) * g };
+  }
+
+  function gridCellFromWorldPoint(x, y, sizeCells = 1) {
+    const g = state.gridSize;
+    const footprint = normalizeSizeCells(sizeCells);
+    if (state.snapMode === 'topleft') {
+      return { x: Math.floor(x / g), y: Math.floor(y / g) };
+    }
+    return {
+      x: Math.round((x / g) - (footprint / 2)),
+      y: Math.round((y / g) - (footprint / 2))
+    };
+  }
+
+  function snapWorldPoint(x, y, sizeCells = 1) {
+    const cell = gridCellFromWorldPoint(x, y, sizeCells);
+    return centerFromGridCell(cell.x, cell.y, sizeCells);
+  }
+
+  function getTokenBounds(token) {
+    const size = normalizeSizeCells(token.sizeCells);
+    const cell = gridCoords(token);
+    return {
+      cellX: cell.x,
+      cellY: cell.y,
+      size,
+      left: cell.x * state.gridSize,
+      top: cell.y * state.gridSize,
+      width: size * state.gridSize,
+      height: size * state.gridSize
+    };
   }
 
   function tokenRadiusPx(token) {
@@ -381,12 +511,79 @@
   function tokenHitTest(worldX, worldY) {
     for (let i = state.tokens.length - 1; i >= 0; i--) {
       const t = state.tokens[i];
-      const r = tokenRadiusPx(t);
-      const dx = worldX - t.x;
-      const dy = worldY - t.y;
-      if (dx*dx + dy*dy <= r*r) return t;
+      const b = getTokenBounds(t);
+      if (
+        worldX >= b.left &&
+        worldX <= b.left + b.width &&
+        worldY >= b.top &&
+        worldY <= b.top + b.height
+      ) return t;
     }
     return null;
+  }
+
+  function cellsOccupiedAt(cellX, cellY, sizeCells) {
+    const cells = [];
+    const size = normalizeSizeCells(sizeCells);
+    for (let dx = 0; dx < size; dx++) {
+      for (let dy = 0; dy < size; dy++) {
+        cells.push({ x: cellX + dx, y: cellY + dy });
+      }
+    }
+    return cells;
+  }
+
+  function chebyshevDistanceCells(fromCell, toCell) {
+    return Math.max(Math.abs(toCell.x - fromCell.x), Math.abs(toCell.y - fromCell.y));
+  }
+
+  function isTokenControlledThisTurn(token) {
+    return !!token && token.id === state.currentTurnTokenId;
+  }
+
+  function validateTokenMove(token, toCell, options = {}) {
+    const { ignoreSpeed = false, source = 'move' } = options;
+    if (!token) return { ok: false, reason: 'Unknown token.' };
+    if (!isTokenControlledThisTurn(token)) {
+      return { ok: false, reason: `${token.name} cannot move because it is not the current turn token.` };
+    }
+
+    const fromCell = gridCoords(token);
+    const maxCells = Math.floor((Number(token.speed) || 0) / 5);
+    const distanceCells = chebyshevDistanceCells(fromCell, toCell);
+    if (!ignoreSpeed && distanceCells > maxCells) {
+      return {
+        ok: false,
+        reason: `${token.name} cannot move to (${toCell.x},${toCell.y}); speed ${token.speed} ft allows ${maxCells} cells, not ${distanceCells}.`
+      };
+    }
+
+    const targetCells = cellsOccupiedAt(toCell.x, toCell.y, token.sizeCells);
+    for (const other of state.tokens) {
+      if (other.id === token.id) continue;
+      const otherCell = gridCoords(other);
+      const occupied = new Set(
+        cellsOccupiedAt(otherCell.x, otherCell.y, other.sizeCells).map((cell) => `${cell.x},${cell.y}`)
+      );
+      const blockedCell = targetCells.find((cell) => occupied.has(`${cell.x},${cell.y}`));
+      if (blockedCell) {
+        return {
+          ok: false,
+          reason: `${token.name} cannot move to (${toCell.x},${toCell.y}); space is occupied by ${other.name}.`
+        };
+      }
+    }
+
+    return { ok: true, fromCell, toCell, distanceCells, source };
+  }
+
+  function moveTokenToCell(token, cell, options = {}) {
+    const result = validateTokenMove(token, cell, options);
+    if (!result.ok) return result;
+    const snapped = centerFromGridCell(cell.x, cell.y, token.sizeCells);
+    token.x = snapped.x;
+    token.y = snapped.y;
+    return result;
   }
 
   function getCss(varName) {
@@ -462,6 +659,8 @@
     for (const t of state.tokens) {
       const s = worldToScreen(t.x, t.y);
       const r = tokenRadiusPx(t) * zoom;
+      const b = getTokenBounds(t);
+      const isSelected = t.id === state.selectedTokenId;
 
       ctx.save();
       ctx.beginPath();
@@ -471,9 +670,21 @@
       ctx.fill();
 
       ctx.globalAlpha = 1;
-      ctx.lineWidth = (t.id === state.selectedTokenId) ? 4 : 2;
-      ctx.strokeStyle = (t.id === state.selectedTokenId) ? '#ffffff' : 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = isSelected ? 4 : 2;
+      ctx.strokeStyle = isSelected ? '#ffffff' : 'rgba(255,255,255,0.75)';
       ctx.stroke();
+
+      if (b.size > 1) {
+        ctx.globalAlpha = 0.35;
+        ctx.setLineDash([6, 6]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r + Math.max(6, state.gridSize * zoom * 0.08), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
 
       ctx.font = `${Math.max(11, 12 * zoom)}px ui-sans-serif, system-ui`;
       ctx.textAlign = 'center';
@@ -488,6 +699,15 @@
       ctx.fillRect(s.x - 32, s.y - r - 22, 64, 18);
       ctx.fillStyle = 'rgba(255,255,255,0.9)';
       ctx.fillText(t.type, s.x, s.y - r - 13);
+
+      if (b.size > 1) {
+        const badge = `${b.size}x${b.size}`;
+        ctx.font = `${Math.max(9, 10 * zoom)}px ui-sans-serif, system-ui`;
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.fillRect(s.x - 20, s.y + r - 18, 40, 16);
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.fillText(badge, s.x, s.y + r - 10);
+      }
 
       ctx.restore();
     }
@@ -575,7 +795,7 @@
     if (!Number.isFinite(v) || v < 10) return;
     state.gridSize = v;
     for (const t of state.tokens) {
-      const s = snapWorldPoint(t.x, t.y);
+      const s = snapWorldPoint(t.x, t.y, t.sizeCells);
       t.x = s.x; t.y = s.y;
     }
     draw(); refreshExport(); renderTokenList();
@@ -584,7 +804,7 @@
   document.getElementById('snapMode').addEventListener('change', () => {
     state.snapMode = document.getElementById('snapMode').value;
     for (const t of state.tokens) {
-      const s = snapWorldPoint(t.x, t.y);
+      const s = snapWorldPoint(t.x, t.y, t.sizeCells);
       t.x = s.x; t.y = s.y;
     }
     draw(); refreshExport(); renderTokenList();
@@ -627,9 +847,9 @@
 
   function addToken({ name, type, sizeCells, color, ac=15, hp="7/7", speed=30, notes="", statblock="" }) {
     const worldTL = screenToWorld(70, 70);
-    const snapped = snapWorldPoint(worldTL.x, worldTL.y);
+    const snapped = snapWorldPoint(worldTL.x, worldTL.y, sizeCells);
 
-    const t = { id: uid(), name, type, sizeCells, color, x: snapped.x, y: snapped.y, ac, hp, speed, notes, statblock };
+    const t = { id: uid(), name, type, sizeCells: normalizeSizeCells(sizeCells), color, x: snapped.x, y: snapped.y, ac, hp, speed, notes, statblock };
     state.tokens.push(t);
     setCurrentTurnTokenId(t.id);
   }
@@ -661,9 +881,7 @@
   });
 
   function gridCoords(token) {
-    const g = state.gridSize;
-    if (state.snapMode === 'topleft') return { x: Math.round(token.x / g), y: Math.round(token.y / g) };
-    return { x: Math.round((token.x / g) - 0.5), y: Math.round((token.y / g) - 0.5) };
+    return gridCellFromWorldPoint(token.x, token.y, token.sizeCells);
   }
 
   function renderTokenList() {
@@ -742,6 +960,8 @@
   // ---------- Editor fields bind to CURRENT TURN token ----------
   const selAC = document.getElementById('selAC');
   const selHP = document.getElementById('selHP');
+  const selSize = document.getElementById('selSize');
+  const selColor = document.getElementById('selColor');
   const selSpeed = document.getElementById('selSpeed');
   const selNotes = document.getElementById('selNotes');
   const selStatblock = document.getElementById('selStatblock');
@@ -753,14 +973,16 @@
   function loadCurrentTurnTokenToEditor() {
     const t = getCurrentTurnToken();
     const disabled = !t;
-    for (const el of [selAC, selHP, selSpeed, selNotes, selStatblock]) el.disabled = disabled;
+    for (const el of [selAC, selHP, selSize, selColor, selSpeed, selNotes, selStatblock]) el.disabled = disabled;
 
     if (!t) {
-      selAC.value = 15; selHP.value = ""; selSpeed.value = 30; selNotes.value = ""; selStatblock.value = "";
+      selAC.value = 15; selHP.value = ""; selSize.value = "1"; selColor.value = "#ff5a7a"; selSpeed.value = 30; selNotes.value = ""; selStatblock.value = "";
       return;
     }
     selAC.value = Number(t.ac) || 10;
     selHP.value = t.hp ?? "";
+    selSize.value = String(normalizeSizeCells(t.sizeCells));
+    selColor.value = t.color ?? "#ff5a7a";
     selSpeed.value = Number(t.speed) || 30;
     selNotes.value = t.notes ?? "";
     selStatblock.value = t.statblock ?? "";
@@ -770,17 +992,24 @@
     const t = getCurrentTurnToken();
     if (!t) return;
 
+    const oldCell = gridCoords(t);
     t.ac = Number(selAC.value) || t.ac;
     t.hp = (selHP.value ?? "").trim();
+    t.sizeCells = normalizeSizeCells(selSize.value);
+    t.color = selColor.value || t.color;
     t.speed = Number(selSpeed.value) || t.speed;
     t.notes = (selNotes.value ?? "").trim();
     t.statblock = (selStatblock.value ?? "").trim();
+    const snapped = centerFromGridCell(oldCell.x, oldCell.y, t.sizeCells);
+    t.x = snapped.x;
+    t.y = snapped.y;
 
+    draw();
     renderTokenList();
     refreshExport();
   }
 
-  for (const el of [selAC, selHP, selSpeed, selNotes, selStatblock]) {
+  for (const el of [selAC, selHP, selSize, selColor, selSpeed, selNotes, selStatblock]) {
     el.addEventListener('input', saveEditorToCurrentTurnToken);
   }
 
@@ -798,7 +1027,10 @@
     lines.push("RULES:");
     lines.push("- D&D 5e, grid-based. Each grid cell = 5 ft.");
     lines.push("- Positions are integer cells (x,y), 0-based; x increases right, y increases down.");
+    lines.push("- For multi-cell tokens, (x,y) is the top-left occupied cell.");
     lines.push("- Diagonals cost 5 ft (default).");
+    lines.push("- Only the current turn token may move or act this turn.");
+    lines.push("- Token spaces cannot overlap.");
     lines.push("- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.");
     lines.push("");
     lines.push(`AI CONTROLS: ${state.aiControls}`);
@@ -851,9 +1083,10 @@
     logBox.textContent = state.log.join("\n");
   }
 
-  function applyAiObject(obj) {
+  function applyAiObject(obj, options = {}) {
     const moves = Array.isArray(obj?.moves) ? obj.moves : [];
     const actions = Array.isArray(obj?.actions) ? obj.actions : [];
+    const { source = 'AI' } = options;
 
     for (const m of moves) {
       const name = (m?.token ?? "").toString();
@@ -866,11 +1099,10 @@
       const gx = Number(to[0]), gy = Number(to[1]);
       if (!Number.isFinite(gx) || !Number.isFinite(gy)) continue;
 
-      const g = state.gridSize;
-      if (state.snapMode === 'topleft') {
-        t.x = gx * g; t.y = gy * g;
-      } else {
-        t.x = (gx + 0.5) * g; t.y = (gy + 0.5) * g;
+      const result = moveTokenToCell(t, { x: gx, y: gy }, { source });
+      if (!result.ok) {
+        pushLog(`Move ignored: ${result.reason}`);
+        continue;
       }
       pushLog(`Moved ${name} -> (${gx},${gy})`);
     }
@@ -896,7 +1128,7 @@
     let obj;
     try { obj = JSON.parse(txt); }
     catch { applyStatus.textContent = "Invalid JSON."; return; }
-    applyAiObject(obj);
+    applyAiObject(obj, { source: 'Apply box' });
     applyStatus.textContent = "Applied ✓";
   }
 
@@ -956,7 +1188,7 @@
         const text = await res.text();
         throw new Error(`HTTP ${res.status}: ${text}`);
       }
-      
+
       // Response size (if server provides Content-Length)
       const contentLen = res.headers.get('content-length');
       if (contentLen) pushLog(`Response bytes (header): ${contentLen}`);
@@ -969,7 +1201,7 @@
       const t5 = nowMs(); // UI updated
 
       if (autoApply) {
-        applyAiObject(aiObj);
+        applyAiObject(aiObj, { source: 'Backend' });
       }
       const t6 = nowMs(); // applied
 
@@ -986,8 +1218,17 @@
         pushLog(
           `Backend _timing: total=${serverTiming.total_ms}ms ` +
           `openai=${serverTiming.openai_ms}ms ` +
-          `prep=${serverTiming.prep_ms}ms parse=${serverTiming.parse_ms}ms`
+          `prep=${serverTiming.prep_ms ?? 0}ms parse=${serverTiming.parse_ms ?? 0}ms ` +
+          `model=${serverTiming.model ?? "?"}`
         );
+
+        if (serverTiming.tokens) {
+          pushLog(
+            `Tokens: input=${serverTiming.tokens.input ?? "?"} ` +
+            `output=${serverTiming.tokens.output ?? "?"} ` +
+            `total=${serverTiming.tokens.total ?? "?"}`
+          );
+        }
       }
 
       status.textContent = autoApply
@@ -1000,23 +1241,6 @@
     }
   }
   document.getElementById('sendState').addEventListener('click', sendStateToBackend);
-
-  // ---------- Map alignment UI wiring ----------
-  document.getElementById('dragModeBtn').addEventListener('click', () => {
-    state.dragMode = (state.dragMode === 'tokens') ? 'map' : 'tokens';
-    document.getElementById('dragModeBtn').textContent = `Drag: ${state.dragMode === 'tokens' ? 'Tokens' : 'Map'}`;
-  });
-
-  function nudgeWorldAmount() {
-    const cells = Number(document.getElementById('nudgeCells').value) || 0.5;
-    return cells * state.gridSize;
-  }
-  document.getElementById('nudgeLeft').addEventListener('click', () => { state.map.offX -= nudgeWorldAmount(); draw(); });
-  document.getElementById('nudgeRight').addEventListener('click', () => { state.map.offX += nudgeWorldAmount(); draw(); });
-  document.getElementById('nudgeUp').addEventListener('click', () => { state.map.offY -= nudgeWorldAmount(); draw(); });
-  document.getElementById('nudgeDown').addEventListener('click', () => { state.map.offY += nudgeWorldAmount(); draw(); });
-
-  // (Map file + fit + rotation + opacity already set above)
 
   // ---------- Mouse / Keyboard ----------
   function getMousePos(e) {
@@ -1035,10 +1259,15 @@
     const wantPan = state.spaceDown || isMiddle;
 
     if (hit && !wantPan && state.dragMode === 'tokens') {
-      setCurrentTurnTokenId(hit.id);
+      if (!isTokenControlledThisTurn(hit)) {
+        setCurrentTurnTokenId(hit.id);
+        pushLog(`Current turn set to ${hit.name}. Drag again to move.`);
+        return;
+      }
       state.draggingToken = hit;
       state.dragOffset.x = world.x - hit.x;
       state.dragOffset.y = world.y - hit.y;
+      state.dragOriginCell = gridCoords(hit);
       return;
     }
 
@@ -1054,9 +1283,19 @@
   window.addEventListener('mouseup', () => {
     if (state.draggingToken) {
       const t = state.draggingToken;
-      const s = snapWorldPoint(t.x, t.y);
-      t.x = s.x; t.y = s.y;
+      const targetCell = gridCoords(t);
+      const result = moveTokenToCell(t, targetCell, { source: 'Drag' });
+      if (!result.ok) {
+        const fallback = state.dragOriginCell || gridCoords(t);
+        const snapped = centerFromGridCell(fallback.x, fallback.y, t.sizeCells);
+        t.x = snapped.x;
+        t.y = snapped.y;
+        pushLog(`Move cancelled: ${result.reason}`);
+      } else {
+        pushLog(`Moved ${t.name} -> (${targetCell.x},${targetCell.y})`);
+      }
       state.draggingToken = null;
+      state.dragOriginCell = null;
       draw(); renderTokenList(); refreshExport(); loadCurrentTurnTokenToEditor();
     }
     if (state.draggingMap) { state.draggingMap = false; draw(); }
@@ -1074,7 +1313,7 @@
       const t = state.draggingToken;
       t.x = world.x - state.dragOffset.x;
       t.y = world.y - state.dragOffset.y;
-      const s = snapWorldPoint(t.x, t.y);
+      const s = snapWorldPoint(t.x, t.y, t.sizeCells);
       t.x = s.x; t.y = s.y;
       draw(); renderTokenList(); refreshExport();
       return;
@@ -1109,26 +1348,7 @@
   window.addEventListener('keydown', (e) => { if (e.code === 'Space') state.spaceDown = true; });
   window.addEventListener('keyup',   (e) => { if (e.code === 'Space') state.spaceDown = false; });
 
-  // ---------- Init + controls wiring not yet set in this version ----------
-  // Wire remaining controls that were omitted in this shortened block:
-  // - fitMap/resetView already wired
-  // - gridSize/snapMode already wired
-  // - mapScale/mapRotDeg/mapOpacity wiring:
-  document.getElementById('mapScale').addEventListener('input', () => {
-    const v = Number(document.getElementById('mapScale').value);
-    if (!Number.isFinite(v) || v <= 0) return;
-    state.map.scale = v; draw();
-  });
-  document.getElementById('mapRotDeg').addEventListener('input', () => {
-    state.map.rot = toRad(Number(document.getElementById('mapRotDeg').value) || 0); draw();
-  });
-  document.getElementById('mapOpacity').addEventListener('input', () => {
-    const v = Number(document.getElementById('mapOpacity').value);
-    if (!Number.isFinite(v)) return;
-    state.map.opacity = clamp(v, 0.05, 1); draw();
-  });
-
-  // Wire AI controls + round (already wired above), plus grid size / snap mode:
+  // ---------- Init ----------
   document.getElementById('gridSize').dispatchEvent(new Event('input'));
   document.getElementById('snapMode').dispatchEvent(new Event('change'));
 

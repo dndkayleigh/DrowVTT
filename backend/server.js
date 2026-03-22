@@ -2,10 +2,21 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import OpenAI from 'openai';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const app = express();
 app.use(cors());              // dev only; lock down origins in production
 app.use(express.json({ limit: '2mb' }));
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, '..');
+
+app.use('/maps', express.static(path.join(repoRoot, 'maps')));
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(repoRoot, 'index.html'));
+});
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -90,6 +101,16 @@ app.post('/api/vtt', async (req, res) => {
       }
     });
     const tOpen1 = Date.now();
+
+    const usage = response.usage || {};
+
+    const inputTokens = usage.input_tokens ?? null;
+    const outputTokens = usage.output_tokens ?? null;
+    const totalTokens = usage.total_tokens ?? null;
+
+    console.log(
+      `[vtt] ${reqId} tokens input=${inputTokens} output=${outputTokens} total=${totalTokens}`
+    );
 
     const tParse0 = Date.now();
     const jsonText = response.output_text;

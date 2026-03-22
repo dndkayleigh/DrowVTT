@@ -1,0 +1,5 @@
+backend/.env
+backend/node_modules/
+backend/test-results/
+backend/playwright-report/
+*.Zone.Identifier
