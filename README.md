@@ -1,228 +1,120 @@
-# Drow VTT 
-## A lightweight open source VTT and tactical AI controller
+# Drow VTT
 
-A lightweight, browser-based **virtual tabletop (VTT)** for grid combat with **snap-to-grid tokens**, **map-image alignment tools**, and a **backend endpoint** that can call **ChatGPT/OpenAI** to produce **structured, auto-applicable turn decisions**.
+A lightweight browser VTT for grid combat with an OpenAI-backed tactical turn loop.
 
-This repo is intentionally minimal: a single-page frontend you can open in the browser, plus an optional Node/Express backend that relays your VTT state to an AI model and returns an `apply` JSON payload.
+The app is intentionally small:
+- a single-page frontend in [`index.html`](/home/witschey/DrowVTT/index.html)
+- a Node/Express backend in [`backend/server.js`](/home/witschey/DrowVTT/backend/server.js)
+- Playwright UI tests in [`backend/tests/vtt-ui.spec.js`](/home/witschey/DrowVTT/backend/tests/vtt-ui.spec.js)
 
-## Table of Contents
+## What It Does
 
-- [Why Build an Open-Source Tactical VTT?](#why-build-an-open-source-tactical-vtt)
-- [Learning a Module by Simulation](#learning-a-module-by-simulation)
-- [Treating the Battlemap Like a Board Game](#treating-the-battlemap-like-a-board-game)
-- [Building the AI Loop](#building-the-ai-loop)
-- [Trying It at the Table](#trying-it-at-the-table)
-- [Why Open Source?](#why-open-source)
-- [Highlights](#-highlights)
-- [Repository Layout](#repository-layout-suggested)
-- [AI Backend](#-ai-backend-nodeexpress)
-- [Connecting the Frontend to the Backend](#-connecting-the-frontend-to-the-backend)
-- [API Contract](#-api-contract)
-- [Security Notes](#-security-notes)
-- [Recommended Workflow](#-recommended-workflow-maps-with-embedded-grids)
-- [Troubleshooting](#-troubleshooting)
-- [Roadmap Ideas](#roadmap-ideas)
-- [Credits](#credits)
-- [Map Credits](#map-credits)
-- [License](#license)
-- [Why This Exists](#why-this-exists)
+- Run a grid-based battlemap with pan/zoom and snap-to-grid tokens
+- Load a map image and align it with scale, rotation, opacity, and nudge controls
+- Track per-token stats like AC, HP, speed, notes, and statblocks
+- Export the current board state as an AI turn packet
+- Send that packet to an OpenAI-backed backend and auto-apply the response
+- Enforce basic tactical rules:
+  - only the current turn token can move
+  - movement is limited by speed
+  - token spaces cannot overlap
 
-## Why Build an Open-Source Tactical VTT?
+## Token Positioning Rules
 
-Lately I’ve been experimenting with different ways people run tabletop RPGs when a full group isn’t available. One style that really influenced this project is **solo RPG play**, where a single player generates story and encounters using inspiration tables or tools like the **Mythic Game Master Emulator**.
+The VTT stores and displays token positions by occupied grid cells:
 
-In some versions of this style, the solo player effectively becomes both **DM and player**, simulating both sides of the game. I found this approach surprisingly useful when trying to learn new campaign modules.
+- `1x1` creatures center on the middle of a tile
+- `2x2` creatures center on the intersection of four tiles
+- `3x3` creatures center on the middle of the center tile
+- AI/export coordinates use the top-left occupied cell for multi-cell creatures
 
-## Learning a Module by Simulation
+## Repository Layout
 
-While preparing to run *Out of the Abyss*, I tried simulating encounters ahead of time to understand how they might unfold. The opening prison escape sequence includes many NPC prisoners and requires juggling their motivations, abilities, and possible escape strategies.
-
-What I discovered is that the module is difficult to run tactically from the book alone. Information is spread across multiple pages, and there isn’t always a clear structure for how certain NPCs should behave during combat.
-
-When I began simulating both sides of the encounter, the tactical portion quickly became awkward. Running combat while also deciding what the enemies should do felt like **playing chess against yourself**. It works, but it isn’t very satisfying.
-
-That led to a simple question:
-
-**Could AI handle the tactical decisions instead?**
-
-## Treating the Battlemap Like a Board Game
-
-A tactical battlemap is essentially a grid with pieces on it. If the AI knows:
-
-* the grid
-* where every creature is located
-* what abilities each creature has
-
-then it has everything it needs to make a tactical decision.
-
-To enable this, the board state is exported as a **structured JSON schema** describing the map, tokens, and stat blocks. That payload can be sent to an AI model, which returns a structured response describing how a creature should move and act.
-
-Initially I experimented by copying the board state into a chat window and pasting the response back into the VTT. It worked—but it was clunky.
-
-## Building the AI Loop
-
-The next step was adding a simple backend pipeline:
-
-1. The VTT exports the board state.
-2. The backend sends it to the **OpenAI API**.
-3. The model returns a tactical decision.
-4. The VTT updates the board automatically.
-
-With that loop in place, the AI can effectively **control monsters or NPCs in combat**.
-
-## Trying It at the Table
-
-My players convinced me to try the prototype during one of our sessions. We were running a **Pirate Borg** campaign, so I swapped the monster stat blocks to match that system.
-
-The VTT doesn’t roll dice—players still roll their own. The board is simply shared over **Google Meet**, and players tell me where they want to move and what actions they take.
-
-This setup actually worked very smoothly.
-
-One interesting feature that emerged is that the AI can explain its reasoning. For example, if a goblin prefers ranged tactics, the system can include a note like:
-
-> “The goblin retreats to maintain distance and fires its shortbow.”
-
-These explanations help players understand why enemies act the way they do, making the AI feel less like a black box.
-
-## Why Open Source?
-
-Tabletop gaming thrives on experimentation. Every group plays differently, and no single VTT fits every table.
-
-By keeping the system **open source**, the important pieces remain accessible:
-
-* the grid-based board
-* the structured game-state schema
-* the AI decision pipeline
-
-That makes it easy for others to experiment with different playstyles, rule systems, and AI behaviors.
-
-At its core, the idea is simple:
-
-a board, a set of pieces, and an AI that can decide how those pieces move.
-
-And sometimes that’s all you need to answer a surprisingly practical question:
-
-**What happens when you let AI move the goblins?**
-
-
----
-
-## ✨ Highlights
-
-- **Grid-based battlemap**
-  - Adjustable grid size (px)
-  - Snap modes (center or top-left)
-  - Camera pan (Space + drag) and zoom (wheel)
-
-- **Map image alignment**
-  - Load a map image as a layer
-  - Translate / nudge the map to align embedded pixel grids
-  - Optional map **scale**, **rotation**, and **opacity** controls
-
-- **Tokens**
-  - PC / NPC / Monster tokens
-  - Snap-to-grid movement
-  - Simple per-token fields: **AC**, **HP**, **Speed**, **Notes**, **Statblock**
-  - “Current turn token” is linked to selection
-
-- **AI integration**
-  - Frontend generates a **turn packet** (prompt) including map + token state
-  - Backend calls ChatGPT/OpenAI and returns **strict JSON**
-  - Frontend can **auto-apply** AI responses via a checkbox
-
----
-
-## Repository layout (suggested)
-
-```
+```text
 .
-├─ index.html   # the VTT single-file UI
-└─ frontend/
-   ├─ server.js         # Express API endpoint that calls OpenAI
-   ├─ package.json
-   └─ .env              # OPENAI_API_KEY, PORT
+├── index.html
+├── maps/
+└── backend/
+    ├── package.json
+    ├── package-lock.json
+    ├── playwright.config.js
+    ├── server.js
+    └── tests/
+        └── vtt-ui.spec.js
 ```
 
-You can also keep everything in one folder if you prefer.
+## Local Setup
 
----
+### 1) Add backend env vars
 
-## 🧠 AI backend (Node/Express)
-
-### 1) Install
+Create [`backend/.env`](/home/witschey/DrowVTT/backend/.env):
 
 ```bash
-mkdir -p backend
-cd backend
-npm init -y
-npm install express cors openai dotenv
-```
-
-> If you use `import ... from`, set `"type": "module"` in `backend/package.json`.
-
-### 2) Add environment variables
-
-Create `backend/.env`:
-
-```bash
-OPENAI_API_KEY=YOUR_KEY_HERE
+OPENAI_API_KEY=your_key_here
 PORT=3000
 ```
 
-### 3) Run
+### 2) Install dependencies
+
+If needed:
 
 ```bash
 cd backend
-node server.js
+npm install
 ```
 
-Backend will listen at:
+### 3) Start the app
 
-- `http://localhost:3000/api/vtt`
-
----
-
-## 🔌 Connecting the frontend to the backend
-
-In the VTT UI:
-
-1. Set **Backend endpoint** to:
-
+```bash
+cd backend
+npm start
 ```
+
+Then open:
+
+```text
+http://localhost:3000/
+```
+
+The backend API is served at:
+
+```text
 http://localhost:3000/api/vtt
 ```
 
-2. Click **Send state to backend**
-3. The UI will:
-   - receive the JSON response
-   - paste it into “Apply AI JSON”
-   - optionally auto-apply it if **Auto-apply AI response** is checked
+## Testing
 
----
+Run the UI suite from [`backend/`](/home/witschey/DrowVTT/backend):
 
-## 📦 API contract
+```bash
+npm test
+```
 
-### Request (from VTT to backend)
+Current Playwright coverage includes:
+- page load
+- 1x1 / 2x2 / 3x3 token snapping
+- resizing the current token
+- manual AI JSON application
+- backend auto-apply flow
+- movement-rule rejection
+- map control updates
 
-The frontend sends a JSON payload similar to:
+## Backend Contract
+
+### Request
+
+The frontend posts a small payload to the backend:
 
 ```json
 {
-  "gridSize": 64,
-  "snapMode": "center",
-  "view": { "zoom": 1, "panX": 0, "panY": 0 },
-  "map": { "width": 2000, "height": 1400, "offX": 0, "offY": 0, "scale": 1, "rot": 0, "opacity": 1 },
-  "tokens": [
-    { "name": "Aria", "type": "PC", "cell": { "x": 10, "y": 12 }, "ac": 15, "hp": "18/18", "speed": 30 }
-  ],
-  "turn": { "aiControls": "Monsters", "round": 1, "currentTurnTokenId": "abc123" },
-  "aiExport": "SYSTEM: You are the tactical controller ..."
+  "aiExport": "SYSTEM: You are the tactical controller ...",
+  "model": "gpt-4.1-mini"
 }
 ```
 
-### Response (from backend to VTT)
+### Response
 
-Must match:
+The backend returns strict JSON in this shape:
 
 ```json
 {
@@ -232,104 +124,39 @@ Must match:
 }
 ```
 
-The VTT applies moves by matching `token` to token **name**.
+Notes:
+- `token` is matched by token name
+- `to` uses top-left occupied cell coordinates
+- the frontend can auto-apply the response
 
-> Tip: Token names should be unique to avoid ambiguity.
+## Recommended Workflow
 
----
+1. Start the backend with `npm start`.
+2. Open `http://localhost:3000/`.
+3. Load a map image if you want one.
+4. Align the map using the controls above the board.
+5. Add tokens and set the current turn token.
+6. Edit stats and statblocks in the Turn panel.
+7. Copy the AI packet or send it directly to the backend.
+8. Review or auto-apply the returned move JSON.
 
-## 🔐 Security notes
+## Security Notes
 
-- **Do not** put API keys in the frontend.
-- Add **CORS allowlist** in production (avoid `*`).
-- Consider adding an **auth token** header from the frontend to your backend.
-- Add rate limiting (per-IP or per-session).
+- Never put `OPENAI_API_KEY` in the frontend
+- Lock down CORS before production use
+- Add auth and rate limiting if you expose the backend publicly
 
----
+## Map Credit
 
-## 🧭 Recommended workflow (maps with embedded grids)
-
-1. Load the map image
-2. Set grid size (px) to your desired VTT cell size
-3. Switch to **Drag: Map**
-4. Drag/nudge until the embedded grid lines up
-5. If needed, adjust:
-   - **Map scale** to match spacing
-   - **Map rotation** if the scan is slightly tilted
-   - **Opacity** to see grid alignment better
-
----
-
-## 🧰 Troubleshooting
-
-### “Send failed: CORS …”
-- Your backend must enable CORS for your frontend origin.
-- For local dev, `app.use(cors())` is fine.
-- For production, use an allowlist.
-
-### “Invalid JSON” in Apply
-- Ensure your backend always returns valid JSON.
-- If the model occasionally outputs text, enforce structured output (JSON schema) or add a server-side validation/retry.
-
-### Tokens don’t move
-- Confirm response token names match VTT token names exactly.
-- Confirm coordinates are integer grid cells.
-
----
-
-## Roadmap ideas
-
-- Initiative tracker + turn order advancement
-- AoE templates, measurement ruler, and movement validation
-- Walls/doors + line-of-sight and cover
-- Condition tracking and damage application
-- Multi-user realtime sync (WebSocket/WebRTC)
-- “2-click calibration” for embedded grids (auto scale/rotation)
-
----
-
-## Credits
-
-Built as a rapid prototype for AI-assisted grid combat and map alignment.
-
-## Map Credits
-
-The example map included in this repository is:
+The included example map is:
 
 **"The Dreadwarren"** by **Dyson Logos**
 
-Source:  
+Source:
 https://dysonlogos.blog/2025/08/the-dreadwarren/
 
-© Dyson Logos
+Please retain attribution if you redistribute the included map.
 
-Dyson Logos generously provides many of his maps for **commercial and non-commercial use with attribution**.  
-This project includes the map as an example battle map for testing and demonstration purposes.
+## License
 
-If you use or redistribute this project with the included map, please retain this attribution.
-
-Please consider supporting Dyson Logos and his work:
-
-- Website: https://dysonlogos.blog  
-- Patreon: https://www.patreon.com/dysonlogos
-
-
-# License
-
-MIT License
-
-Free for personal and commercial use.
-
----
-
-# Why This Exists
-
-Large language models are extremely good at **tactical reasoning**, but there is no good interface for connecting them to tabletop combat.
-
-This project explores a new idea:
-
-**AI as a tactical participant in tabletop gameplay.**
-
----
-
-⭐ If you find this project interesting, consider starring the repository!
+See [`LICENSE`](/home/witschey/DrowVTT/LICENSE).
