@@ -5,8 +5,9 @@ async function clearTokens(page) {
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
 }
 
-async function addToken(page, { name, size }) {
+async function addToken(page, { name, size, type = 'Monster' }) {
   await page.locator('#tokName').fill(name);
+  await page.locator('#tokType').selectOption(type);
   await page.locator('#tokSize').selectOption(String(size));
   await page.getByRole('button', { name: 'Add token' }).click();
 }
@@ -152,6 +153,39 @@ test('movement rules reject wrong-turn, out-of-range, and overlapping AI moves',
   await page.getByRole('button', { name: 'Apply' }).click();
   await expect(page.locator('#logBox')).toContainText('space is occupied by Ogre');
   await expectTokenCell(page, 'Guard', 6, 1);
+});
+
+test('movement path allows friendlies but blocks opponents', async ({ page }) => {
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
+  await addToken(page, { name: 'Guide', size: 1, type: 'NPC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
+  await setCurrentTurnToken(page, 'Hero');
+
+  await page.locator('#applyJson').fill(JSON.stringify({
+    moves: [{ token: 'Hero', to: [5, 1] }],
+    actions: [],
+    end_turn: false
+  }));
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expectTokenCell(page, 'Hero', 5, 1);
+
+  await clearTokens(page);
+
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
+  await addToken(page, { name: 'Ogre', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
+  await setCurrentTurnToken(page, 'Hero');
+
+  await page.locator('#applyJson').fill(JSON.stringify({
+    moves: [{ token: 'Hero', to: [5, 1] }],
+    actions: [],
+    end_turn: false
+  }));
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.locator('#logBox')).toContainText('cannot pass through Ogre');
+  await expectTokenCell(page, 'Hero', 1, 1);
 });
 
 test('map controls update the map pill and drag mode label', async ({ page }) => {
