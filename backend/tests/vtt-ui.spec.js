@@ -55,6 +55,16 @@ test('1x1 tokens snap to the center of a single tile', async ({ page }) => {
   await expectTokenCell(page, 'Scout', 5, 2);
 });
 
+test('new duplicate creature names auto-increment by letter', async ({ page }) => {
+  await addToken(page, { name: 'Goblin A', size: 1 });
+  await addToken(page, { name: 'Goblin A', size: 1 });
+  await addToken(page, { name: 'Goblin A', size: 1 });
+
+  await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Goblin A' })).toHaveCount(1);
+  await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Goblin B' })).toHaveCount(1);
+  await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Goblin C' })).toHaveCount(1);
+});
+
 test('2x2 tokens center on a four-tile intersection while reporting the top-left occupied cell', async ({ page }) => {
   await addToken(page, { name: 'Ogre', size: 2 });
   await dragTokenToTopLeftCell(page, { size: 2, cellX: 4, cellY: 3 });
