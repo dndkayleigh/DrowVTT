@@ -537,6 +537,30 @@
     return Math.max(Math.abs(toCell.x - fromCell.x), Math.abs(toCell.y - fromCell.y));
   }
 
+  function tokenSide(token) {
+    return token?.type === 'Monster' ? 'monsters' : 'friendlies';
+  }
+
+  function areFriendlyTokens(a, b) {
+    return tokenSide(a) === tokenSide(b);
+  }
+
+  function pathCellsBetween(fromCell, toCell) {
+    const steps = [];
+    let x = fromCell.x;
+    let y = fromCell.y;
+    while (x !== toCell.x || y !== toCell.y) {
+      if (x < toCell.x) x += 1;
+      else if (x > toCell.x) x -= 1;
+
+      if (y < toCell.y) y += 1;
+      else if (y > toCell.y) y -= 1;
+
+      steps.push({ x, y });
+    }
+    return steps;
+  }
+
   function isTokenControlledThisTurn(token) {
     return !!token && token.id === state.currentTurnTokenId;
   }
@@ -558,19 +582,28 @@
       };
     }
 
-    const targetCells = cellsOccupiedAt(toCell.x, toCell.y, token.sizeCells);
     for (const other of state.tokens) {
       if (other.id === token.id) continue;
       const otherCell = gridCoords(other);
       const occupied = new Set(
         cellsOccupiedAt(otherCell.x, otherCell.y, other.sizeCells).map((cell) => `${cell.x},${cell.y}`)
       );
-      const blockedCell = targetCells.find((cell) => occupied.has(`${cell.x},${cell.y}`));
-      if (blockedCell) {
-        return {
-          ok: false,
-          reason: `${token.name} cannot move to (${toCell.x},${toCell.y}); space is occupied by ${other.name}.`
-        };
+      const path = pathCellsBetween(fromCell, toCell);
+      for (let i = 0; i < path.length; i++) {
+        const step = path[i];
+        const isFinalStep = i === path.length - 1;
+        const stepCells = cellsOccupiedAt(step.x, step.y, token.sizeCells);
+        const blockedCell = stepCells.find((cell) => occupied.has(`${cell.x},${cell.y}`));
+        if (!blockedCell) continue;
+
+        if (isFinalStep || !areFriendlyTokens(token, other)) {
+          return {
+            ok: false,
+            reason: isFinalStep
+              ? `${token.name} cannot move to (${toCell.x},${toCell.y}); space is occupied by ${other.name}.`
+              : `${token.name} cannot pass through ${other.name}.`
+          };
+        }
       }
     }
 
