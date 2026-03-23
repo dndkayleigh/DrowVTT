@@ -3,7 +3,12 @@ import { test, expect } from '@playwright/test';
 async function openDetails(page, selector) {
   const details = page.locator(selector);
   if ((await details.getAttribute('open')) !== null) return;
-  await details.locator('summary').click();
+  await details.locator(':scope > summary').click();
+}
+
+async function openDrawerTab(page, tab) {
+  await openDetails(page, '#aiDrawer');
+  await page.locator(`[data-drawer-tab="${tab}"]`).click();
 }
 
 async function clearTokens(page) {
@@ -54,7 +59,7 @@ test.beforeEach(async ({ page }) => {
 
 test('loads the VTT UI', async ({ page }) => {
   await expect(page.locator('#gridSize')).toHaveValue('64');
-  await openDetails(page, '#aiConsole');
+  await openDrawerTab(page, 'settings');
   await expect(page.locator('#apiUrl')).toHaveValue(/http:\/\/localhost:3000\/api\/vtt/);
   await expect(page.locator('canvas')).toBeVisible();
 });
@@ -105,13 +110,13 @@ test('editing the current turn token size re-snaps it while preserving its occup
 test('manual AI JSON application moves tokens and writes to the log', async ({ page }) => {
   await addToken(page, { name: 'Ogre', size: 2 });
 
-  await openDetails(page, '#aiConsole');
+  await openDrawerTab(page, 'apply');
   await page.locator('#applyJson').fill(JSON.stringify({
     moves: [{ token: 'Ogre', to: [6, 5] }],
     actions: [{ token: 'Ogre', type: 'dash', target: null, details: 'Rush forward.' }],
     end_turn: true
   }));
-  await page.getByRole('button', { name: 'Apply' }).click();
+  await page.locator('#applyBtn').click();
 
   await expect(page.locator('#applyStatus')).toContainText('Applied');
   await expectTokenCell(page, 'Ogre', 6, 5);
@@ -135,12 +140,12 @@ test('backend auto-apply fills the response box and moves the current token', as
   });
 
   await addToken(page, { name: 'Cleric', size: 1 });
-  await openDetails(page, '#aiSection');
-  await openDetails(page, '#aiConsole');
+  await openDrawerTab(page, 'settings');
   await page.locator('#autoApplyAI').check();
   await page.getByRole('button', { name: 'Send state to backend' }).click();
 
   await expect(page.locator('#sendStatus')).toContainText('AI response');
+  await openDrawerTab(page, 'apply');
   await expect(page.locator('#applyJson')).toHaveValue(/"Cleric"/);
   await expectTokenCell(page, 'Cleric', 7, 6);
   await expect(page.locator('#logBox')).toContainText('Moved Cleric -> (7,6)');
@@ -152,13 +157,13 @@ test('movement rules reject wrong-turn, out-of-range, and overlapping AI moves',
 
   await addToken(page, { name: 'Ogre', size: 2 });
   await setCurrentTurnToken(page, 'Guard');
-  await openDetails(page, '#aiConsole');
+  await openDrawerTab(page, 'apply');
   await page.locator('#applyJson').fill(JSON.stringify({
     moves: [{ token: 'Ogre', to: [4, 4] }],
     actions: [],
     end_turn: false
   }));
-  await page.getByRole('button', { name: 'Apply' }).click();
+  await page.locator('#applyBtn').click();
   await expect(page.locator('#logBox')).toContainText('not the current turn token');
 
   await page.locator('#applyJson').fill(JSON.stringify({
@@ -166,7 +171,7 @@ test('movement rules reject wrong-turn, out-of-range, and overlapping AI moves',
     actions: [],
     end_turn: false
   }));
-  await page.getByRole('button', { name: 'Apply' }).click();
+  await page.locator('#applyBtn').click();
   await expect(page.locator('#logBox')).toContainText('speed 30 ft allows 6 cells, not 9');
   await expectTokenCell(page, 'Guard', 6, 1);
 
@@ -175,7 +180,7 @@ test('movement rules reject wrong-turn, out-of-range, and overlapping AI moves',
     actions: [],
     end_turn: false
   }));
-  await page.getByRole('button', { name: 'Apply' }).click();
+  await page.locator('#applyBtn').click();
   await expect(page.locator('#logBox')).toContainText('space is occupied by Ogre');
   await expectTokenCell(page, 'Guard', 6, 1);
 });
@@ -187,13 +192,13 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
   await setCurrentTurnToken(page, 'Hero');
 
-  await openDetails(page, '#aiConsole');
+  await openDrawerTab(page, 'apply');
   await page.locator('#applyJson').fill(JSON.stringify({
     moves: [{ token: 'Hero', to: [5, 1] }],
     actions: [],
     end_turn: false
   }));
-  await page.getByRole('button', { name: 'Apply' }).click();
+  await page.locator('#applyBtn').click();
   await expectTokenCell(page, 'Hero', 5, 1);
 
   await clearTokens(page);
@@ -209,7 +214,7 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
     actions: [],
     end_turn: false
   }));
-  await page.getByRole('button', { name: 'Apply' }).click();
+  await page.locator('#applyBtn').click();
   await expect(page.locator('#logBox')).toContainText('cannot pass through Ogre');
   await expectTokenCell(page, 'Hero', 1, 1);
 });
