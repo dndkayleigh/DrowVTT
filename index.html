@@ -111,14 +111,64 @@
       border-radius:12px;
       padding:8px;
     }
+    .panelSection{margin-bottom:8px}
+    .panelSection summary{
+      list-style:none;
+      cursor:pointer;
+      user-select:none;
+      margin:0 0 6px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .panelSection summary::-webkit-details-marker{display:none}
+    .panelSection summary::before{
+      content:"+";
+      width:18px;height:18px;
+      display:inline-flex;align-items:center;justify-content:center;
+      border-radius:999px;border:1px solid var(--line);
+      background:var(--surface-soft);color:var(--muted);font-size:12px;
+      flex:0 0 auto;
+    }
+    .panelSection[open] summary::before{content:"-"}
+    .panelSection summary h2{margin:0}
+    .compactRow{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+    .tokenFormRow{
+      display:grid;
+      grid-template-columns:1.4fr 1fr 1fr 1fr;
+      gap:8px;
+      align-items:end;
+    }
+    .turnTabs{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      margin:8px 0;
+    }
+    .tabBtn{
+      padding:7px 10px;
+      border-radius:999px;
+      font-size:11px;
+      background:var(--surface-soft);
+    }
+    .tabBtn.active{
+      background:rgba(90,169,255,.18);
+      border-color:rgba(90,169,255,.35);
+    }
+    .tabPanel[hidden]{display:none}
+    .tabPanel textarea{min-height:100px}
     .pill{
       display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px;
       background:var(--surface-soft);border:1px solid var(--line);color:var(--muted);
     }
     .list{display:grid;gap:6px;margin-top:8px}
     .tokRow{
-      display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;
-      padding:8px;border-radius:12px;background:var(--surface-soft);
+      display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;
+      padding:7px 8px;border-radius:12px;background:var(--surface-soft);
       border:1px solid var(--line);
     }
     .tokRow b{font-size:12px}
@@ -128,6 +178,38 @@
     .subtleLabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
     .statusRow{min-height:16px}
     .logBox{max-height:140px;overflow:auto}
+    .stageConsole{
+      margin:0 10px 10px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:var(--surface-soft);
+    }
+    .stageConsole summary{
+      list-style:none;
+      cursor:pointer;
+      user-select:none;
+      padding:10px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .stageConsole summary::-webkit-details-marker{display:none}
+    .stageConsole summary::before{
+      content:"+";
+      width:18px;height:18px;
+      display:inline-flex;align-items:center;justify-content:center;
+      border-radius:999px;border:1px solid var(--line);
+      background:var(--surface);color:var(--muted);font-size:12px;
+    }
+    .stageConsole[open] summary::before{content:"-"}
+    .consoleGrid{
+      display:grid;
+      grid-template-columns:1.2fr .9fr 1fr;
+      gap:8px;
+      padding:0 10px 10px;
+    }
     .kbd{
       font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono";
       font-size:11px;padding:2px 6px;border-radius:6px;background:rgba(0,0,0,.25);
@@ -143,6 +225,8 @@
       .app{grid-template-columns:340px 1fr}
       .stageTools{grid-template-columns:1fr}
       .miniPanel{justify-content:flex-start}
+      .consoleGrid{grid-template-columns:1fr}
+      .tokenFormRow{grid-template-columns:1fr 1fr}
     }
     @media (max-width: 900px){
       body{height:auto;overflow:auto}
@@ -150,6 +234,8 @@
       .sidebar{max-height:none}
       .stageWrap{min-height:70vh}
       .row{grid-template-columns:1fr}
+      .compactRow{grid-template-columns:1fr 1fr}
+      .tokenFormRow{grid-template-columns:1fr}
       .stageTools{padding:8px}
       .miniField{min-width:72px}
       .pill{font-size:11px;padding:5px 8px}
@@ -159,218 +245,186 @@
 <body>
 <div class="app">
   <aside class="sidebar">
-    <h2>Map & Grid</h2>
-    <div class="card">
-      <div class="row">
-        <div>
-          <label>Load map image</label>
-          <input id="mapFile" type="file" accept="image/*" />
-        </div>
-        <div>
-          <label>Grid size (px)</label>
-          <input id="gridSize" type="number" min="10" max="200" step="1" value="64" />
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:10px;">
-        <div>
-          <label>Snap</label>
-          <select id="snapMode">
-            <option value="center">Token to cell center</option>
-            <option value="topleft">Token to cell top-left</option>
-          </select>
-        </div>
-        <div>
-          <label>Nudge (cells)</label>
-          <input id="nudgeCells" type="number" min="0.1" step="0.1" value="0.5" />
-        </div>
-      </div>
-
-      <div class="sectionNote">
-        Pan with <span class="kbd">Space</span> + drag. Zoom with the wheel.
-        Map alignment controls live on the board side for quicker tweaking.
-      </div>
-    </div>
-
-    <h2>Tokens</h2>
-    <div class="card">
-      <div class="row">
-        <div>
-          <label>Name</label>
-          <input id="tokName" type="text" value="Goblin A" />
-        </div>
-        <div>
-          <label>Type</label>
-          <select id="tokType">
-            <option value="NPC">NPC</option>
-            <option value="Monster" selected>Monster</option>
-            <option value="PC">PC</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:8px;">
-        <div>
-          <label>Size (cells)</label>
-          <select id="tokSize">
-            <option value="1" selected>1×1</option>
-            <option value="2">2×2</option>
-            <option value="3">3×3</option>
-          </select>
-        </div>
-        <div>
-          <label>Color</label>
-          <select id="tokColor">
-            <option value="#5aa9ff">Blue</option>
-            <option value="#7dffb2">Green</option>
-            <option value="#ffd36a">Gold</option>
-            <option value="#ff5a7a" selected>Red</option>
-            <option value="#caa7ff">Purple</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="btnbar" style="margin-top:10px;">
-        <button id="addToken" class="primary">Add token</button>
-        <button id="clearTokens" class="danger">Clear all</button>
-      </div>
-
-      <div class="list" id="tokenList"></div>
-      <div class="footerNote">Selection and current turn stay in sync.</div>
-    </div>
-
-    <h2>Turn</h2>
-    <div class="card">
-      <div class="row">
-        <div>
-          <label>AI controls</label>
-          <select id="aiControls">
-            <option value="Monsters" selected>Monsters</option>
-            <option value="PCs">PCs</option>
-            <option value="Both">Both</option>
-            <option value="None">None</option>
-          </select>
-        </div>
-        <div>
-          <label>Round</label>
-          <input id="roundNum" type="number" min="1" step="1" value="1" />
-        </div>
-      </div>
-
-      <div style="margin-top:8px;">
-        <label>Current token</label>
-        <select id="turnToken"></select>
-      </div>
-
-      <div class="row" style="margin-top:8px;">
-        <div>
-          <label>AC</label>
-          <input id="selAC" type="number" min="1" step="1" value="15" />
-        </div>
-        <div>
-          <label>HP</label>
-          <input id="selHP" type="text" value="7/7" />
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:8px;">
-        <div>
-          <label>Size</label>
-          <select id="selSize">
-            <option value="1">1×1</option>
-            <option value="2">2×2</option>
-            <option value="3">3×3</option>
-            <option value="4">4×4</option>
-          </select>
-        </div>
-        <div>
-          <label>Color</label>
-          <select id="selColor">
-            <option value="#5aa9ff">Blue</option>
-            <option value="#7dffb2">Green</option>
-            <option value="#ffd36a">Gold</option>
-            <option value="#ff5a7a">Red</option>
-            <option value="#caa7ff">Purple</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:8px;">
-        <div>
-          <label>Speed ft</label>
-          <input id="selSpeed" type="number" min="0" step="5" value="30" />
-        </div>
-        <div>
-          <label>Notes</label>
-          <input id="selNotes" type="text" value="" />
-        </div>
-      </div>
-
-      <div style="margin-top:8px;">
-        <label>Statblock / actions</label>
-        <textarea id="selStatblock" spellcheck="false"></textarea>
-      </div>
-
-      <div class="sectionNote" id="turnRuleNote">
-        These fields edit the current token. Movement obeys turn, speed, and overlap rules.
-      </div>
-    </div>
-
-    <h2>AI</h2>
-    <div class="card">
-      <div class="stack">
-        <div class="subcard">
-          <div class="subtleLabel">Packet</div>
-          <label>Turn packet</label>
-          <textarea id="aiExport" spellcheck="false"></textarea>
-          <div class="btnbar" style="margin-top:10px;">
-            <button id="copyExport" class="primary">Copy</button>
-            <button id="refreshExport">Refresh</button>
+    <details class="panelSection" id="mapSection">
+      <summary><h2>Map & Grid</h2></summary>
+      <div class="card">
+        <div class="row">
+          <div>
+            <label>Load map image</label>
+            <input id="mapFile" type="file" accept="image/*" />
+          </div>
+          <div>
+            <label>Grid size (px)</label>
+            <input id="gridSize" type="number" min="10" max="200" step="1" value="64" />
           </div>
         </div>
 
-        <div class="subcard">
-          <div class="subtleLabel">Send</div>
-          <label>Backend endpoint</label>
-          <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label>Snap</label>
+            <select id="snapMode">
+              <option value="center">Token to cell center</option>
+              <option value="topleft">Token to cell top-left</option>
+            </select>
+          </div>
+          <div>
+            <label>Nudge (cells)</label>
+            <input id="nudgeCells" type="number" min="0.1" step="0.1" value="0.5" />
+          </div>
+        </div>
 
-          <div class="row" style="margin-top:8px;">
+        <div class="sectionNote">
+          Pan with <span class="kbd">Space</span> + drag. Zoom with the wheel.
+          Map alignment controls live on the board side for quicker tweaking.
+        </div>
+      </div>
+    </details>
+
+    <details class="panelSection" id="tokensSection" open>
+      <summary><h2>Tokens</h2></summary>
+      <div class="card">
+        <div class="tokenFormRow">
+          <div>
+            <label>Name</label>
+            <input id="tokName" type="text" value="Goblin A" />
+          </div>
+          <div>
+            <label>Type</label>
+            <select id="tokType">
+              <option value="NPC">NPC</option>
+              <option value="Monster" selected>Monster</option>
+              <option value="PC">PC</option>
+            </select>
+          </div>
+          <div>
+            <label>Size (cells)</label>
+            <select id="tokSize">
+              <option value="1" selected>1×1</option>
+              <option value="2">2×2</option>
+              <option value="3">3×3</option>
+            </select>
+          </div>
+          <div>
+            <label>Color</label>
+            <select id="tokColor">
+              <option value="#5aa9ff">Blue</option>
+              <option value="#7dffb2">Green</option>
+              <option value="#ffd36a">Gold</option>
+              <option value="#ff5a7a" selected>Red</option>
+              <option value="#caa7ff">Purple</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="btnbar" style="margin-top:10px;">
+          <button id="addToken" class="primary">Add token</button>
+          <button id="clearTokens" class="danger">Clear all</button>
+        </div>
+
+        <div class="list" id="tokenList"></div>
+        <div class="footerNote">Selection and current turn stay in sync.</div>
+      </div>
+    </details>
+
+    <details class="panelSection" id="turnSection" open>
+      <summary><h2>Turn</h2></summary>
+      <div class="card">
+        <div class="compactRow">
+          <div>
+            <label>AI controls</label>
+            <select id="aiControls">
+              <option value="Monsters" selected>Monsters</option>
+              <option value="PCs">PCs</option>
+              <option value="Both">Both</option>
+              <option value="None">None</option>
+            </select>
+          </div>
+          <div>
+            <label>Round</label>
+            <input id="roundNum" type="number" min="1" step="1" value="1" />
+          </div>
+          <div>
+            <label>Current token</label>
+            <select id="turnToken"></select>
+          </div>
+        </div>
+
+        <div class="turnTabs" role="tablist" aria-label="Current token details">
+          <button type="button" class="tabBtn active" data-turn-tab="stats">Stats</button>
+          <button type="button" class="tabBtn" data-turn-tab="notes">Notes</button>
+          <button type="button" class="tabBtn" data-turn-tab="statblock">Statblock</button>
+        </div>
+
+        <div class="tabPanel" data-turn-panel="stats">
+          <div class="compactRow">
             <div>
-              <label>AI Model</label>
-              <select id="aiModel">
-                <option value="gpt-4.1-mini">gpt-4.1-mini (fast)</option>
-                <option value="gpt-4.1">gpt-4.1</option>
-                <option value="gpt-5">gpt-5 (slow)</option>
+              <label>AC</label>
+              <input id="selAC" type="number" min="1" step="1" value="15" />
+            </div>
+            <div>
+              <label>HP</label>
+              <input id="selHP" type="text" value="7/7" />
+            </div>
+            <div>
+              <label>Speed ft</label>
+              <input id="selSpeed" type="number" min="0" step="5" value="30" />
+            </div>
+          </div>
+          <div class="compactRow" style="margin-top:8px;">
+            <div>
+              <label>Size</label>
+              <select id="selSize">
+                <option value="1">1×1</option>
+                <option value="2">2×2</option>
+                <option value="3">3×3</option>
+                <option value="4">4×4</option>
               </select>
             </div>
             <div>
-              <label>Response</label>
-              <div class="checkRow" style="margin-top:0;height:40px;">
-                <input id="autoApplyAI" type="checkbox" />
-                <label for="autoApplyAI" style="margin:0;color:var(--muted)">Auto-apply</label>
-              </div>
+              <label>Color</label>
+              <select id="selColor">
+                <option value="#5aa9ff">Blue</option>
+                <option value="#7dffb2">Green</option>
+                <option value="#ffd36a">Gold</option>
+                <option value="#ff5a7a">Red</option>
+                <option value="#caa7ff">Purple</option>
+              </select>
             </div>
           </div>
-
-          <div class="btnbar" style="margin-top:10px;">
-            <button id="sendState" class="primary">Send state to backend</button>
-          </div>
-          <div class="small statusRow" id="sendStatus" style="margin-top:8px;"></div>
         </div>
 
-        <div class="subcard">
-          <div class="subtleLabel">Apply</div>
-          <label>Apply JSON</label>
-          <textarea id="applyJson" spellcheck="false" placeholder='{"moves":[...],"actions":[...],"end_turn":true}'></textarea>
-          <div class="btnbar" style="margin-top:10px;">
-            <button id="applyBtn" class="primary">Apply</button>
-            <button id="clearLog">Clear log</button>
-          </div>
-          <div class="small statusRow" id="applyStatus" style="margin-top:8px;"></div>
-          <div class="small logBox" style="margin-top:8px;white-space:pre-wrap" id="logBox"></div>
+        <div class="tabPanel" data-turn-panel="notes" hidden>
+          <label>Notes</label>
+          <textarea id="selNotes" spellcheck="false"></textarea>
+        </div>
+
+        <div class="tabPanel" data-turn-panel="statblock" hidden>
+          <label>Statblock / actions</label>
+          <textarea id="selStatblock" spellcheck="false"></textarea>
+        </div>
+
+        <div class="sectionNote" id="turnRuleNote">
+          These fields edit the current token. Movement obeys turn, speed, and overlap rules.
         </div>
       </div>
-    </div>
+    </details>
+
+    <details class="panelSection" id="aiSection">
+      <summary><h2>AI</h2></summary>
+      <div class="card">
+        <div class="checkRow" style="margin-top:0;">
+          <input id="autoApplyAI" type="checkbox" />
+          <label for="autoApplyAI" style="margin:0;color:var(--muted)">Auto-apply response</label>
+        </div>
+        <div class="btnbar" style="margin-top:10px;">
+          <button id="sendState" class="primary">Send state to backend</button>
+        </div>
+        <div class="small statusRow" id="sendStatus" style="margin-top:8px;"></div>
+        <div class="sectionNote">
+          Use the AI console on the right for the packet, model settings, manual apply JSON, and log.
+        </div>
+      </div>
+    </details>
   </aside>
 
   <main class="stageWrap">
@@ -405,6 +459,44 @@
         </div>
       </div>
     </div>
+    <details class="stageConsole" id="aiConsole">
+      <summary>AI Console</summary>
+      <div class="consoleGrid">
+        <div class="subcard">
+          <div class="subtleLabel">Packet</div>
+          <label>Turn packet</label>
+          <textarea id="aiExport" spellcheck="false"></textarea>
+          <div class="btnbar" style="margin-top:10px;">
+            <button id="copyExport" class="primary">Copy</button>
+            <button id="refreshExport">Refresh</button>
+          </div>
+        </div>
+        <div class="subcard">
+          <div class="subtleLabel">Settings</div>
+          <label>Backend endpoint</label>
+          <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
+          <div style="margin-top:8px;">
+            <label>AI Model</label>
+            <select id="aiModel">
+              <option value="gpt-4.1-mini">gpt-4.1-mini (fast)</option>
+              <option value="gpt-4.1">gpt-4.1</option>
+              <option value="gpt-5">gpt-5 (slow)</option>
+            </select>
+          </div>
+        </div>
+        <div class="subcard">
+          <div class="subtleLabel">Apply</div>
+          <label>Apply JSON</label>
+          <textarea id="applyJson" spellcheck="false" placeholder='{"moves":[...],"actions":[...],"end_turn":true}'></textarea>
+          <div class="btnbar" style="margin-top:10px;">
+            <button id="applyBtn" class="primary">Apply</button>
+            <button id="clearLog">Clear log</button>
+          </div>
+          <div class="small statusRow" id="applyStatus" style="margin-top:8px;"></div>
+          <div class="small logBox" style="margin-top:8px;white-space:pre-wrap" id="logBox"></div>
+        </div>
+      </div>
+    </details>
     <canvas id="stage"></canvas>
   </main>
 </div>
@@ -945,17 +1037,17 @@
       row.innerHTML = `
         <div>
           <b>${escapeHtml(t.name)}</b>
-          <div class="meta">${escapeHtml(t.type)} • ${t.sizeCells}×${t.sizeCells} • cell=(${c.x},${c.y}) • AC ${t.ac} • HP ${escapeHtml(t.hp)}</div>
+          <div class="meta">${escapeHtml(t.type)} • HP ${escapeHtml(t.hp)} • ${t.sizeCells}×${t.sizeCells} • (${c.x},${c.y})</div>
         </div>
       `;
 
       const selBtn = document.createElement('button');
-      selBtn.textContent = (t.id === state.currentTurnTokenId) ? 'Current' : 'Make Current';
+      selBtn.textContent = (t.id === state.currentTurnTokenId) ? 'Turn' : 'Set';
       selBtn.className = (t.id === state.currentTurnTokenId) ? 'primary' : '';
       selBtn.addEventListener('click', (ev) => { ev.stopPropagation(); setCurrentTurnTokenId(t.id); });
 
       const delBtn = document.createElement('button');
-      delBtn.textContent = 'Delete';
+      delBtn.textContent = 'Del';
       delBtn.className = 'danger';
       delBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
@@ -1016,6 +1108,23 @@
   const selSpeed = document.getElementById('selSpeed');
   const selNotes = document.getElementById('selNotes');
   const selStatblock = document.getElementById('selStatblock');
+  const turnTabButtons = Array.from(document.querySelectorAll('[data-turn-tab]'));
+  const turnTabPanels = Array.from(document.querySelectorAll('[data-turn-panel]'));
+
+  function setTurnTab(tab) {
+    for (const btn of turnTabButtons) {
+      const active = btn.dataset.turnTab === tab;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    }
+    for (const panel of turnTabPanels) {
+      panel.hidden = panel.dataset.turnPanel !== tab;
+    }
+  }
+
+  for (const btn of turnTabButtons) {
+    btn.addEventListener('click', () => setTurnTab(btn.dataset.turnTab));
+  }
 
   function getCurrentTurnToken() {
     return state.tokens.find(t => t.id === state.currentTurnTokenId) || null;
@@ -1433,6 +1542,7 @@
   window.addEventListener('keyup',   (e) => { if (e.code === 'Space') state.spaceDown = false; });
 
   // ---------- Init ----------
+  setTurnTab('stats');
   document.getElementById('gridSize').dispatchEvent(new Event('input'));
   document.getElementById('snapMode').dispatchEvent(new Event('change'));
 

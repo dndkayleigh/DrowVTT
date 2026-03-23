@@ -1,11 +1,19 @@
 import { test, expect } from '@playwright/test';
 
+async function openDetails(page, selector) {
+  const details = page.locator(selector);
+  if ((await details.getAttribute('open')) !== null) return;
+  await details.locator('summary').click();
+}
+
 async function clearTokens(page) {
+  await openDetails(page, '#tokensSection');
   await page.getByRole('button', { name: 'Clear all' }).click();
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
 }
 
 async function addToken(page, { name, size, type = 'Monster' }) {
+  await openDetails(page, '#tokensSection');
   await page.locator('#tokName').fill(name);
   await page.locator('#tokType').selectOption(type);
   await page.locator('#tokSize').selectOption(String(size));
@@ -29,10 +37,11 @@ async function dragTokenToTopLeftCell(page, { size, cellX, cellY }) {
 }
 
 async function expectTokenCell(page, name, x, y) {
-  await expect(page.locator('#tokenList .tokRow').filter({ hasText: name })).toContainText(`cell=(${x},${y})`);
+  await expect(page.locator('#tokenList .tokRow').filter({ hasText: name })).toContainText(`(${x},${y})`);
 }
 
 async function setCurrentTurnToken(page, name) {
+  await openDetails(page, '#turnSection');
   const option = page.locator('#turnToken option').filter({ hasText: name }).first();
   await page.locator('#turnToken').selectOption(await option.getAttribute('value'));
 }
@@ -45,6 +54,7 @@ test.beforeEach(async ({ page }) => {
 
 test('loads the VTT UI', async ({ page }) => {
   await expect(page.locator('#gridSize')).toHaveValue('64');
+  await openDetails(page, '#aiConsole');
   await expect(page.locator('#apiUrl')).toHaveValue(/http:\/\/localhost:3000\/api\/vtt/);
   await expect(page.locator('canvas')).toBeVisible();
 });
@@ -82,6 +92,7 @@ test('editing the current turn token size re-snaps it while preserving its occup
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 5, cellY: 5 });
   await expectTokenCell(page, 'Knight', 5, 5);
 
+  await openDetails(page, '#turnSection');
   await page.locator('#selSize').selectOption('3');
   await page.locator('#selColor').selectOption('#7dffb2');
 
@@ -94,6 +105,7 @@ test('editing the current turn token size re-snaps it while preserving its occup
 test('manual AI JSON application moves tokens and writes to the log', async ({ page }) => {
   await addToken(page, { name: 'Ogre', size: 2 });
 
+  await openDetails(page, '#aiConsole');
   await page.locator('#applyJson').fill(JSON.stringify({
     moves: [{ token: 'Ogre', to: [6, 5] }],
     actions: [{ token: 'Ogre', type: 'dash', target: null, details: 'Rush forward.' }],
@@ -123,6 +135,8 @@ test('backend auto-apply fills the response box and moves the current token', as
   });
 
   await addToken(page, { name: 'Cleric', size: 1 });
+  await openDetails(page, '#aiSection');
+  await openDetails(page, '#aiConsole');
   await page.locator('#autoApplyAI').check();
   await page.getByRole('button', { name: 'Send state to backend' }).click();
 
@@ -138,6 +152,7 @@ test('movement rules reject wrong-turn, out-of-range, and overlapping AI moves',
 
   await addToken(page, { name: 'Ogre', size: 2 });
   await setCurrentTurnToken(page, 'Guard');
+  await openDetails(page, '#aiConsole');
   await page.locator('#applyJson').fill(JSON.stringify({
     moves: [{ token: 'Ogre', to: [4, 4] }],
     actions: [],
@@ -172,6 +187,7 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
   await setCurrentTurnToken(page, 'Hero');
 
+  await openDetails(page, '#aiConsole');
   await page.locator('#applyJson').fill(JSON.stringify({
     moves: [{ token: 'Hero', to: [5, 1] }],
     actions: [],
@@ -199,6 +215,7 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
 });
 
 test('map controls update the map pill and drag mode label', async ({ page }) => {
+  await openDetails(page, '#mapSection');
   await page.locator('#mapScale').fill('1.25');
   await page.locator('#mapRotDeg').fill('1.5');
   await page.locator('#mapOpacity').fill('0.6');
