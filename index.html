@@ -629,6 +629,24 @@
     }[c]));
   }
 
+  function nextTokenName(rawName) {
+    const trimmed = (rawName ?? '').trim() || 'Token';
+    const match = trimmed.match(/^(.*?)(?:\s+([A-Z]))?$/);
+    const baseName = (match?.[1] || trimmed).trim() || 'Token';
+
+    const existing = new Set(state.tokens.map((token) => token.name));
+    if (!existing.has(trimmed)) return trimmed;
+
+    for (let code = 65; code <= 90; code++) {
+      const candidate = `${baseName} ${String.fromCharCode(code)}`;
+      if (!existing.has(candidate)) return candidate;
+    }
+
+    let n = 2;
+    while (existing.has(`${baseName} ${n}`)) n += 1;
+    return `${baseName} ${n}`;
+  }
+
   function nowMs() { return performance.now(); }
   function ms(n) { return `${Math.round(n)}ms`; }
 
@@ -890,7 +908,7 @@
   document.getElementById('addToken').addEventListener('click', () => {
     const type = document.getElementById('tokType').value;
     addToken({
-      name: document.getElementById('tokName').value.trim() || 'Token',
+      name: nextTokenName(document.getElementById('tokName').value),
       type,
       sizeCells: Number(document.getElementById('tokSize').value),
       color: document.getElementById('tokColor').value,
@@ -1051,6 +1069,11 @@
 
   function buildAiTurnPacket() {
     const turnTok = getCurrentTurnToken();
+    const relationToTurn = (token) => {
+      if (!turnTok) return 'unknown';
+      if (token.id === turnTok.id) return 'self';
+      return areFriendlyTokens(token, turnTok) ? 'ally' : 'enemy';
+    };
 
     const lines = [];
     lines.push("SYSTEM: You are the tactical controller for the side specified below in a D&D 5e grid combat.");
@@ -1059,11 +1082,19 @@
     lines.push("");
     lines.push("RULES:");
     lines.push("- D&D 5e, grid-based. Each grid cell = 5 ft.");
+    lines.push("- Maximum movement in cells = Speed / 5.");
     lines.push("- Positions are integer cells (x,y), 0-based; x increases right, y increases down.");
     lines.push("- For multi-cell tokens, (x,y) is the top-left occupied cell.");
     lines.push("- Diagonals cost 5 ft (default).");
     lines.push("- Only the current turn token may move or act this turn.");
-    lines.push("- Token spaces cannot overlap.");
+    lines.push("- Token spaces cannot overlap, and a move must end in an unoccupied space.");
+    lines.push("- Monsters are friendly to monsters. PCs and NPCs are friendly to each other.");
+    lines.push("- Monsters are hostile to PCs and NPCs.");
+    lines.push("- PCs and NPCs are hostile to Monsters.");
+    lines.push("- Friendlies may pass through friendly spaces.");
+    lines.push("- Opponents may not pass through opposing spaces.");
+    lines.push("- Never return a move whose path length or destination exceeds the mover's legal movement in cells.");
+    lines.push("- If a direct destination is blocked, choose a different legal destination instead of returning an illegal move.");
     lines.push("- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.");
     lines.push("");
     lines.push(`AI CONTROLS: ${state.aiControls}`);
@@ -1076,13 +1107,33 @@
     lines.push("- Blocked cells: []");
     lines.push("- Difficult terrain: []");
     lines.push("");
+    lines.push("RELATIONSHIP MODEL:");
+    lines.push(`- Current turn token: ${turnTok ? `"${turnTok.name}"` : "(none)"}`);
+    lines.push("- relation=self means the current turn token.");
+    lines.push("- relation=ally means same side as the current turn token.");
+    lines.push("- relation=enemy means the opposing side.");
+    lines.push("");
     lines.push("TOKENS:");
     if (state.tokens.length === 0) {
       lines.push("- (none)");
     } else {
       for (const t of state.tokens) {
         const c = gridCoords(t);
-        lines.push(`- ${t.type}: "${t.name}" at (${c.x}, ${c.y}), size ${t.sizeCells}x${t.sizeCells}, AC ${t.ac}, HP ${t.hp}, Speed ${t.speed} ft, Notes: ${t.notes || "none"}`);
+        const maxMoveCells = Math.floor((Number(t.speed) || 0) / 5);
+        lines.push(`- relation=${relationToTurn(t)} ${t.type}: "${t.name}" at (${c.x}, ${c.y}), size ${t.sizeCells}x${t.sizeCells}, AC ${t.ac}, HP ${t.hp}, Speed ${t.speed} ft, max move ${maxMoveCells} cells, Notes: ${t.notes || "none"}`);
+      }
+    }
+    lines.push("");
+    lines.push("OCCUPIED SPACES:");
+    if (state.tokens.length === 0) {
+      lines.push("- (none)");
+    } else {
+      for (const t of state.tokens) {
+        const c = gridCoords(t);
+        const cells = cellsOccupiedAt(c.x, c.y, t.sizeCells)
+          .map((cell) => `(${cell.x},${cell.y})`)
+          .join(", ");
+        lines.push(`- relation=${relationToTurn(t)} "${t.name}" occupies: ${cells}`);
       }
     }
     lines.push("");
