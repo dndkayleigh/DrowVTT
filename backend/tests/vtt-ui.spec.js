@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 async function openDetails(page, selector) {
   const details = page.locator(selector);
   if ((await details.getAttribute('open')) !== null) return;
-  await details.locator(':scope > summary').click();
+  await details.evaluate((el) => { el.open = true; });
 }
 
 async function openDrawerTab(page, tab) {
@@ -64,6 +64,68 @@ test('loads the VTT UI', async ({ page }) => {
   await expect(page.locator('canvas')).toBeVisible();
 });
 
+test('AI drawer defaults to compact controls with autopilot on and no tab expanded', async ({ page }) => {
+  const drawer = page.locator('#aiDrawer');
+  await expect(drawer).toHaveAttribute('open', '');
+  await expect(page.getByRole('button', { name: 'Run AI' })).toBeVisible();
+  await expect(page.locator('#autoApplyAI')).toBeChecked();
+  await expect(page.getByText('Autopilot')).toBeVisible();
+
+  for (const tab of ['packet', 'settings', 'apply', 'log']) {
+    await expect(page.locator(`[data-drawer-tab="${tab}"]`)).toBeVisible();
+    await expect(page.locator(`[data-drawer-panel="${tab}"]`)).toBeHidden();
+  }
+});
+
+test('AI drawer tabs open one panel at a time and clicking the active tab collapses back to compact mode', async ({ page }) => {
+  await openDetails(page, '#aiDrawer');
+
+  await page.locator('[data-drawer-tab="packet"]').click();
+  await expect(page.locator('[data-drawer-panel="packet"]')).toBeVisible();
+  await expect(page.locator('[data-drawer-panel="settings"]')).toBeHidden();
+
+  await page.locator('[data-drawer-tab="settings"]').click();
+  await expect(page.locator('[data-drawer-panel="settings"]')).toBeVisible();
+  await expect(page.locator('[data-drawer-panel="packet"]')).toBeHidden();
+
+  await page.locator('[data-drawer-tab="settings"]').click();
+  for (const tab of ['packet', 'settings', 'apply', 'log']) {
+    await expect(page.locator(`[data-drawer-panel="${tab}"]`)).toBeHidden();
+  }
+  await expect(page.getByRole('button', { name: 'Run AI' })).toBeVisible();
+  await expect(page.locator('#autoApplyAI')).toBeChecked();
+});
+
+test('AI drawer persistent controls remain usable regardless of which tab is open', async ({ page }) => {
+  await openDrawerTab(page, 'packet');
+  await page.locator('#autoApplyAI').uncheck();
+  await expect(page.locator('#autoApplyAI')).not.toBeChecked();
+
+  await openDrawerTab(page, 'settings');
+  await expect(page.locator('#autoApplyAI')).not.toBeChecked();
+  await page.locator('#autoApplyAI').check();
+  await expect(page.locator('#autoApplyAI')).toBeChecked();
+
+  await openDrawerTab(page, 'apply');
+  await expect(page.getByRole('button', { name: 'Run AI' })).toBeVisible();
+  await expect(page.locator('#autoApplyAI')).toBeChecked();
+
+  await openDrawerTab(page, 'log');
+  await expect(page.getByRole('button', { name: 'Run AI' })).toBeVisible();
+  await expect(page.locator('#autoApplyAI')).toBeChecked();
+});
+
+test('AI drawer settings persist across tab changes', async ({ page }) => {
+  await openDrawerTab(page, 'settings');
+  await page.locator('#apiUrl').fill('http://localhost:3000/api/custom');
+  await page.locator('#aiModel').selectOption('gpt-5');
+
+  await openDrawerTab(page, 'packet');
+  await openDrawerTab(page, 'settings');
+  await expect(page.locator('#apiUrl')).toHaveValue('http://localhost:3000/api/custom');
+  await expect(page.locator('#aiModel')).toHaveValue('gpt-5');
+});
+
 test('1x1 tokens snap to the center of a single tile', async ({ page }) => {
   await addToken(page, { name: 'Scout', size: 1 });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 5, cellY: 2 });
@@ -120,6 +182,7 @@ test('manual AI JSON application moves tokens and writes to the log', async ({ p
 
   await expect(page.locator('#applyStatus')).toContainText('Applied');
   await expectTokenCell(page, 'Ogre', 6, 5);
+  await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('Moved Ogre -> (6,5)');
   await expect(page.locator('#logBox')).toContainText('Action: Ogre dash');
   await expect(page.locator('#logBox')).toContainText('End turn');
@@ -140,14 +203,15 @@ test('backend auto-apply fills the response box and moves the current token', as
   });
 
   await addToken(page, { name: 'Cleric', size: 1 });
-  await openDrawerTab(page, 'settings');
+  await openDetails(page, '#aiDrawer');
   await page.locator('#autoApplyAI').check();
-  await page.getByRole('button', { name: 'Send state to backend' }).click();
+  await page.getByRole('button', { name: 'Run AI' }).click();
 
   await expect(page.locator('#sendStatus')).toContainText('AI response');
   await openDrawerTab(page, 'apply');
   await expect(page.locator('#applyJson')).toHaveValue(/"Cleric"/);
   await expectTokenCell(page, 'Cleric', 7, 6);
+  await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('Moved Cleric -> (7,6)');
 });
 
@@ -164,23 +228,28 @@ test('movement rules reject wrong-turn, out-of-range, and overlapping AI moves',
     end_turn: false
   }));
   await page.locator('#applyBtn').click();
+  await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('not the current turn token');
 
+  await openDrawerTab(page, 'apply');
   await page.locator('#applyJson').fill(JSON.stringify({
     moves: [{ token: 'Guard', to: [15, 1] }],
     actions: [],
     end_turn: false
   }));
   await page.locator('#applyBtn').click();
+  await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('speed 30 ft allows 6 cells, not 9');
   await expectTokenCell(page, 'Guard', 6, 1);
 
+  await openDrawerTab(page, 'apply');
   await page.locator('#applyJson').fill(JSON.stringify({
     moves: [{ token: 'Guard', to: [0, 0] }],
     actions: [],
     end_turn: false
   }));
   await page.locator('#applyBtn').click();
+  await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('space is occupied by Ogre');
   await expectTokenCell(page, 'Guard', 6, 1);
 });
@@ -215,6 +284,7 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
     end_turn: false
   }));
   await page.locator('#applyBtn').click();
+  await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('cannot pass through Ogre');
   await expectTokenCell(page, 'Hero', 1, 1);
 });
