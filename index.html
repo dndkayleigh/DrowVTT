@@ -197,7 +197,7 @@
       padding:10px 12px;
       display:flex;
       align-items:center;
-      gap:8px;
+      gap:10px;
       justify-content:space-between;
       color:var(--text);
       font-size:12px;
@@ -205,6 +205,7 @@
       background:rgba(90,169,255,.12);
       border-bottom:1px solid transparent;
     }
+    .drawerSummaryLabel{display:inline-flex;align-items:center;gap:8px}
     .aiDrawer summary::-webkit-details-marker{display:none}
     .aiDrawer summary::after{
       content:"+";
@@ -218,6 +219,10 @@
       border-bottom-color:var(--line);
     }
     .aiDrawer[open] summary::after{content:"-"}
+    .aiDrawer[open]{
+      display:flex;
+      flex-direction:column;
+    }
     .aiDrawer.dragging summary{cursor:grabbing}
     .drawerBody{
       display:grid;
@@ -226,11 +231,44 @@
       padding:0 10px 10px;
     }
     .drawerBody .subcard{margin-top:10px}
+    .drawerContent{
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+      flex:1 1 auto;
+      position:relative;
+      z-index:1;
+    }
     .drawerLead{
       font-size:11px;
       color:var(--muted);
       padding:0 10px;
       margin-top:10px;
+    }
+    .drawerActions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      padding:10px 10px 0;
+    }
+    .drawerActions .checkRow{
+      margin-top:0;
+      min-height:34px;
+      padding:0 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:var(--surface-soft);
+    }
+    .drawerActions .statusRow{
+      flex:1 1 180px;
+      min-height:34px;
+      display:flex;
+      align-items:center;
+      padding:0 10px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:var(--surface-soft);
     }
     .drawerTabs{
       display:flex;
@@ -240,6 +278,9 @@
     }
     .drawerPanel{
       padding:0 10px 10px;
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
     }
     .drawerPanel[hidden]{display:none}
     .drawerPanel .subcard{margin-top:10px}
@@ -481,31 +522,43 @@
         </div>
       </div>
     </div>
-    <details class="aiDrawer" id="aiDrawer">
-      <summary>AI Drawer</summary>
-      <div class="drawerLead">Turn packet, backend settings, send/apply controls, and the action log live here.</div>
-      <div class="drawerTabs" role="tablist" aria-label="AI drawer panels">
-        <button type="button" class="tabBtn active" data-drawer-tab="packet">Packet</button>
-        <button type="button" class="tabBtn" data-drawer-tab="settings">Settings</button>
-        <button type="button" class="tabBtn" data-drawer-tab="apply">Apply</button>
-      </div>
-      <div class="drawerPanel" data-drawer-panel="packet">
-        <div class="subcard">
-          <div class="subtleLabel">Packet</div>
-          <label>Turn packet</label>
-          <textarea id="aiExport" spellcheck="false"></textarea>
-          <div class="btnbar" style="margin-top:10px;">
-            <button id="copyExport" class="primary">Copy</button>
-            <button id="refreshExport">Refresh</button>
+    <details class="aiDrawer" id="aiDrawer" open>
+      <summary>
+        <span class="drawerSummaryLabel">AI Drawer</span>
+      </summary>
+      <div class="drawerContent">
+        <div class="drawerLead">Turn packet, backend settings, apply controls, and the action log live here.</div>
+        <div class="drawerActions">
+          <button id="sendState" class="primary">Run AI</button>
+          <div class="checkRow">
+            <input id="autoApplyAI" type="checkbox" checked />
+            <label for="autoApplyAI" style="margin:0;color:var(--muted)">Autopilot</label>
+          </div>
+          <div class="small statusRow" id="sendStatus"></div>
+        </div>
+        <div class="drawerTabs" role="tablist" aria-label="AI drawer panels">
+          <button type="button" class="tabBtn" data-drawer-tab="packet">Packet</button>
+          <button type="button" class="tabBtn" data-drawer-tab="settings">Settings</button>
+          <button type="button" class="tabBtn" data-drawer-tab="apply">Apply</button>
+          <button type="button" class="tabBtn" data-drawer-tab="log">Log</button>
+        </div>
+        <div class="drawerPanel" data-drawer-panel="packet" hidden>
+          <div class="subcard">
+            <div class="subtleLabel">Packet</div>
+            <label>Turn packet</label>
+            <textarea id="aiExport" spellcheck="false"></textarea>
+            <div class="btnbar" style="margin-top:10px;">
+              <button id="copyExport" class="primary">Copy</button>
+              <button id="refreshExport">Refresh</button>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="drawerPanel" data-drawer-panel="settings" hidden>
-        <div class="subcard">
-          <div class="subtleLabel">Settings</div>
-          <label>Backend endpoint</label>
-          <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
-          <div style="margin-top:8px;">
+        <div class="drawerPanel" data-drawer-panel="settings" hidden>
+          <div class="subcard">
+            <div class="subtleLabel">Settings</div>
+            <label>Backend endpoint</label>
+            <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
+            <div style="margin-top:8px;">
             <label>AI Model</label>
             <select id="aiModel">
               <option value="gpt-4.1-mini">gpt-4.1-mini (fast)</option>
@@ -513,27 +566,27 @@
               <option value="gpt-5">gpt-5 (slow)</option>
             </select>
           </div>
-          <div class="checkRow" style="margin-top:10px;">
-            <input id="autoApplyAI" type="checkbox" />
-            <label for="autoApplyAI" style="margin:0;color:var(--muted)">Auto-apply response</label>
           </div>
-          <div class="btnbar" style="margin-top:10px;">
-            <button id="sendState" class="primary">Send state to backend</button>
-          </div>
-          <div class="small statusRow" id="sendStatus" style="margin-top:8px;"></div>
         </div>
-      </div>
-      <div class="drawerPanel" data-drawer-panel="apply" hidden>
-        <div class="subcard">
-          <div class="subtleLabel">Apply</div>
-          <label>Apply JSON</label>
-          <textarea id="applyJson" spellcheck="false" placeholder='{"moves":[...],"actions":[...],"end_turn":true}'></textarea>
-          <div class="btnbar" style="margin-top:10px;">
-            <button id="applyBtn" class="primary">Apply</button>
-            <button id="clearLog">Clear log</button>
+        <div class="drawerPanel" data-drawer-panel="apply" hidden>
+          <div class="subcard">
+            <div class="subtleLabel">Apply</div>
+            <label>Apply JSON</label>
+            <textarea id="applyJson" spellcheck="false" placeholder='{"moves":[...],"actions":[...],"end_turn":true}'></textarea>
+            <div class="btnbar" style="margin-top:10px;">
+              <button id="applyBtn" class="primary">Apply</button>
+            </div>
+            <div class="small statusRow" id="applyStatus" style="margin-top:8px;"></div>
           </div>
-          <div class="small statusRow" id="applyStatus" style="margin-top:8px;"></div>
-          <div class="small logBox" style="margin-top:8px;white-space:pre-wrap" id="logBox"></div>
+        </div>
+        <div class="drawerPanel" data-drawer-panel="log" hidden>
+          <div class="subcard">
+            <div class="subtleLabel">Log</div>
+            <div class="btnbar">
+              <button id="clearLog">Clear log</button>
+            </div>
+            <div class="small logBox" style="margin-top:10px;white-space:pre-wrap" id="logBox"></div>
+          </div>
         </div>
       </div>
     </details>
@@ -766,11 +819,20 @@
     return window.innerWidth > 900;
   }
 
+  function measureAIDrawerHeight() {
+    const previousHeight = aiDrawer.style.height;
+    aiDrawer.style.height = 'auto';
+    const measured = aiDrawer.offsetHeight || 80;
+    aiDrawer.style.height = previousHeight;
+    return measured;
+  }
+
   function applyAIDrawerPosition() {
     if (!shouldFloatAIDrawer()) {
       aiDrawer.style.left = '';
       aiDrawer.style.top = '';
       aiDrawer.style.right = '';
+      aiDrawer.style.height = '';
       state.aiDrawerPos = null;
       return;
     }
@@ -786,7 +848,24 @@
 
     const wrapRect = stageWrap.getBoundingClientRect();
     const drawerWidth = aiDrawer.offsetWidth || 440;
-    const drawerHeight = aiDrawer.offsetHeight || 80;
+    aiDrawer.style.height = '';
+    const naturalHeight = measureAIDrawerHeight();
+    if (!aiDrawer.open) {
+      const maxLeft = Math.max(10, wrapRect.width - drawerWidth - 10);
+      const collapsedHeight = naturalHeight;
+      const maxTop = Math.max(10, wrapRect.height - collapsedHeight - 10);
+      state.aiDrawerPos.left = clamp(state.aiDrawerPos.left, 10, maxLeft);
+      state.aiDrawerPos.top = clamp(state.aiDrawerPos.top, 10, maxTop);
+      aiDrawer.style.left = `${state.aiDrawerPos.left}px`;
+      aiDrawer.style.top = `${state.aiDrawerPos.top}px`;
+      aiDrawer.style.right = 'auto';
+      return;
+    }
+    const maxHeight = Math.max(naturalHeight, wrapRect.height - 20);
+    const targetHeight = Math.min(naturalHeight, maxHeight);
+    aiDrawer.style.height = `${targetHeight}px`;
+
+    const drawerHeight = aiDrawer.offsetHeight || targetHeight;
     const maxLeft = Math.max(10, wrapRect.width - drawerWidth - 10);
     const maxTop = Math.max(10, wrapRect.height - drawerHeight - 10);
     state.aiDrawerPos.left = clamp(state.aiDrawerPos.left, 10, maxLeft);
@@ -1210,19 +1289,26 @@
     btn.addEventListener('click', () => setTurnTab(btn.dataset.turnTab));
   }
 
+  let activeDrawerTab = null;
+
   function setDrawerTab(tab) {
+    activeDrawerTab = tab || null;
     for (const btn of drawerTabButtons) {
-      const active = btn.dataset.drawerTab === tab;
+      const active = !!activeDrawerTab && btn.dataset.drawerTab === activeDrawerTab;
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-selected', active ? 'true' : 'false');
     }
     for (const panel of drawerTabPanels) {
-      panel.hidden = panel.dataset.drawerPanel !== tab;
+      panel.hidden = panel.dataset.drawerPanel !== activeDrawerTab;
     }
+    requestAnimationFrame(() => applyAIDrawerPosition());
   }
 
   for (const btn of drawerTabButtons) {
-    btn.addEventListener('click', () => setDrawerTab(btn.dataset.drawerTab));
+    btn.addEventListener('click', () => {
+      const nextTab = btn.dataset.drawerTab === activeDrawerTab ? null : btn.dataset.drawerTab;
+      setDrawerTab(nextTab);
+    });
   }
 
   function getCurrentTurnToken() {
@@ -1688,7 +1774,7 @@
 
   // ---------- Init ----------
   setTurnTab('stats');
-  setDrawerTab('settings');
+  setDrawerTab(null);
   document.getElementById('gridSize').dispatchEvent(new Event('input'));
   document.getElementById('snapMode').dispatchEvent(new Event('change'));
   requestAnimationFrame(() => applyAIDrawerPosition());
