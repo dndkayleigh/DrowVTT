@@ -126,6 +126,76 @@ test('AI drawer settings persist across tab changes', async ({ page }) => {
   await expect(page.locator('#aiModel')).toHaveValue('gpt-5');
 });
 
+test('monster name autocomplete shows matching SRD suggestions and clicking one fills the input', async ({ page }) => {
+  await openDetails(page, '#tokensSection');
+  await page.locator('#tokName').fill('acol');
+  const suggestions = page.locator('#monsterAutocomplete .autocompleteItem');
+  const suggestionCount = await suggestions.count();
+  expect(suggestionCount).toBeGreaterThan(0);
+  expect(suggestionCount).toBeLessThanOrEqual(4);
+  await expect(suggestions.filter({ hasText: 'Acolyte' })).toHaveCount(1);
+  await suggestions.filter({ hasText: 'Acolyte' }).first().evaluate((el) => el.click());
+  await expect(page.locator('#tokName')).toHaveValue('Acolyte');
+});
+
+test('expanded SRD roster includes monsters beyond the starter set', async ({ page }) => {
+  await openDetails(page, '#tokensSection');
+  await page.locator('#tokName').fill('abo');
+  const suggestions = page.locator('#monsterAutocomplete .autocompleteItem');
+  await expect(suggestions.filter({ hasText: 'Aboleth' })).toHaveCount(1);
+
+  await page.locator('#tokName').fill('Acolyte');
+  await page.locator('#addToken').click();
+
+  await openDetails(page, '#turnSection');
+  await expect(page.locator('#selAC')).toHaveValue('10');
+  await expect(page.locator('#selHP')).toHaveValue('9/9');
+  await expect(page.locator('#selSpeed')).toHaveValue('30');
+  await expect(page.locator('#selSize')).toHaveValue('1');
+
+  await page.locator('[data-turn-tab="statblock"]').click();
+  await expect(page.locator('#selStatblock')).toHaveValue(/Acolyte \(SRD 5\.1\)/);
+  await expect(page.locator('#selStatblock')).toHaveValue(/Club/);
+});
+
+test('adding an exact SRD monster name uses its SRD statblock and stats', async ({ page }) => {
+  await openDetails(page, '#tokensSection');
+  await page.locator('#tokName').fill('Ogre');
+  await page.locator('#addToken').click();
+
+  await openDetails(page, '#turnSection');
+  await expect(page.locator('#selAC')).toHaveValue('11');
+  await expect(page.locator('#selHP')).toHaveValue('59/59');
+  await expect(page.locator('#selSpeed')).toHaveValue('40');
+  await expect(page.locator('#selSize')).toHaveValue('2');
+  await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Ogre' })).toContainText('2×2');
+
+  await page.locator('[data-turn-tab="statblock"]').click();
+  await expect(page.locator('#selStatblock')).toHaveValue(/Ogre \(SRD 5.1\)/);
+  await expect(page.locator('#selStatblock')).toHaveValue(/Greatclub/);
+});
+
+test('adding a custom monster name keeps the custom monster statblock editable', async ({ page }) => {
+  await openDetails(page, '#tokensSection');
+  await page.locator('#tokName').fill('Goblin Boss');
+  await page.locator('#tokSize').selectOption('3');
+  await page.locator('#addToken').click();
+
+  await openDetails(page, '#turnSection');
+  await expect(page.locator('#selAC')).toHaveValue('15');
+  await expect(page.locator('#selHP')).toHaveValue('7/7');
+  await expect(page.locator('#selSpeed')).toHaveValue('30');
+  await expect(page.locator('#selSize')).toHaveValue('3');
+  await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Goblin Boss' })).toContainText('3×3');
+
+  await page.locator('[data-turn-tab="statblock"]').click();
+  await expect(page.locator('#selStatblock')).toHaveValue(/Custom Monster/);
+  await expect(page.locator('#selStatblock')).not.toHaveValue(/Goblin \(SRD 5\.1\)/);
+
+  await page.locator('#selStatblock').fill('Custom Boss\n- Actions:\n  - Smash');
+  await expect(page.locator('#selStatblock')).toHaveValue(/Custom Boss/);
+});
+
 test('1x1 tokens snap to the center of a single tile', async ({ page }) => {
   await addToken(page, { name: 'Scout', size: 1 });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 5, cellY: 2 });

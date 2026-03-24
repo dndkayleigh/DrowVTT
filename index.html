@@ -143,6 +143,48 @@
       gap:8px;
       align-items:end;
     }
+    .fieldStack{position:relative}
+    .autocompleteMenu{
+      position:fixed;
+      display:grid;
+      gap:4px;
+      padding:6px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:rgba(10,15,26,.96);
+      box-shadow:0 10px 24px rgba(0,0,0,.28);
+      z-index:12;
+      max-height:180px;
+      width:min(320px, 42vw);
+      overflow:auto;
+    }
+    .autocompleteMenu[hidden]{display:none}
+    .autocompleteItem{
+      border:1px solid transparent;
+      background:var(--surface-soft);
+      color:var(--text);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      text-align:left;
+      padding:7px 9px;
+      border-radius:10px;
+      font-size:12px;
+      font-weight:500;
+    }
+    .autocompleteItem:hover{
+      border-color:rgba(90,169,255,.35);
+      background:rgba(90,169,255,.12);
+    }
+    .autocompleteMeta{
+      display:inline-block;
+      font-size:10px;
+      color:var(--muted);
+      font-weight:400;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+    }
     .turnTabs{
       display:flex;
       gap:6px;
@@ -365,7 +407,10 @@
         <div class="tokenFormRow">
           <div>
             <label>Name</label>
-            <input id="tokName" type="text" value="Goblin A" />
+            <div class="fieldStack">
+              <input id="tokName" type="text" value="Goblin" autocomplete="off" />
+              <div class="autocompleteMenu" id="monsterAutocomplete" hidden></div>
+            </div>
           </div>
           <div>
             <label>Type</label>
@@ -594,6 +639,7 @@
   </main>
 </div>
 
+<script src="/data/srd-monsters.js"></script>
 <script>
 (() => {
   const canvas = document.getElementById('stage');
@@ -644,6 +690,14 @@
   const aiDrawer = document.getElementById('aiDrawer');
   const aiDrawerSummary = aiDrawer.querySelector('summary');
   const stageWrap = document.querySelector('.stageWrap');
+  const tokNameInput = document.getElementById('tokName');
+  const tokTypeSelect = document.getElementById('tokType');
+  const tokSizeSelect = document.getElementById('tokSize');
+  const tokColorSelect = document.getElementById('tokColor');
+  const monsterAutocomplete = document.getElementById('monsterAutocomplete');
+
+  const SRD_MONSTERS = Array.isArray(window.SRD_MONSTERS) ? window.SRD_MONSTERS : [];
+  const SRD_MONSTERS_BY_NAME = new Map(SRD_MONSTERS.map((monster) => [monster.name.toLowerCase(), monster]));
 
   function screenToWorld(x, y) {
     const { zoom, panX, panY } = state.view;
@@ -880,6 +934,112 @@
     return (s ?? '').toString().replace(/[&<>"']/g, (c) => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
     }[c]));
+  }
+
+  function normalizeMonsterName(name) {
+    return (name ?? "").toString().trim().toLowerCase();
+  }
+
+  function sizeCellsFromSrdSize(size) {
+    switch ((size || "").toLowerCase()) {
+      case 'large': return 2;
+      case 'huge': return 3;
+      case 'gargantuan': return 4;
+      default: return 1;
+    }
+  }
+
+  function resolveSrdMonsterTemplate(name) {
+    return SRD_MONSTERS_BY_NAME.get(normalizeMonsterName(name)) || null;
+  }
+
+  function challengeLabelForMonster(monster) {
+    if (monster?.cr != null) return String(monster.cr);
+    const match = monster?.statblock?.match(/- CR ([^\n]+)/);
+    return match ? match[1] : '?';
+  }
+
+  function levenshteinDistance(a, b) {
+    const left = normalizeMonsterName(a);
+    const right = normalizeMonsterName(b);
+    const dp = Array.from({ length: right.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= left.length; i++) {
+      let prev = dp[0];
+      dp[0] = i;
+      for (let j = 1; j <= right.length; j++) {
+        const next = dp[j];
+        if (left[i - 1] === right[j - 1]) dp[j] = prev;
+        else dp[j] = Math.min(prev, dp[j - 1], dp[j]) + 1;
+        prev = next;
+      }
+    }
+    return dp[right.length];
+  }
+
+  function monsterSearchScore(query, monsterName) {
+    const q = normalizeMonsterName(query);
+    const name = normalizeMonsterName(monsterName);
+    if (!q) return 0;
+    if (name === q) return -1000;
+    if (name.startsWith(q)) return -500 + (name.length - q.length);
+    const wordMatch = name.split(/\s+/).some((part) => part.startsWith(q));
+    if (wordMatch) return -250 + (name.length - q.length);
+    const includesAt = name.indexOf(q);
+    if (includesAt >= 0) return -100 + includesAt;
+    return levenshteinDistance(q, name);
+  }
+
+  function topMonsterMatches(query, limit = 4) {
+    const q = normalizeMonsterName(query);
+    if (!q) return [];
+    return SRD_MONSTERS
+      .map((monster) => ({ monster, score: monsterSearchScore(q, monster.name) }))
+      .sort((a, b) => a.score - b.score || a.monster.name.localeCompare(b.monster.name))
+      .slice(0, limit)
+      .map(({ monster }) => monster);
+  }
+
+  function renderMonsterAutocomplete() {
+    if (document.activeElement !== tokNameInput) {
+      monsterAutocomplete.hidden = true;
+      monsterAutocomplete.innerHTML = '';
+      return;
+    }
+    const showMatches = tokTypeSelect.value === 'Monster';
+    const matches = showMatches ? topMonsterMatches(tokNameInput.value, 4) : [];
+    monsterAutocomplete.innerHTML = '';
+    if (!matches.length) {
+      monsterAutocomplete.hidden = true;
+      return;
+    }
+
+    const rect = tokNameInput.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const menuWidth = Math.min(320, Math.max(220, viewportWidth * 0.42));
+    const preferredLeft = rect.right + 8;
+    const fallbackLeft = Math.max(12, Math.min(rect.left, viewportWidth - menuWidth - 12));
+    const resolvedLeft = preferredLeft + menuWidth <= viewportWidth - 12
+      ? preferredLeft
+      : fallbackLeft;
+    monsterAutocomplete.style.left = `${resolvedLeft}px`;
+    monsterAutocomplete.style.top = `${rect.top}px`;
+    monsterAutocomplete.style.width = `${menuWidth}px`;
+
+    for (const monster of matches) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'autocompleteItem';
+      button.innerHTML = `<span>${escapeHtml(monster.name)}</span><span class="autocompleteMeta">CR ${escapeHtml(challengeLabelForMonster(monster))}</span>`;
+      button.addEventListener('mousedown', (ev) => ev.preventDefault());
+      button.addEventListener('click', () => {
+        tokNameInput.value = monster.name;
+        monsterAutocomplete.hidden = true;
+        tokNameInput.focus();
+      });
+      monsterAutocomplete.appendChild(button);
+    }
+
+    monsterAutocomplete.hidden = false;
   }
 
   function nextTokenName(rawName) {
@@ -1158,21 +1318,43 @@
     setCurrentTurnTokenId(t.id);
   }
 
+  renderMonsterAutocomplete();
+
+  tokNameInput.addEventListener('input', renderMonsterAutocomplete);
+  tokNameInput.addEventListener('focus', renderMonsterAutocomplete);
+  tokNameInput.addEventListener('blur', () => {
+    window.setTimeout(() => { monsterAutocomplete.hidden = true; }, 120);
+  });
+  tokTypeSelect.addEventListener('change', () => {
+    if (document.activeElement === tokNameInput) renderMonsterAutocomplete();
+    else monsterAutocomplete.hidden = true;
+  });
+  window.addEventListener('resize', () => {
+    if (!monsterAutocomplete.hidden) renderMonsterAutocomplete();
+  });
+
   document.getElementById('addToken').addEventListener('click', () => {
-    const type = document.getElementById('tokType').value;
+    const type = tokTypeSelect.value;
+    const rawName = tokNameInput.value;
+    const matchedMonster = type === 'Monster' ? resolveSrdMonsterTemplate(rawName) : null;
+    const nextName = nextTokenName(rawName);
+    monsterAutocomplete.hidden = true;
     addToken({
-      name: nextTokenName(document.getElementById('tokName').value),
+      name: nextName,
       type,
-      sizeCells: Number(document.getElementById('tokSize').value),
-      color: document.getElementById('tokColor').value,
-      ac: 15,
-      hp: type === 'Monster' ? "7/7" : "18/18",
-      speed: 30,
-      notes: "",
-      statblock: type === 'Monster'
-        ? "Goblin (5e)\n- Speed 30 ft\n- Actions:\n  - Scimitar: +4 to hit, 5 ft, 1d6+2 slashing\n  - Shortbow: +4 to hit, range 80/320, 1d6+2 piercing\n- Bonus Action: Nimble Escape (Disengage or Hide)"
-        : ""
+      sizeCells: matchedMonster ? sizeCellsFromSrdSize(matchedMonster.size) : Number(tokSizeSelect.value),
+      color: tokColorSelect.value,
+      ac: matchedMonster ? matchedMonster.ac : 15,
+      hp: matchedMonster ? `${matchedMonster.hp}/${matchedMonster.hp}` : (type === 'Monster' ? "7/7" : "18/18"),
+      speed: matchedMonster ? matchedMonster.speed : 30,
+      notes: matchedMonster ? "SRD monster" : "",
+      statblock: matchedMonster
+        ? matchedMonster.statblock
+        : (type === 'Monster'
+          ? "Custom Monster\n- Speed 30 ft\n- Actions:\n  - Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) damage."
+          : "")
     });
+    renderMonsterAutocomplete();
   });
 
   document.getElementById('clearTokens').addEventListener('click', () => {
