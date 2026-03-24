@@ -132,6 +132,38 @@ test('1x1 tokens snap to the center of a single tile', async ({ page }) => {
   await expectTokenCell(page, 'Scout', 5, 2);
 });
 
+test('left-click dragging a non-current token moves it in one gesture', async ({ page }) => {
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
+
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
+  await expectTokenCell(page, 'Goblin A', 3, 1);
+
+  await setCurrentTurnToken(page, 'Hero');
+  await expect(page.locator('#turnToken option:checked')).toContainText('Hero');
+
+  const row = page.locator('#tokenList .tokRow').filter({ hasText: 'Goblin A' });
+  await expect(row).toContainText('(3,1)');
+
+  const canvas = page.locator('canvas');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box unavailable');
+
+  const startX = box.x + 64 * (3 + 0.5);
+  const startY = box.y + 64 * (1 + 0.5);
+  const endX = box.x + 64 * (5 + 0.5);
+  const endY = box.y + 64 * (1 + 0.5);
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(endX, endY, { steps: 12 });
+  await page.mouse.up();
+
+  await expectTokenCell(page, 'Goblin A', 5, 1);
+  await expect(page.locator('#turnToken option:checked')).toContainText('Goblin A');
+});
+
 test('new duplicate creature names auto-increment by letter', async ({ page }) => {
   await addToken(page, { name: 'Goblin A', size: 1 });
   await addToken(page, { name: 'Goblin A', size: 1 });

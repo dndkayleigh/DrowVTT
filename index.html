@@ -1659,11 +1659,7 @@
     const wantPan = state.spaceDown || isMiddle;
 
     if (hit && !wantPan && state.dragMode === 'tokens') {
-      if (!isTokenControlledThisTurn(hit)) {
-        setCurrentTurnTokenId(hit.id);
-        pushLog(`Current turn set to ${hit.name}. Drag again to move.`);
-        return;
-      }
+      setCurrentTurnTokenId(hit.id);
       state.draggingToken = hit;
       state.dragOffset.x = world.x - hit.x;
       state.dragOffset.y = world.y - hit.y;
