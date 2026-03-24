@@ -639,6 +639,7 @@
   </main>
 </div>
 
+<script src="/data/srd-monsters.js"></script>
 <script>
 (() => {
   const canvas = document.getElementById('stage');
@@ -695,104 +696,7 @@
   const tokColorSelect = document.getElementById('tokColor');
   const monsterAutocomplete = document.getElementById('monsterAutocomplete');
 
-  const SRD_MONSTERS = [
-    {
-      name: "Bandit",
-      size: "Medium",
-      ac: 12,
-      hp: 11,
-      speed: 30,
-      statblock: "Bandit (SRD 5.1)\n- Size Medium, humanoid (any race), alignment any non-lawful alignment\n- AC 12, HP 11 (2d8), Speed 30 ft.\n- STR 11 DEX 12 CON 12 INT 10 WIS 10 CHA 10\n- Senses: passive perception 10\n- Languages: any one language (usually Common)\n- CR 0.125\n- Actions:\n  - Scimitar: Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) slashing damage.\n  - Light Crossbow: Ranged Weapon Attack: +3 to hit, range 80 ft./320 ft., one target. Hit: 5 (1d8 + 1) piercing damage."
-    },
-    {
-      name: "Brown Bear",
-      size: "Large",
-      ac: 11,
-      hp: 34,
-      speed: 40,
-      statblock: "Brown Bear (SRD 5.1)\n- Size Large, beast, alignment unaligned\n- AC 11, HP 34 (4d10), Speed 40 ft.\n- STR 19 DEX 10 CON 16 INT 2 WIS 13 CHA 7\n- Senses: passive perception 13\n- Languages: None\n- CR 1\n- Traits:\n  - Keen Smell: The bear has advantage on Wisdom (Perception) checks that rely on smell.\n- Actions:\n  - Multiattack: The bear makes two attacks: one with its bite and one with its claws.\n  - Bite: Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 8 (1d8 + 4) piercing damage.\n  - Claws: Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) slashing damage."
-    },
-    {
-      name: "Bugbear",
-      size: "Medium",
-      ac: 16,
-      hp: 27,
-      speed: 30,
-      statblock: "Bugbear (SRD 5.1)\n- Size Medium, humanoid (goblinoid), alignment chaotic evil\n- AC 16, HP 27 (5d8), Speed 30 ft.\n- STR 15 DEX 14 CON 13 INT 8 WIS 11 CHA 9\n- Senses: darkvision 60 ft., passive perception 10\n- Languages: Common, Goblin\n- CR 1\n- Traits:\n  - Brute: A melee weapon deals one extra die of its damage when the bugbear hits with it (included in the attack).\n  - Surprise Attack: If the bugbear surprises a creature and hits it with an attack during the first round of combat, the target takes an extra 7 (2d6) damage from the attack.\n- Actions:\n  - Morningstar: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 11 (2d8 + 2) piercing damage.\n  - Javelin: Melee or Ranged Weapon Attack: +4 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 9 (2d6 + 2) piercing damage in melee or 5 (1d6 + 2) piercing damage at range."
-    },
-    {
-      name: "Cultist",
-      size: "Medium",
-      ac: 12,
-      hp: 9,
-      speed: 30,
-      statblock: "Cultist (SRD 5.1)\n- Size Medium, humanoid (any race), alignment any non-good alignment\n- AC 12, HP 9 (2d8), Speed 30 ft.\n- STR 11 DEX 12 CON 10 INT 10 WIS 11 CHA 10\n- Senses: passive perception 10\n- Languages: any one language (usually Common)\n- CR 0.125\n- Traits:\n  - Dark Devotion: The cultist has advantage on saving throws against being charmed or frightened.\n- Actions:\n  - Scimitar: Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 4 (1d6 + 1) slashing damage."
-    },
-    {
-      name: "Giant Spider",
-      size: "Large",
-      ac: 14,
-      hp: 26,
-      speed: 30,
-      statblock: "Giant Spider (SRD 5.1)\n- Size Large, beast, alignment unaligned\n- AC 14, HP 26 (4d10), Speed 30 ft.\n- STR 14 DEX 16 CON 12 INT 2 WIS 11 CHA 4\n- Senses: blindsight 10 ft., darkvision 60 ft., passive perception 10\n- Languages: None\n- CR 1\n- Traits:\n  - Spider Climb: The spider can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.\n  - Web Sense: While in contact with a web, the spider knows the exact location of any other creature in contact with the same web.\n  - Web Walker: The spider ignores movement restrictions caused by webbing.\n- Actions:\n  - Bite: Melee Weapon Attack: +5 to hit, reach 5 ft., one creature. Hit: 7 (1d8 + 3) piercing damage, and the target must make a DC 11 Constitution saving throw, taking 9 (2d8) poison damage on a failed save, or half as much damage on a successful one. If the poison damage reduces the target to 0 hit points, the target is stable but poisoned for 1 hour, even after regaining hit points, and is paralyzed while poisoned in this way.\n  - Web: Ranged Weapon Attack: +5 to hit, range 30/60 ft., one creature. Hit: The target is restrained by webbing. As an action, the restrained target can make a DC 12 Strength check, bursting the webbing on a success. The webbing can also be attacked and destroyed (AC 10; hp 5; vulnerability to fire damage; immunity to bludgeoning, poison, and psychic damage)."
-    },
-    {
-      name: "Goblin",
-      size: "Small",
-      ac: 15,
-      hp: 7,
-      speed: 30,
-      statblock: "Goblin (SRD 5.1)\n- Size Small, humanoid (goblinoid), alignment neutral evil\n- AC 15, HP 7 (2d6), Speed 30 ft.\n- STR 8 DEX 14 CON 10 INT 10 WIS 8 CHA 8\n- Senses: darkvision 60 ft., passive perception 9\n- Languages: Common, Goblin\n- CR 0.25\n- Traits:\n  - Nimble Escape: The goblin can take the Disengage or Hide action as a bonus action on each of its turns.\n- Actions:\n  - Scimitar: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage.\n  - Shortbow: Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
-    },
-    {
-      name: "Kobold",
-      size: "Small",
-      ac: 12,
-      hp: 5,
-      speed: 30,
-      statblock: "Kobold (SRD 5.1)\n- Size Small, humanoid (kobold), alignment lawful evil\n- AC 12, HP 5 (2d6), Speed 30 ft.\n- STR 7 DEX 15 CON 9 INT 8 WIS 7 CHA 8\n- Senses: darkvision 60 ft., passive perception 8\n- Languages: Common, Draconic\n- CR 0.125\n- Traits:\n  - Sunlight Sensitivity: While in sunlight, the kobold has disadvantage on attack rolls, as well as on Wisdom (Perception) checks that rely on sight.\n  - Pack Tactics: The kobold has advantage on an attack roll against a creature if at least one of the kobold's allies is within 5 ft. of the creature and the ally isn't incapacitated.\n- Actions:\n  - Dagger: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 4 (1d4 + 2) piercing damage.\n  - Sling: Ranged Weapon Attack: +4 to hit, range 30/120 ft., one target. Hit: 4 (1d4 + 2) bludgeoning damage."
-    },
-    {
-      name: "Ogre",
-      size: "Large",
-      ac: 11,
-      hp: 59,
-      speed: 40,
-      statblock: "Ogre (SRD 5.1)\n- Size Large, giant, alignment chaotic evil\n- AC 11, HP 59 (7d10), Speed 40 ft.\n- STR 19 DEX 8 CON 16 INT 5 WIS 7 CHA 7\n- Senses: darkvision 60 ft., passive perception 8\n- Languages: Common, Giant\n- CR 2\n- Actions:\n  - Greatclub: Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.\n  - Javelin: Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 11 (2d6 + 4) piercing damage."
-    },
-    {
-      name: "Orc",
-      size: "Medium",
-      ac: 13,
-      hp: 15,
-      speed: 30,
-      statblock: "Orc (SRD 5.1)\n- Size Medium, humanoid (orc), alignment chaotic evil\n- AC 13, HP 15 (2d8), Speed 30 ft.\n- STR 16 DEX 12 CON 16 INT 7 WIS 11 CHA 10\n- Senses: darkvision 60 ft., passive perception 10\n- Languages: Common, Orc\n- CR 0.5\n- Traits:\n  - Aggressive: As a bonus action, the orc can move up to its speed toward a hostile creature that it can see.\n- Actions:\n  - Greataxe: Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 9 (1d12 + 3) slashing damage.\n  - Javelin: Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 6 (1d6 + 3) piercing damage."
-    },
-    {
-      name: "Skeleton",
-      size: "Medium",
-      ac: 13,
-      hp: 13,
-      speed: 30,
-      statblock: "Skeleton (SRD 5.1)\n- Size Medium, undead, alignment lawful evil\n- AC 13, HP 13 (2d8), Speed 30 ft.\n- STR 10 DEX 14 CON 15 INT 6 WIS 8 CHA 5\n- Senses: darkvision 60 ft., passive perception 9\n- Languages: understands all languages it spoke in life but can't speak\n- CR 0.25\n- Actions:\n  - Shortsword: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage.\n  - Shortbow: Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
-    },
-    {
-      name: "Wolf",
-      size: "Medium",
-      ac: 13,
-      hp: 11,
-      speed: 40,
-      statblock: "Wolf (SRD 5.1)\n- Size Medium, beast, alignment unaligned\n- AC 13, HP 11 (2d8), Speed 40 ft.\n- STR 12 DEX 15 CON 12 INT 3 WIS 12 CHA 6\n- Senses: passive perception 13\n- Languages: None\n- CR 0.25\n- Traits:\n  - Keen Hearing and Smell: The wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell.\n  - Pack Tactics: The wolf has advantage on an attack roll against a creature if at least one of the wolf's allies is within 5 ft. of the creature and the ally isn't incapacitated.\n- Actions:\n  - Bite: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) piercing damage. If the target is a creature, it must succeed on a DC 11 Strength saving throw or be knocked prone."
-    },
-    {
-      name: "Zombie",
-      size: "Medium",
-      ac: 8,
-      hp: 22,
-      speed: 20,
-      statblock: "Zombie (SRD 5.1)\n- Size Medium, undead, alignment neutral evil\n- AC 8, HP 22 (3d8), Speed 20 ft.\n- STR 13 DEX 6 CON 16 INT 3 WIS 6 CHA 5\n- Senses: darkvision 60 ft., passive perception 8\n- Languages: understands all languages it spoke in life but can't speak\n- CR 0.25\n- Traits:\n  - Undead Fortitude: If damage reduces the zombie to 0 hit points, it must make a Constitution saving throw with a DC of 5+the damage taken, unless the damage is radiant or from a critical hit. On a success, the zombie drops to 1 hit point instead.\n- Actions:\n  - Slam: Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) bludgeoning damage."
-    }
-  ];
+  const SRD_MONSTERS = Array.isArray(window.SRD_MONSTERS) ? window.SRD_MONSTERS : [];
   const SRD_MONSTERS_BY_NAME = new Map(SRD_MONSTERS.map((monster) => [monster.name.toLowerCase(), monster]));
 
   function screenToWorld(x, y) {
@@ -1050,6 +954,7 @@
   }
 
   function challengeLabelForMonster(monster) {
+    if (monster?.cr != null) return String(monster.cr);
     const match = monster?.statblock?.match(/- CR ([^\n]+)/);
     return match ? match[1] : '?';
   }
