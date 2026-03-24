@@ -14,6 +14,7 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 
 app.use('/maps', express.static(path.join(repoRoot, 'maps')));
+app.use('/data', express.static(path.join(repoRoot, 'data')));
 app.get('/', (_req, res) => {
   res.sendFile(path.join(repoRoot, 'index.html'));
 });

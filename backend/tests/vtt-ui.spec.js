@@ -126,14 +126,36 @@ test('AI drawer settings persist across tab changes', async ({ page }) => {
   await expect(page.locator('#aiModel')).toHaveValue('gpt-5');
 });
 
-test('monster name autocomplete shows up to four SRD matches and clicking a suggestion fills the input', async ({ page }) => {
+test('monster name autocomplete shows matching SRD suggestions and clicking one fills the input', async ({ page }) => {
   await openDetails(page, '#tokensSection');
-  await page.locator('#tokName').fill('g');
+  await page.locator('#tokName').fill('acol');
   const suggestions = page.locator('#monsterAutocomplete .autocompleteItem');
-  await expect(suggestions).toHaveCount(4);
-  await expect(suggestions.filter({ hasText: 'Goblin' })).toHaveCount(1);
-  await suggestions.filter({ hasText: 'Goblin' }).first().evaluate((el) => el.click());
-  await expect(page.locator('#tokName')).toHaveValue('Goblin');
+  const suggestionCount = await suggestions.count();
+  expect(suggestionCount).toBeGreaterThan(0);
+  expect(suggestionCount).toBeLessThanOrEqual(4);
+  await expect(suggestions.filter({ hasText: 'Acolyte' })).toHaveCount(1);
+  await suggestions.filter({ hasText: 'Acolyte' }).first().evaluate((el) => el.click());
+  await expect(page.locator('#tokName')).toHaveValue('Acolyte');
+});
+
+test('expanded SRD roster includes monsters beyond the starter set', async ({ page }) => {
+  await openDetails(page, '#tokensSection');
+  await page.locator('#tokName').fill('abo');
+  const suggestions = page.locator('#monsterAutocomplete .autocompleteItem');
+  await expect(suggestions.filter({ hasText: 'Aboleth' })).toHaveCount(1);
+
+  await page.locator('#tokName').fill('Acolyte');
+  await page.locator('#addToken').click();
+
+  await openDetails(page, '#turnSection');
+  await expect(page.locator('#selAC')).toHaveValue('10');
+  await expect(page.locator('#selHP')).toHaveValue('9/9');
+  await expect(page.locator('#selSpeed')).toHaveValue('30');
+  await expect(page.locator('#selSize')).toHaveValue('1');
+
+  await page.locator('[data-turn-tab="statblock"]').click();
+  await expect(page.locator('#selStatblock')).toHaveValue(/Acolyte \(SRD 5\.1\)/);
+  await expect(page.locator('#selStatblock')).toHaveValue(/Club/);
 });
 
 test('adding an exact SRD monster name uses its SRD statblock and stats', async ({ page }) => {
