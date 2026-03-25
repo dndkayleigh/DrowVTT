@@ -7,6 +7,125 @@ The app is intentionally small:
 - a Node/Express backend in [`backend/server.js`](/home/witschey/DrowVTT/backend/server.js)
 - Playwright UI tests in [`backend/tests/vtt-ui.spec.js`](/home/witschey/DrowVTT/backend/tests/vtt-ui.spec.js)
 
+## Start Here
+
+This section is for people who do not normally code.
+
+If you just want to run the app on your own computer, follow these steps in order.
+
+### What you need
+
+- This project folder on your computer
+- An OpenAI API key
+- Node.js installed
+
+If you do not already have Node.js:
+
+1. Go to `https://nodejs.org/`
+2. Download the current `LTS` version
+3. Install it with the default options
+4. Restart your terminal after installation
+
+### Step 1: Open the `backend` folder in a terminal
+
+You want your terminal to be inside:
+
+```text
+DrowVTT/backend
+```
+
+Easy ways to do that:
+
+1. Open the `DrowVTT` folder on your computer
+2. Open the `backend` folder
+3. Right-click inside that folder
+4. Choose `Open in Terminal`, `Open PowerShell here`, or similar
+
+### Step 2: Install the app
+
+In that terminal, run:
+
+```bash
+npm install
+```
+
+This only needs to be done once, unless you update dependencies later.
+
+### Step 3: Create the `.env` file
+
+Inside the [`backend/`](/home/witschey/DrowVTT/backend) folder, create a file named:
+
+```text
+.env
+```
+
+Put this inside it:
+
+```bash
+OPENAI_API_KEY=your_key_here
+PORT=3000
+```
+
+Replace `your_key_here` with your real OpenAI API key.
+
+### Step 4: Start the app
+
+In the same terminal, run:
+
+```bash
+npm start
+```
+
+If it works, you should see:
+
+```text
+VTT backend listening on http://localhost:3000
+```
+
+### Step 5: Open the VTT
+
+Open this in your web browser:
+
+```text
+http://localhost:3000/
+```
+
+### The next time you want to use it
+
+You do not need to repeat everything.
+
+Usually you only need to:
+
+1. Open a terminal in `DrowVTT/backend`
+2. Run `npm start`
+3. Open `http://localhost:3000/`
+
+### How to stop the app
+
+Go back to the terminal where it is running and press:
+
+```text
+Ctrl+C
+```
+
+### Common problems
+
+If `npm` is not recognized:
+
+- Node.js is probably not installed correctly
+- reinstall Node.js from `https://nodejs.org/`
+
+If the page does not open in the browser:
+
+- make sure the terminal is still running
+- make sure you started the app from the `backend` folder
+- make sure you opened `http://localhost:3000/`
+
+If the VTT opens but `Run Tactics Director` fails:
+
+- check that `OPENAI_API_KEY` in `backend/.env` is correct
+- restart the server after changing `.env`
+
 ## What It Does
 
 - Run a grid-based battlemap with pan/zoom and snap-to-grid tokens
@@ -14,10 +133,12 @@ The app is intentionally small:
 - Track per-token stats like AC, HP, speed, notes, and statblocks
 - Export the current board state as an AI turn packet
 - Send that packet to an OpenAI-backed backend and auto-apply the response
+- Show AI movement paths and a `Narrator's Cue`
 - Enforce basic tactical rules:
   - only the current turn token can move
   - movement is limited by speed
   - token spaces cannot overlap
+  - melee attacks must respect reach
 
 ## Token Positioning Rules
 
@@ -33,17 +154,22 @@ The VTT stores and displays token positions by occupied grid cells:
 ```text
 .
 ├── index.html
+├── data/
 ├── maps/
 └── backend/
     ├── package.json
     ├── package-lock.json
     ├── playwright.config.js
     ├── server.js
+    ├── vtt-response-schema.js
     └── tests/
+        ├── vtt-schema.test.js
         └── vtt-ui.spec.js
 ```
 
 ## Local Setup
+
+This is the same setup as the section above, in shorter technical form.
 
 ### 1) Add backend env vars
 
@@ -84,19 +210,25 @@ http://localhost:3000/api/vtt
 
 ## Testing
 
-Run the UI suite from [`backend/`](/home/witschey/DrowVTT/backend):
+Run the tests from [`backend/`](/home/witschey/DrowVTT/backend):
 
 ```bash
 npm test
 ```
 
-Current Playwright coverage includes:
+This runs:
+
+- a schema/unit test for the backend response contract
+- the Playwright UI suite
+
+Current coverage includes:
 - page load
 - 1x1 / 2x2 / 3x3 token snapping
 - resizing the current token
 - manual AI JSON application
 - backend auto-apply flow
 - movement-rule rejection
+- melee reach validation
 - map control updates
 
 ## Backend Contract
@@ -118,8 +250,9 @@ The backend returns strict JSON in this shape:
 
 ```json
 {
-  "moves": [{"token":"Name","to":[x,y]}],
-  "actions": [{"token":"Name","type":"attack|dash|dodge|hide|disengage|other","target":"Name|null","details":"..."}],
+  "summary": "Short narrator cue",
+  "moves": [{"token":"Name","to":[x,y],"path":[[x1,y1],[x2,y2]],"rationale":"..."}],
+  "actions": [{"token":"Name","type":"attack|dash|dodge|hide|disengage|other","target":"Name|null","details":"...","rationale":"...","attack_kind":"melee|ranged|null","range_ft":5}],
   "end_turn": true
 }
 ```
@@ -127,7 +260,10 @@ The backend returns strict JSON in this shape:
 Notes:
 - `token` is matched by token name
 - `to` uses top-left occupied cell coordinates
+- `path` is used to draw the route on the board
+- `summary` is shown in the `Narrator's Cue` area
 - the frontend can auto-apply the response
+- the frontend validates movement and melee reach
 
 ## Recommended Workflow
 
@@ -137,8 +273,9 @@ Notes:
 4. Align the map using the controls above the board.
 5. Add tokens and set the current turn token.
 6. Edit stats and statblocks in the Turn panel.
-7. Copy the AI packet or send it directly to the backend.
-8. Review or auto-apply the returned move JSON.
+7. Use `Tactics Director` to run the AI or inspect the packet manually.
+8. Review the returned move JSON, movement path, and `Narrator's Cue`.
+9. Auto-apply it or paste/edit JSON manually.
 
 ## Security Notes
 
