@@ -322,6 +322,11 @@
     .decisionText{
       line-height:1.4;
       color:var(--text);
+      display:-webkit-box;
+      -webkit-box-orient:vertical;
+      -webkit-line-clamp:3;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
     .drawerTabs{
       display:flex;
@@ -580,10 +585,10 @@
     </div>
     <details class="aiDrawer" id="aiDrawer" open>
       <summary>
-        <span class="drawerSummaryLabel">AI Drawer</span>
+        <span class="drawerSummaryLabel">Tactics Director</span>
       </summary>
       <div class="drawerContent">
-        <div class="drawerLead">Turn packet, backend settings, apply controls, and the action log live here.</div>
+        <div class="drawerLead">Run Tactics Director, review its plan, adjust settings, and check the log here.</div>
         <div class="drawerActions">
           <button id="sendState" class="primary">Run AI</button>
           <div class="checkRow">
@@ -1541,6 +1546,7 @@
 
       const row = document.createElement('div');
       row.className = 'tokRow';
+      if (t.type === 'Monster' && t.statblock) row.title = t.statblock;
       row.innerHTML = `
         <div>
           <b>${escapeHtml(t.name)}</b>
@@ -1741,9 +1747,11 @@
     lines.push("- Before returning any attack, check the actual grid distance from attacker space to target space.");
     lines.push("- Never return a melee attack unless the target is within the weapon's reach in feet.");
     lines.push("- If a melee target is out of reach, move closer, choose a different legal action, or attack a different legal target.");
+    lines.push("- Keep the rationale honest to the final board state. Do not say a creature stayed out of melee, kept distance, or avoided adjacency if it ends adjacent to an enemy.");
     lines.push("- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.");
     lines.push("- Include a brief overall summary plus short rationale text for each move and action.");
     lines.push("- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.");
+    lines.push("- When relevant, include key mechanics in the Narrator's Cue such as attack bonus, damage dice and type, and any save DC/check the target must make.");
     lines.push("- Include a path array for each move when possible so the UI can show the planned route.");
     lines.push("");
     lines.push(`AI CONTROLS: ${state.aiControls}`);
@@ -1832,7 +1840,11 @@
     state.aiOverlay.summary = summary;
     decisionSummary.textContent = summary;
     decisionSummaryCard.hidden = !summary;
-    requestAnimationFrame(() => applyAIDrawerPosition());
+    requestAnimationFrame(() => {
+      const isOverflowing = decisionSummary.scrollHeight > decisionSummary.clientHeight + 1;
+      decisionSummary.title = (isOverflowing || summary.length > 140) ? summary : '';
+      applyAIDrawerPosition();
+    });
   }
 
   function buildDecisionSummary(obj) {
