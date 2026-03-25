@@ -312,6 +312,17 @@
       border:1px solid var(--line);
       background:var(--surface-soft);
     }
+    .decisionCard{
+      margin:10px 10px 0;
+      padding:10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:var(--surface-soft);
+    }
+    .decisionText{
+      line-height:1.4;
+      color:var(--text);
+    }
     .drawerTabs{
       display:flex;
       gap:6px;
@@ -581,6 +592,10 @@
           </div>
           <div class="small statusRow" id="sendStatus"></div>
         </div>
+        <div class="decisionCard" id="decisionSummaryCard" hidden>
+          <div class="subtleLabel">Narrator's Cue</div>
+          <div class="small decisionText" id="decisionSummary"></div>
+        </div>
         <div class="drawerTabs" role="tablist" aria-label="AI drawer panels">
           <button type="button" class="tabBtn" data-drawer-tab="packet">Packet</button>
           <button type="button" class="tabBtn" data-drawer-tab="settings">Settings</button>
@@ -680,7 +695,8 @@
 
     aiControls: 'Monsters',
     round: 1,
-    log: []
+    log: [],
+    aiOverlay: { paths: [], summary: '' }
   };
 
   // ---------- Helpers ----------
@@ -783,6 +799,26 @@
     return Math.max(Math.abs(toCell.x - fromCell.x), Math.abs(toCell.y - fromCell.y));
   }
 
+  function minTokenDistanceCells(attacker, target) {
+    const attackerCell = gridCoords(attacker);
+    const targetCell = gridCoords(target);
+    const attackerCells = cellsOccupiedAt(attackerCell.x, attackerCell.y, attacker.sizeCells);
+    const targetCells = cellsOccupiedAt(targetCell.x, targetCell.y, target.sizeCells);
+    let minDistance = Infinity;
+    for (const left of attackerCells) {
+      for (const right of targetCells) {
+        minDistance = Math.min(minDistance, chebyshevDistanceCells(left, right));
+      }
+    }
+    return Number.isFinite(minDistance) ? minDistance : 0;
+  }
+
+  function attackRangeCells(rangeFt) {
+    const feet = Number(rangeFt);
+    if (!Number.isFinite(feet) || feet <= 0) return 1;
+    return Math.max(1, Math.ceil(feet / 5));
+  }
+
   function tokenSide(token) {
     return token?.type === 'Monster' ? 'monsters' : 'friendlies';
   }
@@ -863,6 +899,72 @@
     token.x = snapped.x;
     token.y = snapped.y;
     return result;
+  }
+
+  function validateAction(a) {
+    const tokenName = (a?.token ?? "").toString();
+    const type = (a?.type ?? "other").toString().toLowerCase();
+    const targetName = a?.target == null ? null : String(a.target);
+    const attackKind = a?.attack_kind == null ? null : String(a.attack_kind).toLowerCase();
+    const rangeFt = a?.range_ft == null ? null : Number(a.range_ft);
+    if (!tokenName) return { ok: false, reason: 'Action ignored: missing token name.' };
+
+    const actor = state.tokens.find((token) => token.name === tokenName);
+    if (!actor) return { ok: false, reason: `Action ignored (token not found): ${tokenName}` };
+    if (!isTokenControlledThisTurn(actor)) {
+      return { ok: false, reason: `${tokenName} cannot act because it is not the current turn token.` };
+    }
+
+    if (type !== 'attack') return { ok: true, actor };
+    if (!targetName) return { ok: false, reason: `${tokenName} attack ignored: missing target.` };
+
+    const target = state.tokens.find((token) => token.name === targetName);
+    if (!target) return { ok: false, reason: `${tokenName} attack ignored: target not found (${targetName}).` };
+    if (attackKind === 'melee') {
+      const maxCells = attackRangeCells(rangeFt ?? 5);
+      const actualCells = minTokenDistanceCells(actor, target);
+      if (actualCells > maxCells) {
+        const shownFeet = Number.isFinite(rangeFt) ? rangeFt : 5;
+        return {
+          ok: false,
+          reason: `${tokenName} cannot make a melee attack on ${targetName} from ${actualCells * 5} ft away; range ${shownFeet} ft requires ${maxCells === 1 ? 'adjacent spaces' : `within ${maxCells} cells`}.`
+        };
+      }
+    }
+
+    return { ok: true, actor, target };
+  }
+
+  function parseGridCellTuple(value) {
+    if (!Array.isArray(value) || value.length !== 2) return null;
+    const x = Number(value[0]);
+    const y = Number(value[1]);
+    if (!Number.isInteger(x) || !Number.isInteger(y)) return null;
+    return { x, y };
+  }
+
+  function normalizeMovePath(path, fromCell, toCell) {
+    const provided = Array.isArray(path)
+      ? path.map(parseGridCellTuple).filter(Boolean)
+      : [];
+    const cells = provided.length ? provided.slice() : pathCellsBetween(fromCell, toCell);
+    if (!cells.length || cells[0].x !== fromCell.x || cells[0].y !== fromCell.y) {
+      cells.unshift({ x: fromCell.x, y: fromCell.y });
+    }
+    const last = cells[cells.length - 1];
+    if (last.x !== toCell.x || last.y !== toCell.y) {
+      cells.push({ x: toCell.x, y: toCell.y });
+    }
+    return cells.filter((cell, index) => index === 0 || cell.x !== cells[index - 1].x || cell.y !== cells[index - 1].y);
+  }
+
+  function clearAiPaths() {
+    state.aiOverlay.paths = [];
+  }
+
+  function getPathLabelPoint(points) {
+    if (!points.length) return null;
+    return points[Math.floor(points.length / 2)];
   }
 
   function getCss(varName) {
@@ -1177,6 +1279,66 @@
     }
   }
 
+  function drawAiPaths() {
+    if (!Array.isArray(state.aiOverlay.paths) || !state.aiOverlay.paths.length) return;
+    const zoom = state.view.zoom;
+    for (const overlay of state.aiOverlay.paths) {
+      if (!Array.isArray(overlay.cells) || overlay.cells.length < 2) continue;
+      const points = overlay.cells.map((cell) => {
+        const anchor = centerFromGridCell(cell.x, cell.y, overlay.sizeCells || 1);
+        return worldToScreen(anchor.x, anchor.y);
+      });
+      const pathColor = overlay.color || '#5aa9ff';
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = pathColor;
+      ctx.lineWidth = Math.max(2, Math.min(5, zoom * 3));
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+      ctx.stroke();
+
+      ctx.fillStyle = pathColor;
+      for (let i = 0; i < points.length; i++) {
+        const radius = i === points.length - 1 ? 5 : 3.5;
+        ctx.globalAlpha = i === points.length - 1 ? 1 : 0.8;
+        ctx.beginPath();
+        ctx.arc(points[i].x, points[i].y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const end = points[points.length - 1];
+      const prev = points[points.length - 2];
+      const angle = Math.atan2(end.y - prev.y, end.x - prev.x);
+      const arrowSize = 10;
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.moveTo(end.x, end.y);
+      ctx.lineTo(end.x - arrowSize * Math.cos(angle - Math.PI / 6), end.y - arrowSize * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(end.x - arrowSize * Math.cos(angle + Math.PI / 6), end.y - arrowSize * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      const labelPoint = getPathLabelPoint(points);
+      if (labelPoint && overlay.name) {
+        ctx.font = `${Math.max(10, 11 * zoom)}px ui-sans-serif, system-ui`;
+        const label = `${overlay.name} path`;
+        const textWidth = ctx.measureText(label).width;
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = 'rgba(8,12,22,0.82)';
+        ctx.fillRect(labelPoint.x - textWidth / 2 - 8, labelPoint.y - 24, textWidth + 16, 18);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, labelPoint.x, labelPoint.y - 15);
+      }
+      ctx.restore();
+    }
+  }
+
   function updatePills() {
     document.getElementById('viewPill').textContent =
       `Zoom: ${Math.round(state.view.zoom * 100)}% • Pan: (${Math.round(state.view.panX)},${Math.round(state.view.panY)})`;
@@ -1189,6 +1351,7 @@
     clear();
     drawMap();
     drawGrid();
+    drawAiPaths();
     drawTokens();
     updatePills();
   }
@@ -1310,6 +1473,7 @@
   const tokenListEl = document.getElementById('tokenList');
 
   function addToken({ name, type, sizeCells, color, ac=15, hp="7/7", speed=30, notes="", statblock="" }) {
+    clearAiPaths();
     const worldTL = screenToWorld(70, 70);
     const snapped = snapWorldPoint(worldTL.x, worldTL.y, sizeCells);
 
@@ -1518,6 +1682,7 @@
   function saveEditorToCurrentTurnToken() {
     const t = getCurrentTurnToken();
     if (!t) return;
+    clearAiPaths();
 
     const oldCell = gridCoords(t);
     t.ac = Number(selAC.value) || t.ac;
@@ -1572,6 +1737,14 @@
     lines.push("- Never return a move whose path length or destination exceeds the mover's legal movement in cells.");
     lines.push("- If a direct destination is blocked, choose a different legal destination instead of returning an illegal move.");
     lines.push("- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.");
+    lines.push("- Melee attacks with 5 ft reach require adjacency (touching occupied spaces). A target with one empty square between is 10 ft away and out of range.");
+    lines.push("- Before returning any attack, check the actual grid distance from attacker space to target space.");
+    lines.push("- Never return a melee attack unless the target is within the weapon's reach in feet.");
+    lines.push("- If a melee target is out of reach, move closer, choose a different legal action, or attack a different legal target.");
+    lines.push("- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.");
+    lines.push("- Include a brief overall summary plus short rationale text for each move and action.");
+    lines.push("- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.");
+    lines.push("- Include a path array for each move when possible so the UI can show the planned route.");
     lines.push("");
     lines.push(`AI CONTROLS: ${state.aiControls}`);
     lines.push(`ROUND: ${state.round}`);
@@ -1619,8 +1792,10 @@
     lines.push("OUTPUT CONTRACT:");
     lines.push("Return ONLY this JSON shape (no prose, no markdown):");
     lines.push("{");
-    lines.push('  "moves": [{"token":"Name","to":[x,y]}],');
-    lines.push('  "actions": [{"token":"Name","type":"attack|dash|dodge|hide|disengage|other","target":"Name|null","details":"..."}],');
+    lines.push('  "summary": "brief overall rationale",');
+    lines.push('  "moves": [{"token":"Name","to":[x,y],"path":[[x1,y1],[x2,y2]],"rationale":"brief movement reason"}],');
+    lines.push('  "actions": [{"token":"Name","type":"attack|dash|dodge|hide|disengage|other","target":"Name|null","details":"...","rationale":"brief action reason","attack_kind":"melee|ranged|null","range_ft":5}],');
+    lines.push('For a 5 ft melee attack, only return it when the attacker is adjacent to the target.');
     lines.push('  "end_turn": true');
     lines.push("}");
     return lines.join("\n");
@@ -1636,6 +1811,8 @@
   // ---------- Log + Apply ----------
   const applyStatus = document.getElementById('applyStatus');
   const logBox = document.getElementById('logBox');
+  const decisionSummaryCard = document.getElementById('decisionSummaryCard');
+  const decisionSummary = document.getElementById('decisionSummary');
 
   function pushLog(line) {
     state.log.push(`[${new Date().toLocaleTimeString()}] ${line}`);
@@ -1643,10 +1820,49 @@
     logBox.textContent = state.log.join("\n");
   }
 
+  function conciseAiText(text, maxLength = 180) {
+    const cleaned = (text ?? '').toString().replace(/\s+/g, ' ').trim();
+    if (!cleaned) return '';
+    if (cleaned.length <= maxLength) return cleaned;
+    return `${cleaned.slice(0, maxLength - 1).trimEnd()}...`;
+  }
+
+  function setDecisionSummary(text) {
+    const summary = conciseAiText(text, 220);
+    state.aiOverlay.summary = summary;
+    decisionSummary.textContent = summary;
+    decisionSummaryCard.hidden = !summary;
+    requestAnimationFrame(() => applyAIDrawerPosition());
+  }
+
+  function buildDecisionSummary(obj) {
+    const explicit = conciseAiText(obj?.summary, 220);
+    if (explicit) return explicit;
+
+    const move = Array.isArray(obj?.moves) ? obj.moves.find((entry) => entry?.token && Array.isArray(entry?.to)) : null;
+    const action = Array.isArray(obj?.actions) ? obj.actions.find((entry) => entry?.token) : null;
+    const parts = [];
+
+    if (move) {
+      const moveReason = conciseAiText(move.rationale, 120);
+      if (moveReason) parts.push(moveReason);
+      else parts.push(`${move.token} moves to (${move.to[0]},${move.to[1]}).`);
+    }
+
+    if (action) {
+      const actionReason = conciseAiText(action.rationale || action.details, 120);
+      if (actionReason) parts.push(actionReason);
+      else parts.push(`${action.token} uses ${action.type}${action.target ? ` vs ${action.target}` : ''}.`);
+    }
+
+    return conciseAiText(parts.join(' '), 220);
+  }
+
   function applyAiObject(obj, options = {}) {
     const moves = Array.isArray(obj?.moves) ? obj.moves : [];
     const actions = Array.isArray(obj?.actions) ? obj.actions : [];
     const { source = 'AI' } = options;
+    const nextPaths = [];
 
     for (const m of moves) {
       const name = (m?.token ?? "").toString();
@@ -1664,7 +1880,23 @@
         pushLog(`Move ignored: ${result.reason}`);
         continue;
       }
-      pushLog(`Moved ${name} -> (${gx},${gy})`);
+
+      const movePath = normalizeMovePath(m?.path, result.fromCell, result.toCell);
+      nextPaths.push({
+        tokenId: t.id,
+        name,
+        color: t.color,
+        sizeCells: t.sizeCells,
+        cells: movePath
+      });
+
+      const moveRationale = conciseAiText(m?.rationale, 180);
+      const pathLabel = movePath.map((cell) => `(${cell.x},${cell.y})`).join(' -> ');
+      pushLog(
+        `Moved ${name} -> (${gx},${gy})` +
+        `${moveRationale ? ` | Why: ${moveRationale}` : ''}` +
+        ` | Path: ${pathLabel}`
+      );
     }
 
     for (const a of actions) {
@@ -1672,9 +1904,21 @@
       const type = (a?.type ?? "other").toString();
       const target = (a?.target ?? null);
       const details = (a?.details ?? "").toString();
+      const rationale = conciseAiText(a?.rationale, 180);
       if (!token) continue;
-      pushLog(`Action: ${token} ${type}${target ? " vs " + target : ""} — ${details}`);
+      const validation = validateAction(a);
+      if (!validation.ok) {
+        pushLog(`Action ignored: ${validation.reason}`);
+        continue;
+      }
+      pushLog(
+        `Action: ${token} ${type}${target ? " vs " + target : ""} — ${details}` +
+        `${rationale ? ` | Why: ${rationale}` : ''}`
+      );
     }
+
+    state.aiOverlay.paths = nextPaths;
+    setDecisionSummary(buildDecisionSummary(obj));
 
     if (obj?.end_turn) pushLog("End turn ✓");
 
@@ -1869,6 +2113,7 @@
       const t = state.draggingToken;
       const targetCell = gridCoords(t);
       const result = moveTokenToCell(t, targetCell, { source: 'Drag' });
+      clearAiPaths();
       if (!result.ok) {
         const fallback = state.dragOriginCell || gridCoords(t);
         const snapped = centerFromGridCell(fallback.x, fallback.y, t.sizeCells);
@@ -1976,6 +2221,10 @@
   loadCurrentTurnTokenToEditor();
 
   setTimeout(resizeCanvasToCSS, 0);
+
+  window.__VTT_DEBUG__ = {
+    getAiOverlay: () => JSON.parse(JSON.stringify(state.aiOverlay))
+  };
 })();
 </script>
 </body>

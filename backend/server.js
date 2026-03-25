@@ -4,6 +4,7 @@ import cors from 'cors';
 import OpenAI from 'openai';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { vttResponseSchema } from './vtt-response-schema.js';
 
 const app = express();
 app.use(cors());              // dev only; lock down origins in production
@@ -59,45 +60,7 @@ app.post('/api/vtt', async (req, res) => {
         format: {
           type: "json_schema",
           name: "vtt_turn",
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              moves: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  properties: {
-                    token: { type: "string" },
-                    to: {
-                      type: "array",
-                      items: { type: "integer" },
-                      minItems: 2,
-                      maxItems: 2
-                    }
-                  },
-                  required: ["token", "to"]
-                }
-              },
-              actions: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  properties: {
-                    token: { type: "string" },
-                    type: { type: "string" },
-                    target: { anyOf: [{ type: "string" }, { type: "null" }] },
-                    details: { type: "string" }
-                  },
-                  required: ["token", "type", "target", "details"]
-                }
-              },
-              end_turn: { type: "boolean" }
-            },
-            required: ["moves", "actions", "end_turn"]
-          }
+          schema: vttResponseSchema
         }
       }
     });
