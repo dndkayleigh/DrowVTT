@@ -283,6 +283,21 @@ Notes:
 - Lock down CORS before production use
 - Add auth and rate limiting if you expose the backend publicly
 
+## SRD License
+
+This project includes material based on the Dungeons & Dragons System Reference Document 5.1 (`SRD 5.1`) by Wizards of the Coast LLC.
+
+The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License (`CC BY 4.0`).
+
+Attribution statement:
+
+> This work includes material taken from the System Reference Document 5.1 ("SRD 5.1") by Wizards of the Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at https://creativecommons.org/licenses/by/4.0/legalcode.
+
+Links:
+
+- Official SRD page: https://dnd.wizards.com/resources/systems-reference-document
+- CC BY 4.0 license: https://creativecommons.org/licenses/by/4.0/legalcode
+
 ## Map Credit
 
 The included example map is:
