@@ -271,22 +271,55 @@ test('editing the current turn token size re-snaps it while preserving its occup
   await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Knight' })).toContainText('3×3');
 });
 
-test('manual AI JSON application moves tokens and writes to the log', async ({ page }) => {
+test('manual AI JSON application draws a move path, shows a short summary, and writes detailed reasoning to the log', async ({ page }) => {
   await addToken(page, { name: 'Ogre', size: 2 });
 
   await openDrawerTab(page, 'apply');
   await page.locator('#applyJson').fill(JSON.stringify({
-    moves: [{ token: 'Ogre', to: [6, 5] }],
-    actions: [{ token: 'Ogre', type: 'dash', target: null, details: 'Rush forward.' }],
+    summary: 'Ogre advances to pressure the back line, then dashes to stay threatening.',
+    moves: [{
+      token: 'Ogre',
+      to: [6, 5],
+      path: [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 5]],
+      rationale: 'Advance along the diagonal to close distance while keeping a lane into the center.'
+    }],
+    actions: [{
+      token: 'Ogre',
+      type: 'dash',
+      target: null,
+      details: 'Rush forward.',
+      rationale: 'Dash keeps the ogre in melee range pressure for the next round.',
+      attack_kind: null,
+      range_ft: null
+    }],
     end_turn: true
   }));
   await page.locator('#applyBtn').click();
 
   await expect(page.locator('#applyStatus')).toContainText('Applied');
+  await expect(page.locator('#decisionSummary')).toContainText('Ogre advances to pressure the back line');
   await expectTokenCell(page, 'Ogre', 6, 5);
+
+  const overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
+  expect(overlay.summary).toContain('Ogre advances to pressure the back line');
+  expect(overlay.paths).toHaveLength(1);
+  expect(overlay.paths[0].name).toBe('Ogre');
+  expect(overlay.paths[0].cells).toEqual([
+    { x: 0, y: 0 },
+    { x: 1, y: 1 },
+    { x: 2, y: 2 },
+    { x: 3, y: 3 },
+    { x: 4, y: 4 },
+    { x: 5, y: 5 },
+    { x: 6, y: 5 }
+  ]);
+
   await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('Moved Ogre -> (6,5)');
+  await expect(page.locator('#logBox')).toContainText('Why: Advance along the diagonal');
+  await expect(page.locator('#logBox')).toContainText('Path: (0,0) -> (1,1) -> (2,2) -> (3,3) -> (4,4) -> (5,5) -> (6,5)');
   await expect(page.locator('#logBox')).toContainText('Action: Ogre dash');
+  await expect(page.locator('#logBox')).toContainText('Dash keeps the ogre in melee range pressure');
   await expect(page.locator('#logBox')).toContainText('End turn');
 });
 
@@ -296,8 +329,21 @@ test('backend auto-apply fills the response box and moves the current token', as
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        moves: [{ token: 'Cleric', to: [7, 6] }],
-        actions: [{ token: 'Cleric', type: 'dodge', target: null, details: 'Hold position.' }],
+        summary: 'Cleric falls back to a safer square and dodges to anchor the line.',
+        moves: [{
+          token: 'Cleric',
+          to: [7, 6],
+          rationale: 'Reposition to the safer back corner while preserving line support.'
+        }],
+        actions: [{
+          token: 'Cleric',
+          type: 'dodge',
+          target: null,
+          details: 'Hold position.',
+          rationale: 'Dodge increases survivability once the cleric reaches the fallback square.',
+          attack_kind: null,
+          range_ft: null
+        }],
         end_turn: true,
         _timing: { total_ms: 12, openai_ms: 9, prep_ms: 1, parse_ms: 1, model: 'gpt-4.1-mini' }
       })
@@ -310,6 +356,7 @@ test('backend auto-apply fills the response box and moves the current token', as
   await page.getByRole('button', { name: 'Run AI' }).click();
 
   await expect(page.locator('#sendStatus')).toContainText('AI response');
+  await expect(page.locator('#decisionSummary')).toContainText('Cleric falls back to a safer square');
   await openDrawerTab(page, 'apply');
   await expect(page.locator('#applyJson')).toHaveValue(/"Cleric"/);
   await expectTokenCell(page, 'Cleric', 7, 6);
@@ -354,6 +401,34 @@ test('movement rules reject wrong-turn, out-of-range, and overlapping AI moves',
   await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('space is occupied by Ogre');
   await expectTokenCell(page, 'Guard', 6, 1);
+});
+
+test('melee attacks are rejected when the target is beyond reach', async ({ page }) => {
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
+  await setCurrentTurnToken(page, 'Goblin A');
+
+  await openDrawerTab(page, 'apply');
+  await page.locator('#applyJson').fill(JSON.stringify({
+    summary: 'Goblin lunges too early.',
+    moves: [],
+    actions: [{
+      token: 'Goblin A',
+      type: 'attack',
+      target: 'Hero',
+      details: 'Scimitar slash.',
+      rationale: 'Strike immediately before the hero closes.',
+      attack_kind: 'melee',
+      range_ft: 5
+    }],
+    end_turn: false
+  }));
+  await page.locator('#applyBtn').click();
+
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('Action ignored: Goblin A cannot make a melee attack on Hero from 10 ft away');
 });
 
 test('movement path allows friendlies but blocks opponents', async ({ page }) => {
