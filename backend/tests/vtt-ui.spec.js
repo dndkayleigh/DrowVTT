@@ -169,6 +169,7 @@ test('adding an exact SRD monster name uses its SRD statblock and stats', async 
   await expect(page.locator('#selSpeed')).toHaveValue('40');
   await expect(page.locator('#selSize')).toHaveValue('2');
   await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Ogre' })).toContainText('2×2');
+  await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Ogre' })).toHaveAttribute('title', /Ogre \(SRD 5\.1\)/);
 
   await page.locator('[data-turn-tab="statblock"]').click();
   await expect(page.locator('#selStatblock')).toHaveValue(/Ogre \(SRD 5.1\)/);
@@ -276,7 +277,7 @@ test('manual AI JSON application draws a move path, shows a short summary, and w
 
   await openDrawerTab(page, 'apply');
   await page.locator('#applyJson').fill(JSON.stringify({
-    summary: 'Ogre advances to pressure the back line, then dashes to stay threatening.',
+    summary: 'Ogre advances to pressure the back line, then dashes to stay threatening while looming over the battlefield and forcing Aria to give ground under the weight of an imminent crushing blow.',
     moves: [{
       token: 'Ogre',
       to: [6, 5],
@@ -298,6 +299,7 @@ test('manual AI JSON application draws a move path, shows a short summary, and w
 
   await expect(page.locator('#applyStatus')).toContainText('Applied');
   await expect(page.locator('#decisionSummary')).toContainText('Ogre advances to pressure the back line');
+  await expect(page.locator('#decisionSummary')).toHaveAttribute('title', /forcing Aria to give ground/);
   await expectTokenCell(page, 'Ogre', 6, 5);
 
   const overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
