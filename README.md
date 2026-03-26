@@ -234,6 +234,7 @@ Current coverage includes:
 ## Roadmap
 
 - Prompt caching for GPT-5 latency reduction. Split the AI turn packet into stable and volatile sections so repeated battlefield context, rules text, and static token data can be cached instead of re-sent every turn. The goal is to cut perceived turn time and reduce token usage when using slower but smarter GPT-5-class models.
+- Map/view control cleanup. Rework where controls like `Fit map`, `Reset view`, drag mode, and map-alignment actions live so they take up less board real estate and feel more intentional during play.
 - Storage hardening for saved boards. Detect `localStorage` quota issues earlier, surface friendlier errors, and handle large embedded map images more gracefully.
 - Save-slot polish. Add rename support, clearer timestamps, and a stronger “current board differs from saved slot” signal.
 - Autosave polish. Improve autosave history labels, make restore intent clearer, and decide whether autosave should be enabled by default.
