@@ -26,7 +26,7 @@ async function addToken(page, { name, size, type = 'Monster' }) {
 }
 
 async function dragTokenToTopLeftCell(page, { size, cellX, cellY }) {
-  const canvas = page.locator('canvas');
+  const canvas = page.locator('#stage');
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas bounding box unavailable');
 
@@ -61,7 +61,7 @@ test('loads the VTT UI', async ({ page }) => {
   await expect(page.locator('#gridSize')).toHaveValue('64');
   await openDrawerTab(page, 'settings');
   await expect(page.locator('#apiUrl')).toHaveValue(/http:\/\/localhost:3000\/api\/vtt/);
-  await expect(page.locator('canvas')).toBeVisible();
+  await expect(page.locator('#stage')).toBeVisible();
 });
 
 test('AI drawer defaults to compact controls with autopilot on and no tab expanded', async ({ page }) => {
@@ -217,7 +217,7 @@ test('left-click dragging a non-current token moves it in one gesture', async ({
   const row = page.locator('#tokenList .tokRow').filter({ hasText: 'Goblin A' });
   await expect(row).toContainText('(3,1)');
 
-  const canvas = page.locator('canvas');
+  const canvas = page.locator('#stage');
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas bounding box unavailable');
 
@@ -270,6 +270,56 @@ test('editing the current turn token size re-snaps it while preserving its occup
   await expect(page.locator('#selColor')).toHaveValue('#7dffb2');
   await expectTokenCell(page, 'Knight', 5, 5);
   await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Knight' })).toContainText('3×3');
+});
+
+test('token art can be uploaded, cropped, and saved from the token list', async ({ page }) => {
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+
+  const row = page.locator('#tokenList .tokRow').filter({ hasText: 'Hero' });
+  await row.getByRole('button', { name: 'Art' }).click();
+  await expect(page.locator('#tokenArtModal')).toBeVisible();
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1f8ef1" />
+          <stop offset="100%" stop-color="#ffd166" />
+        </linearGradient>
+      </defs>
+      <rect width="256" height="256" rx="28" fill="url(#g)" />
+      <circle cx="128" cy="104" r="48" fill="#0b1020" />
+      <rect x="70" y="156" width="116" height="56" rx="24" fill="#0b1020" />
+    </svg>
+  `;
+
+  await page.locator('#tokenArtFile').setInputFiles({
+    name: 'hero-token.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(svg)
+  });
+
+  await expect(page.locator('#tokenArtMeta')).toContainText('hero-token.svg');
+  await page.locator('#tokenArtZoom').evaluate((el) => {
+    el.value = '1.4';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.locator('#tokenArtPanX').evaluate((el) => {
+    el.value = '0.25';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  await page.getByRole('button', { name: 'Save art' }).click();
+  await expect(page.locator('#tokenArtModal')).toBeHidden();
+  await expect(row).toContainText('Art');
+
+  const hero = await page.evaluate(() =>
+    window.__VTT_DEBUG__.getTokens().find((token) => token.name === 'Hero')
+  );
+  expect(hero.art).toBeTruthy();
+  expect(hero.art.fileName).toBe('hero-token.svg');
+  expect(hero.art.scale).toBeCloseTo(1.4, 5);
+  expect(hero.art.panX).toBeCloseTo(0.25, 5);
 });
 
 test('manual AI JSON application draws a move path, shows a short summary, and writes detailed reasoning to the log', async ({ page }) => {
