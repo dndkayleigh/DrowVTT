@@ -52,6 +52,9 @@ async function setCurrentTurnToken(page, name) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.removeItem('drowvtt.saveSlots.v1'));
+  await page.addInitScript(() => window.localStorage.removeItem('drowvtt.autosaveHistory.v1'));
+  await page.addInitScript(() => window.localStorage.removeItem('drowvtt.autosaveEnabled.v1'));
   await page.goto('/');
   await expect(page).toHaveTitle(/Web VTT Prototype/);
   await clearTokens(page);
@@ -320,6 +323,92 @@ test('token art can be uploaded, cropped, and saved from the token list', async 
   expect(hero.art.fileName).toBe('hero-token.svg');
   expect(hero.art.scale).toBeCloseTo(1.4, 5);
   expect(hero.art.panX).toBeCloseTo(0.25, 5);
+});
+
+test('named save slots restore a saved board and can be managed from the toolbar', async ({ page }) => {
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 4, cellY: 2 });
+
+  await openDetails(page, '#turnSection');
+  await page.locator('#roundNum').fill('3');
+  await page.locator('#aiControls').selectOption('PCs');
+  await openDetails(page, '#saveSection');
+  await page.locator('#saveSlotName').fill('Round 3 Start');
+
+  await page.getByRole('button', { name: 'Save Slot' }).click();
+  await expect(page.locator('#saveStateStatus')).toContainText('Round 3 Start');
+  await expect(page.locator('#saveSlotSelect')).toHaveValue(/.+/);
+
+  await page.getByRole('button', { name: 'Clear all' }).click();
+  await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
+  await page.locator('#roundNum').fill('1');
+  await page.locator('#aiControls').selectOption('Monsters');
+  await page.locator('#saveSlotName').fill('Empty Board');
+  await page.getByRole('button', { name: 'Save Slot' }).click();
+
+  await page.locator('#saveSlotSelect').selectOption({ label: 'Round 3 Start' });
+  await page.getByRole('button', { name: 'Load Slot' }).click();
+
+  await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Hero' })).toHaveCount(1);
+  await expectTokenCell(page, 'Hero', 4, 2);
+  await expect(page.locator('#roundNum')).toHaveValue('3');
+  await expect(page.locator('#aiControls')).toHaveValue('PCs');
+  await expect(page.locator('#saveSlotName')).toHaveValue('Round 3 Start');
+
+  await page.locator('#saveSlotSelect').selectOption({ label: 'Empty Board' });
+  await page.getByRole('button', { name: 'Delete Slot' }).click();
+
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  const slots = await page.evaluate(() => window.__VTT_DEBUG__.getSaveSlots());
+  expect(snapshot.version).toBe(1);
+  expect(snapshot.state.tokens).toHaveLength(1);
+  expect(snapshot.state.tokens[0].name).toBe('Hero');
+  expect(slots.map((slot) => slot.name)).toEqual(['Round 3 Start']);
+});
+
+test('board snapshots can be exported and imported as json files', async ({ page }) => {
+  await addToken(page, { name: 'Mage', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 6, cellY: 4 });
+  await openDetails(page, '#turnSection');
+  await page.locator('#roundNum').fill('5');
+  await openDetails(page, '#saveSection');
+
+  const exported = await page.evaluate(() => JSON.stringify(window.__VTT_DEBUG__.getBoardSnapshot()));
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export JSON' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^drowvtt-board-save-\d{8}-\d{4}\.json$/);
+
+  await page.getByRole('button', { name: 'Clear all' }).click();
+  await page.locator('#roundNum').fill('1');
+  await page.locator('#importBoardFile').setInputFiles({
+    name: 'restored-board.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(exported)
+  });
+
+  await expectTokenCell(page, 'Mage', 6, 4);
+  await expect(page.locator('#roundNum')).toHaveValue('5');
+  await expect(page.locator('#saveStateStatus')).toContainText('Imported JSON');
+});
+
+test('autosave history can restore a recent board snapshot', async ({ page }) => {
+  await openDetails(page, '#saveSection');
+  await page.locator('#autosaveEnabled').check();
+
+  await addToken(page, { name: 'Scout', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 2, cellY: 5 });
+
+  await page.waitForFunction(() => window.__VTT_DEBUG__.getAutosaves().length > 0);
+  await expect(page.locator('#autosaveSelect option')).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Clear all' }).click();
+  await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Restore Autosave' }).click();
+
+  await expectTokenCell(page, 'Scout', 2, 5);
+  await expect(page.locator('#saveStateStatus')).toContainText('Restored autosave');
 });
 
 test('manual AI JSON application draws a move path, shows a short summary, and writes detailed reasoning to the log', async ({ page }) => {
