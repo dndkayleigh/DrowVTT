@@ -544,9 +544,25 @@
           <button id="exportBoardBtn">Export JSON</button>
           <button id="importBoardBtn">Import JSON</button>
         </div>
+        <div class="checkRow" style="margin-top:10px">
+          <input id="autosaveEnabled" type="checkbox" />
+          <label for="autosaveEnabled" style="margin:0;color:var(--muted)">Autosave changes</label>
+        </div>
+        <div class="saveSlotGrid" style="margin-top:10px">
+          <div>
+            <label for="autosaveSelect">Autosave history</label>
+            <select id="autosaveSelect">
+              <option value="">(no autosaves yet)</option>
+            </select>
+          </div>
+          <div class="saveSlotActions" style="margin-top:0">
+            <button id="restoreAutosaveBtn">Restore Autosave</button>
+            <button id="clearAutosavesBtn" class="danger">Clear Autosaves</button>
+          </div>
+        </div>
         <input id="importBoardFile" type="file" accept="application/json,.json" hidden />
         <div class="pill saveStatus" id="saveStateStatus" style="margin-top:10px">Save slot empty</div>
-        <div class="sectionNote">Named save slots live in this browser so you can snapshot the board and restore it later.</div>
+        <div class="sectionNote">Named save slots live in this browser so you can snapshot the board and restore it later. Autosave keeps a rolling local history of the last few board changes.</div>
       </div>
     </details>
 
@@ -873,6 +889,7 @@
 
 <script src="/data/srd-monsters.js"></script>
 <script type="module">
+import { AUTOSAVE_HISTORY_LIMIT, parseAutosaveHistory, pushAutosaveEntry, stringifyAutosaveHistory } from '/data/autosave-history-utils.mjs';
 import { buildBoardSnapshotFilename, parseBoardSnapshotText } from '/data/board-state-io-utils.mjs';
 import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/data/board-state-utils.mjs';
 import { normalizeSlotName, parseSaveSlots, removeSaveSlot, stringifySaveSlots, upsertSaveSlot } from '/data/save-slots-utils.mjs';
@@ -952,6 +969,10 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   const saveSlotBtn = document.getElementById('saveSlotBtn');
   const loadSlotBtn = document.getElementById('loadSlotBtn');
   const deleteSlotBtn = document.getElementById('deleteSlotBtn');
+  const autosaveEnabledCheckbox = document.getElementById('autosaveEnabled');
+  const autosaveSelect = document.getElementById('autosaveSelect');
+  const restoreAutosaveBtn = document.getElementById('restoreAutosaveBtn');
+  const clearAutosavesBtn = document.getElementById('clearAutosavesBtn');
   const exportBoardBtn = document.getElementById('exportBoardBtn');
   const importBoardBtn = document.getElementById('importBoardBtn');
   const importBoardFileInput = document.getElementById('importBoardFile');
@@ -965,6 +986,11 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   const SRD_MONSTERS = Array.isArray(window.SRD_MONSTERS) ? window.SRD_MONSTERS : [];
   const SRD_MONSTERS_BY_NAME = new Map(SRD_MONSTERS.map((monster) => [monster.name.toLowerCase(), monster]));
   const SAVE_SLOTS_STORAGE_KEY = 'drowvtt.saveSlots.v1';
+  const AUTOSAVE_HISTORY_STORAGE_KEY = 'drowvtt.autosaveHistory.v1';
+  const AUTOSAVE_ENABLED_STORAGE_KEY = 'drowvtt.autosaveEnabled.v1';
+  let autosaveTimer = null;
+  let autosaveSuppressed = false;
+  let lastAutosaveSignature = '';
 
   function getTokenById(id) {
     return state.tokens.find((token) => token.id === id) || null;
@@ -1041,6 +1067,14 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     window.localStorage.setItem(SAVE_SLOTS_STORAGE_KEY, stringifySaveSlots(slots));
   }
 
+  function loadAutosaveHistoryFromStorage() {
+    return parseAutosaveHistory(window.localStorage.getItem(AUTOSAVE_HISTORY_STORAGE_KEY));
+  }
+
+  function persistAutosaveHistory(entries) {
+    window.localStorage.setItem(AUTOSAVE_HISTORY_STORAGE_KEY, stringifyAutosaveHistory(entries));
+  }
+
   function updateSaveControls(slots, selectedId = saveSlotSelect.value) {
     const safeSlots = Array.isArray(slots) ? slots : [];
     const previous = selectedId || saveSlotSelect.value;
@@ -1081,6 +1115,36 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     setSaveStatus(label);
   }
 
+  function updateAutosaveControls(entries, selectedId = autosaveSelect.value) {
+    const safeEntries = Array.isArray(entries) ? entries : [];
+    const previous = selectedId || autosaveSelect.value;
+    autosaveSelect.innerHTML = '';
+    if (!safeEntries.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '(no autosaves yet)';
+      autosaveSelect.appendChild(opt);
+      autosaveSelect.value = '';
+      restoreAutosaveBtn.disabled = true;
+      clearAutosavesBtn.disabled = true;
+      return;
+    }
+    for (const entry of safeEntries) {
+      const opt = document.createElement('option');
+      opt.value = entry.id;
+      const stamp = new Date(entry.savedAt);
+      const label = Number.isNaN(stamp.getTime())
+        ? entry.id
+        : `${stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}`;
+      opt.textContent = label;
+      autosaveSelect.appendChild(opt);
+    }
+    const resolved = safeEntries.some((entry) => entry.id === previous) ? previous : safeEntries[0].id;
+    autosaveSelect.value = resolved;
+    restoreAutosaveBtn.disabled = false;
+    clearAutosavesBtn.disabled = false;
+  }
+
   function syncSaveSlotsUiFromStorage(preferredSlotId = saveSlotSelect.value) {
     try {
       const slots = loadSaveSlotsFromStorage();
@@ -1091,6 +1155,18 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     } catch {
       updateSaveControls([], '');
       setSaveStatus('Save slots unreadable', true);
+      return [];
+    }
+  }
+
+  function syncAutosaveUiFromStorage(preferredEntryId = autosaveSelect.value) {
+    try {
+      const entries = loadAutosaveHistoryFromStorage();
+      updateAutosaveControls(entries, preferredEntryId);
+      return entries;
+    } catch {
+      updateAutosaveControls([], '');
+      setSaveStatus('Autosaves unreadable', true);
       return [];
     }
   }
@@ -1109,6 +1185,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   }
 
   async function hydrateBoardState(snapshotInput) {
+    autosaveSuppressed = true;
     const snapshot = parseBoardSnapshot(snapshotInput);
     const next = snapshot.state;
     const mapImage = await createMapImageFromSrc(next.map.src);
@@ -1163,6 +1240,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     refreshExport();
     updateSaveStatusFromSlot({ name: saveSlotNameInput.value || 'Save slot', savedAt: snapshot.savedAt });
     syncSaveSlotsUiFromStorage(saveSlotSelect.value);
+    syncAutosaveUiFromStorage(autosaveSelect.value);
+    lastAutosaveSignature = JSON.stringify(snapshot.state);
+    autosaveSuppressed = false;
     return snapshot;
   }
 
@@ -1208,6 +1288,56 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     updateSaveControls(remaining, remaining[0]?.id || '');
     updateSaveStatusFromSlot(remaining.find((entry) => entry.id === saveSlotSelect.value) || null);
     return slot;
+  }
+
+  function autosaveEnabled() {
+    return autosaveEnabledCheckbox.checked;
+  }
+
+  function setAutosaveEnabled(enabled) {
+    autosaveEnabledCheckbox.checked = !!enabled;
+    window.localStorage.setItem(AUTOSAVE_ENABLED_STORAGE_KEY, enabled ? '1' : '0');
+  }
+
+  function pushAutosaveSnapshot(snapshot) {
+    const entry = {
+      id: uid(),
+      savedAt: snapshot.savedAt,
+      snapshot
+    };
+    const next = pushAutosaveEntry(loadAutosaveHistoryFromStorage(), entry);
+    persistAutosaveHistory(next);
+    updateAutosaveControls(next, entry.id);
+    return entry;
+  }
+
+  function scheduleAutosave() {
+    if (autosaveSuppressed || !autosaveEnabled()) return;
+    if (autosaveTimer) window.clearTimeout(autosaveTimer);
+    autosaveTimer = window.setTimeout(() => {
+      const snapshot = buildSerializableBoardSnapshot();
+      const signature = JSON.stringify(snapshot.state);
+      if (signature === lastAutosaveSignature) return;
+      lastAutosaveSignature = signature;
+      const entry = pushAutosaveSnapshot(snapshot);
+      setSaveStatus(`Autosaved ${new Date(entry.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}`);
+    }, 450);
+  }
+
+  async function restoreSelectedAutosave() {
+    const entries = loadAutosaveHistoryFromStorage();
+    const entry = entries.find((current) => current.id === autosaveSelect.value);
+    if (!entry) throw new Error('No autosave selected.');
+    await hydrateBoardState(entry.snapshot);
+    updateAutosaveControls(entries, entry.id);
+    setSaveStatus(`Restored autosave from ${new Date(entry.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}`);
+    return entry;
+  }
+
+  function clearAutosaveHistory() {
+    window.localStorage.removeItem(AUTOSAVE_HISTORY_STORAGE_KEY);
+    updateAutosaveControls([], '');
+    setSaveStatus('Autosave history cleared');
   }
 
   function screenToWorld(x, y) {
@@ -1870,6 +2000,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     drawAiPaths();
     drawTokens();
     updatePills();
+    scheduleAutosave();
   }
 
   // ---------- Selection/Turn Sync ----------
@@ -1958,6 +2089,27 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       setSaveStatus('Delete failed', true);
       pushLog(`Delete slot failed: ${err.message || err}`);
     }
+  });
+  autosaveEnabledCheckbox.addEventListener('change', () => {
+    setAutosaveEnabled(autosaveEnabledCheckbox.checked);
+    if (autosaveEnabled()) scheduleAutosave();
+  });
+  restoreAutosaveBtn.addEventListener('click', async () => {
+    try {
+      const entry = await restoreSelectedAutosave();
+      pushLog(`Restored autosave from ${entry.savedAt}.`);
+    } catch (err) {
+      setSaveStatus('Restore failed', true);
+      pushLog(`Restore autosave failed: ${err.message || err}`);
+    }
+  });
+  clearAutosavesBtn.addEventListener('click', () => {
+    clearAutosaveHistory();
+    pushLog('Cleared autosave history.');
+  });
+  autosaveSelect.addEventListener('change', () => {
+    const entries = loadAutosaveHistoryFromStorage();
+    updateAutosaveControls(entries, autosaveSelect.value);
   });
   exportBoardBtn.addEventListener('click', () => {
     try {
@@ -3092,6 +3244,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   renderTokenList();
   loadCurrentTurnTokenToEditor();
   syncSaveSlotsUiFromStorage();
+  setAutosaveEnabled(window.localStorage.getItem(AUTOSAVE_ENABLED_STORAGE_KEY) === '1');
+  syncAutosaveUiFromStorage();
 
   setTimeout(resizeCanvasToCSS, 0);
 
@@ -3099,6 +3253,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     getAiOverlay: () => JSON.parse(JSON.stringify(state.aiOverlay)),
     getBoardSnapshot: () => buildSerializableBoardSnapshot(),
     importBoardSnapshotText: async (text) => await hydrateBoardState(parseBoardSnapshotText(text)),
+    getAutosaves: () => loadAutosaveHistoryFromStorage().map((entry) => ({ id: entry.id, savedAt: entry.savedAt })),
     getSaveSlots: () => loadSaveSlotsFromStorage().map((slot) => ({ id: slot.id, name: slot.name, savedAt: slot.savedAt })),
     getTokens: () => state.tokens.map((token) => ({
       id: token.id,
