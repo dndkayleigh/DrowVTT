@@ -220,6 +220,10 @@
     .subtleLabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
     .statusRow{min-height:16px}
     .logBox{max-height:140px;overflow:auto}
+    .saveStatus{
+      min-width:190px;
+      justify-content:center;
+    }
     .contextMenu{
       position:fixed;
       z-index:30;
@@ -682,10 +686,13 @@
       <span class="pill" id="viewPill">Zoom: 100% • Pan: (0,0)</span>
       <span class="pill" id="gridPill">Grid: 64px</span>
       <span class="pill" id="mapPill">Map: off(0,0) scale 1 rot 0°</span>
+      <span class="pill saveStatus" id="saveStateStatus">Save slot empty</span>
       <span class="hint">Grid combat, map alignment, and AI-assisted turns.</span>
     </div>
     <div class="stageTools">
       <div class="cluster">
+        <button id="quickSaveBtn">Quick Save</button>
+        <button id="quickLoadBtn">Load Save</button>
         <button id="fitMap" class="primary">Fit map</button>
         <button id="resetView">Reset view</button>
         <button id="dragModeBtn" class="primary">Drag: Tokens</button>
@@ -831,6 +838,7 @@
 
 <script src="/data/srd-monsters.js"></script>
 <script type="module">
+import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/data/board-state-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
 
 (() => {
@@ -851,7 +859,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     gridSize: 64,
     snapMode: 'center',
     view: { zoom: 1, panX: 0, panY: 0 },
-    map: { img: null, w: 0, h: 0, offX: 0, offY: 0, scale: 1, rot: 0, opacity: 1 },
+    map: { img: null, src: '', w: 0, h: 0, offX: 0, offY: 0, scale: 1, rot: 0, opacity: 1 },
 
     tokens: [],
     selectedTokenId: null,
@@ -902,6 +910,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   const resetTokenArtCropBtn = document.getElementById('resetTokenArtCrop');
   const cancelTokenArtBtn = document.getElementById('cancelTokenArt');
   const saveTokenArtBtn = document.getElementById('saveTokenArt');
+  const quickSaveBtn = document.getElementById('quickSaveBtn');
+  const quickLoadBtn = document.getElementById('quickLoadBtn');
+  const saveStateStatus = document.getElementById('saveStateStatus');
   const tokNameInput = document.getElementById('tokName');
   const tokTypeSelect = document.getElementById('tokType');
   const tokSizeSelect = document.getElementById('tokSize');
@@ -910,6 +921,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   const SRD_MONSTERS = Array.isArray(window.SRD_MONSTERS) ? window.SRD_MONSTERS : [];
   const SRD_MONSTERS_BY_NAME = new Map(SRD_MONSTERS.map((monster) => [monster.name.toLowerCase(), monster]));
+  const QUICK_SAVE_STORAGE_KEY = 'drowvtt.quickSave.v1';
 
   function getTokenById(id) {
     return state.tokens.find((token) => token.id === id) || null;
@@ -951,6 +963,156 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   function hideTokenContextMenu() {
     tokenContextMenu.hidden = true;
     state.contextMenuTokenId = null;
+  }
+
+  function resetTransientState() {
+    state.selectedTokenId = null;
+    state.draggingToken = null;
+    state.draggingPan = false;
+    state.draggingMap = false;
+    state.draggingArtPreview = false;
+    state.draggingAIDrawer = false;
+    state.aiDrawerPointerDown = null;
+    state.suppressAIDrawerToggle = false;
+    state.dragOffset = { x: 0, y: 0 };
+    state.dragOriginCell = null;
+    state.contextMenuTokenId = null;
+    state.tokenArtEditor = null;
+    clearAiPaths();
+    hideTokenContextMenu();
+    closeTokenArtEditor();
+  }
+
+  function setSaveStatus(text, isError = false) {
+    saveStateStatus.textContent = text;
+    saveStateStatus.style.color = isError ? '#ffd1d9' : '';
+    saveStateStatus.style.borderColor = isError ? 'rgba(255,90,122,.35)' : '';
+    saveStateStatus.style.background = isError ? 'rgba(255,90,122,.12)' : '';
+  }
+
+  function updateQuickSaveAvailability() {
+    quickLoadBtn.disabled = !window.localStorage.getItem(QUICK_SAVE_STORAGE_KEY);
+  }
+
+  function updateSaveStatusFromSnapshot(snapshot) {
+    if (!snapshot?.savedAt) {
+      setSaveStatus('Save slot empty');
+      return;
+    }
+    const stamp = new Date(snapshot.savedAt);
+    const label = Number.isNaN(stamp.getTime())
+      ? 'Quick save ready'
+      : `Saved ${stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    setSaveStatus(label);
+  }
+
+  function syncQuickSaveUiFromStorage() {
+    const raw = window.localStorage.getItem(QUICK_SAVE_STORAGE_KEY);
+    if (!raw) {
+      updateQuickSaveAvailability();
+      updateSaveStatusFromSnapshot(null);
+      return null;
+    }
+    try {
+      const parsed = parseBoardSnapshot(JSON.parse(raw));
+      updateQuickSaveAvailability();
+      updateSaveStatusFromSnapshot(parsed);
+      return parsed;
+    } catch {
+      updateQuickSaveAvailability();
+      setSaveStatus('Save slot unreadable', true);
+      return null;
+    }
+  }
+
+  function createMapImageFromSrc(src) {
+    return new Promise((resolve, reject) => {
+      if (!src) {
+        resolve(null);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Could not restore saved map image.'));
+      img.src = src;
+    });
+  }
+
+  async function hydrateBoardState(snapshotInput) {
+    const snapshot = parseBoardSnapshot(snapshotInput);
+    const next = snapshot.state;
+    const mapImage = await createMapImageFromSrc(next.map.src);
+
+    resetTransientState();
+
+    state.gridSize = next.gridSize;
+    state.snapMode = next.snapMode;
+    state.view.zoom = next.view.zoom;
+    state.view.panX = next.view.panX;
+    state.view.panY = next.view.panY;
+    state.map.img = mapImage;
+    state.map.src = next.map.src;
+    state.map.w = mapImage?.naturalWidth || next.map.w || 0;
+    state.map.h = mapImage?.naturalHeight || next.map.h || 0;
+    state.map.offX = next.map.offX;
+    state.map.offY = next.map.offY;
+    state.map.scale = next.map.scale;
+    state.map.rot = next.map.rot;
+    state.map.opacity = next.map.opacity;
+    state.tokens = next.tokens.map((token) => ({
+      ...token,
+      art: normalizeTokenArt(token.art)
+    }));
+    state.aiControls = next.aiControls;
+    state.round = next.round;
+    state.currentTurnTokenId = next.currentTurnTokenId;
+    state.selectedTokenId = next.selectedTokenId || next.currentTurnTokenId;
+    state.log = [];
+    logBox.textContent = '';
+    setDecisionSummary('');
+
+    document.getElementById('gridSize').value = String(state.gridSize);
+    document.getElementById('snapMode').value = state.snapMode;
+    document.getElementById('mapScale').value = String(state.map.scale);
+    document.getElementById('mapRotDeg').value = String((state.map.rot * 180) / Math.PI);
+    document.getElementById('mapOpacity').value = String(state.map.opacity);
+    document.getElementById('aiControls').value = state.aiControls;
+    document.getElementById('roundNum').value = String(state.round);
+
+    if (!state.currentTurnTokenId || !state.tokens.some((token) => token.id === state.currentTurnTokenId)) {
+      state.currentTurnTokenId = state.tokens[0]?.id ?? null;
+    }
+    if (!state.selectedTokenId || !state.tokens.some((token) => token.id === state.selectedTokenId)) {
+      state.selectedTokenId = state.currentTurnTokenId;
+    }
+
+    draw();
+    renderTokenList();
+    syncTurnDropdown();
+    loadCurrentTurnTokenToEditor();
+    refreshExport();
+    updateSaveStatusFromSnapshot(snapshot);
+    updateQuickSaveAvailability();
+    return snapshot;
+  }
+
+  function buildSerializableBoardSnapshot() {
+    return createBoardSnapshot(state);
+  }
+
+  function quickSaveBoardState() {
+    const snapshot = buildSerializableBoardSnapshot();
+    window.localStorage.setItem(QUICK_SAVE_STORAGE_KEY, JSON.stringify(snapshot));
+    updateQuickSaveAvailability();
+    updateSaveStatusFromSnapshot(snapshot);
+    return snapshot;
+  }
+
+  async function quickLoadBoardState() {
+    const raw = window.localStorage.getItem(QUICK_SAVE_STORAGE_KEY);
+    if (!raw) throw new Error('No quick save found yet.');
+    const parsed = JSON.parse(raw);
+    return await hydrateBoardState(parsed);
   }
 
   function screenToWorld(x, y) {
@@ -1632,19 +1794,23 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   }
 
   // ---------- Map Loading + Fit ----------
-  document.getElementById('mapFile').addEventListener('change', (e) => {
+  document.getElementById('mapFile').addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const img = new Image();
-    img.onload = () => {
+    try {
+      const src = await readImageFileAsDataUrl(file);
+      const img = await createMapImageFromSrc(src);
+      state.map.src = src;
       state.map.img = img;
-      state.map.w = img.naturalWidth;
-      state.map.h = img.naturalHeight;
+      state.map.w = img?.naturalWidth || 0;
+      state.map.h = img?.naturalHeight || 0;
       fitMapToCanvas();
       draw();
       refreshExport();
-    };
-    img.src = URL.createObjectURL(file);
+    } catch (err) {
+      pushLog(`Map load failed: ${err.message || err}`);
+      setSaveStatus('Map load failed', true);
+    }
   });
 
   function fitMapToCanvas() {
@@ -1670,6 +1836,24 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   }
 
   document.getElementById('fitMap').addEventListener('click', fitMapToCanvas);
+  quickSaveBtn.addEventListener('click', () => {
+    try {
+      const snapshot = quickSaveBoardState();
+      pushLog(`Quick saved board state (v${snapshot.version}).`);
+    } catch (err) {
+      setSaveStatus('Save failed', true);
+      pushLog(`Quick save failed: ${err.message || err}`);
+    }
+  });
+  quickLoadBtn.addEventListener('click', async () => {
+    try {
+      const snapshot = await quickLoadBoardState();
+      pushLog(`Loaded quick save from ${snapshot.savedAt || 'saved state'}.`);
+    } catch (err) {
+      setSaveStatus('Load failed', true);
+      pushLog(`Quick load failed: ${err.message || err}`);
+    }
+  });
   document.getElementById('resetView').addEventListener('click', () => {
     state.view.zoom = 1; state.view.panX = 0; state.view.panY = 0;
     draw();
@@ -2737,11 +2921,13 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   refreshExport();
   renderTokenList();
   loadCurrentTurnTokenToEditor();
+  syncQuickSaveUiFromStorage();
 
   setTimeout(resizeCanvasToCSS, 0);
 
   window.__VTT_DEBUG__ = {
     getAiOverlay: () => JSON.parse(JSON.stringify(state.aiOverlay)),
+    getBoardSnapshot: () => buildSerializableBoardSnapshot(),
     getTokens: () => state.tokens.map((token) => ({
       id: token.id,
       name: token.name,
