@@ -52,6 +52,7 @@ async function setCurrentTurnToken(page, name) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.removeItem('drowvtt.quickSave.v1'));
   await page.goto('/');
   await expect(page).toHaveTitle(/Web VTT Prototype/);
   await clearTokens(page);
@@ -320,6 +321,35 @@ test('token art can be uploaded, cropped, and saved from the token list', async 
   expect(hero.art.fileName).toBe('hero-token.svg');
   expect(hero.art.scale).toBeCloseTo(1.4, 5);
   expect(hero.art.panX).toBeCloseTo(0.25, 5);
+});
+
+test('quick save restores the board snapshot after live changes', async ({ page }) => {
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 4, cellY: 2 });
+
+  await openDetails(page, '#turnSection');
+  await page.locator('#roundNum').fill('3');
+  await page.locator('#aiControls').selectOption('PCs');
+
+  await page.getByRole('button', { name: 'Quick Save' }).click();
+  await expect(page.locator('#saveStateStatus')).toContainText('Saved');
+
+  await page.getByRole('button', { name: 'Clear all' }).click();
+  await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
+  await page.locator('#roundNum').fill('1');
+  await page.locator('#aiControls').selectOption('Monsters');
+
+  await page.getByRole('button', { name: 'Load Save' }).click();
+
+  await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Hero' })).toHaveCount(1);
+  await expectTokenCell(page, 'Hero', 4, 2);
+  await expect(page.locator('#roundNum')).toHaveValue('3');
+  await expect(page.locator('#aiControls')).toHaveValue('PCs');
+
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  expect(snapshot.version).toBe(1);
+  expect(snapshot.state.tokens).toHaveLength(1);
+  expect(snapshot.state.tokens[0].name).toBe('Hero');
 });
 
 test('manual AI JSON application draws a move path, shows a short summary, and writes detailed reasoning to the log', async ({ page }) => {
