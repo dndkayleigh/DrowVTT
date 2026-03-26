@@ -364,6 +364,32 @@ test('named save slots restore a saved board and can be managed from the toolbar
   expect(slots.map((slot) => slot.name)).toEqual(['Round 3 Start']);
 });
 
+test('board snapshots can be exported and imported as json files', async ({ page }) => {
+  await addToken(page, { name: 'Mage', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 6, cellY: 4 });
+  await openDetails(page, '#turnSection');
+  await page.locator('#roundNum').fill('5');
+  await openDetails(page, '#saveSection');
+
+  const exported = await page.evaluate(() => JSON.stringify(window.__VTT_DEBUG__.getBoardSnapshot()));
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export JSON' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^drowvtt-board-save-\d{8}-\d{4}\.json$/);
+
+  await page.getByRole('button', { name: 'Clear all' }).click();
+  await page.locator('#roundNum').fill('1');
+  await page.locator('#importBoardFile').setInputFiles({
+    name: 'restored-board.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(exported)
+  });
+
+  await expectTokenCell(page, 'Mage', 6, 4);
+  await expect(page.locator('#roundNum')).toHaveValue('5');
+  await expect(page.locator('#saveStateStatus')).toContainText('Imported JSON');
+});
+
 test('manual AI JSON application draws a move path, shows a short summary, and writes detailed reasoning to the log', async ({ page }) => {
   await addToken(page, { name: 'Ogre', size: 2 });
 

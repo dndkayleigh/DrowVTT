@@ -541,7 +541,10 @@
           <button id="saveSlotBtn">Save Slot</button>
           <button id="loadSlotBtn">Load Slot</button>
           <button id="deleteSlotBtn" class="danger">Delete Slot</button>
+          <button id="exportBoardBtn">Export JSON</button>
+          <button id="importBoardBtn">Import JSON</button>
         </div>
+        <input id="importBoardFile" type="file" accept="application/json,.json" hidden />
         <div class="pill saveStatus" id="saveStateStatus" style="margin-top:10px">Save slot empty</div>
         <div class="sectionNote">Named save slots live in this browser so you can snapshot the board and restore it later.</div>
       </div>
@@ -870,6 +873,7 @@
 
 <script src="/data/srd-monsters.js"></script>
 <script type="module">
+import { buildBoardSnapshotFilename, parseBoardSnapshotText } from '/data/board-state-io-utils.mjs';
 import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/data/board-state-utils.mjs';
 import { normalizeSlotName, parseSaveSlots, removeSaveSlot, stringifySaveSlots, upsertSaveSlot } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
@@ -948,6 +952,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   const saveSlotBtn = document.getElementById('saveSlotBtn');
   const loadSlotBtn = document.getElementById('loadSlotBtn');
   const deleteSlotBtn = document.getElementById('deleteSlotBtn');
+  const exportBoardBtn = document.getElementById('exportBoardBtn');
+  const importBoardBtn = document.getElementById('importBoardBtn');
+  const importBoardFileInput = document.getElementById('importBoardFile');
   const saveStateStatus = document.getElementById('saveStateStatus');
   const tokNameInput = document.getElementById('tokName');
   const tokTypeSelect = document.getElementById('tokType');
@@ -1952,6 +1959,29 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       pushLog(`Delete slot failed: ${err.message || err}`);
     }
   });
+  exportBoardBtn.addEventListener('click', () => {
+    try {
+      const snapshot = exportBoardSnapshotToFile();
+      setSaveStatus('Exported JSON');
+      pushLog(`Exported board snapshot (v${snapshot.version}).`);
+    } catch (err) {
+      setSaveStatus('Export failed', true);
+      pushLog(`Export failed: ${err.message || err}`);
+    }
+  });
+  importBoardBtn.addEventListener('click', () => importBoardFileInput.click());
+  importBoardFileInput.addEventListener('change', async (e) => {
+    try {
+      const snapshot = await importBoardSnapshotFile(e.target.files?.[0]);
+      setSaveStatus('Imported JSON');
+      pushLog(`Imported board snapshot (v${snapshot.version}).`);
+    } catch (err) {
+      setSaveStatus('Import failed', true);
+      pushLog(`Import failed: ${err.message || err}`);
+    } finally {
+      importBoardFileInput.value = '';
+    }
+  });
   saveSlotSelect.addEventListener('change', () => {
     const slots = loadSaveSlotsFromStorage();
     const slot = slots.find((entry) => entry.id === saveSlotSelect.value) || null;
@@ -2291,6 +2321,37 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       reader.onerror = () => reject(reader.error || new Error('Failed to read image.'));
       reader.readAsDataURL(file);
     });
+  }
+
+  async function readTextFile(file) {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ''));
+      reader.onerror = () => reject(reader.error || new Error('Failed to read file.'));
+      reader.readAsText(file);
+    });
+  }
+
+  function exportBoardSnapshotToFile() {
+    const snapshot = buildSerializableBoardSnapshot();
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = buildBoardSnapshotFilename(snapshot.savedAt);
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    return snapshot;
+  }
+
+  async function importBoardSnapshotFile(file) {
+    if (!file) throw new Error('No JSON file selected.');
+    const text = await readTextFile(file);
+    const snapshot = parseBoardSnapshotText(text);
+    await hydrateBoardState(snapshot);
+    return snapshot;
   }
 
   // ---------- Editor fields bind to CURRENT TURN token ----------
@@ -3037,6 +3098,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   window.__VTT_DEBUG__ = {
     getAiOverlay: () => JSON.parse(JSON.stringify(state.aiOverlay)),
     getBoardSnapshot: () => buildSerializableBoardSnapshot(),
+    importBoardSnapshotText: async (text) => await hydrateBoardState(parseBoardSnapshotText(text)),
     getSaveSlots: () => loadSaveSlotsFromStorage().map((slot) => ({ id: slot.id, name: slot.name, savedAt: slot.savedAt })),
     getTokens: () => state.tokens.map((token) => ({
       id: token.id,
