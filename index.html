@@ -220,9 +220,18 @@
     .subtleLabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
     .statusRow{min-height:16px}
     .logBox{max-height:140px;overflow:auto}
-    .saveStatus{
-      min-width:190px;
-      justify-content:center;
+    .saveStatus{min-height:34px;justify-content:center}
+    .saveSlotGrid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:8px;
+      align-items:end;
+    }
+    .saveSlotActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
     }
     .contextMenu{
       position:fixed;
@@ -494,6 +503,7 @@
       .stageWrap{min-height:70vh}
       .row{grid-template-columns:1fr}
       .compactRow{grid-template-columns:1fr 1fr}
+      .saveSlotGrid{grid-template-columns:1fr}
       .tokenFormRow{grid-template-columns:1fr}
       .stageTools{padding:8px}
       .miniField{min-width:72px}
@@ -512,6 +522,31 @@
 <body>
 <div class="app">
   <aside class="sidebar">
+    <details class="panelSection" id="saveSection">
+      <summary><h2>Save States</h2></summary>
+      <div class="card">
+        <div class="saveSlotGrid">
+          <div>
+            <label for="saveSlotName">Save slot</label>
+            <input id="saveSlotName" type="text" value="Quick Save" maxlength="48" />
+          </div>
+          <div>
+            <label for="saveSlotSelect">Saved boards</label>
+            <select id="saveSlotSelect">
+              <option value="">(no saves yet)</option>
+            </select>
+          </div>
+        </div>
+        <div class="saveSlotActions">
+          <button id="saveSlotBtn">Save Slot</button>
+          <button id="loadSlotBtn">Load Slot</button>
+          <button id="deleteSlotBtn" class="danger">Delete Slot</button>
+        </div>
+        <div class="pill saveStatus" id="saveStateStatus" style="margin-top:10px">Save slot empty</div>
+        <div class="sectionNote">Named save slots live in this browser so you can snapshot the board and restore it later.</div>
+      </div>
+    </details>
+
     <details class="panelSection" id="mapSection">
       <summary><h2>Map & Grid</h2></summary>
       <div class="card">
@@ -686,13 +721,10 @@
       <span class="pill" id="viewPill">Zoom: 100% • Pan: (0,0)</span>
       <span class="pill" id="gridPill">Grid: 64px</span>
       <span class="pill" id="mapPill">Map: off(0,0) scale 1 rot 0°</span>
-      <span class="pill saveStatus" id="saveStateStatus">Save slot empty</span>
       <span class="hint">Grid combat, map alignment, and AI-assisted turns.</span>
     </div>
     <div class="stageTools">
       <div class="cluster">
-        <button id="quickSaveBtn">Quick Save</button>
-        <button id="quickLoadBtn">Load Save</button>
         <button id="fitMap" class="primary">Fit map</button>
         <button id="resetView">Reset view</button>
         <button id="dragModeBtn" class="primary">Drag: Tokens</button>
@@ -839,6 +871,7 @@
 <script src="/data/srd-monsters.js"></script>
 <script type="module">
 import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/data/board-state-utils.mjs';
+import { normalizeSlotName, parseSaveSlots, removeSaveSlot, stringifySaveSlots, upsertSaveSlot } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
 
 (() => {
@@ -910,8 +943,11 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   const resetTokenArtCropBtn = document.getElementById('resetTokenArtCrop');
   const cancelTokenArtBtn = document.getElementById('cancelTokenArt');
   const saveTokenArtBtn = document.getElementById('saveTokenArt');
-  const quickSaveBtn = document.getElementById('quickSaveBtn');
-  const quickLoadBtn = document.getElementById('quickLoadBtn');
+  const saveSlotNameInput = document.getElementById('saveSlotName');
+  const saveSlotSelect = document.getElementById('saveSlotSelect');
+  const saveSlotBtn = document.getElementById('saveSlotBtn');
+  const loadSlotBtn = document.getElementById('loadSlotBtn');
+  const deleteSlotBtn = document.getElementById('deleteSlotBtn');
   const saveStateStatus = document.getElementById('saveStateStatus');
   const tokNameInput = document.getElementById('tokName');
   const tokTypeSelect = document.getElementById('tokType');
@@ -921,7 +957,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   const SRD_MONSTERS = Array.isArray(window.SRD_MONSTERS) ? window.SRD_MONSTERS : [];
   const SRD_MONSTERS_BY_NAME = new Map(SRD_MONSTERS.map((monster) => [monster.name.toLowerCase(), monster]));
-  const QUICK_SAVE_STORAGE_KEY = 'drowvtt.quickSave.v1';
+  const SAVE_SLOTS_STORAGE_KEY = 'drowvtt.saveSlots.v1';
 
   function getTokenById(id) {
     return state.tokens.find((token) => token.id === id) || null;
@@ -990,38 +1026,65 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     saveStateStatus.style.background = isError ? 'rgba(255,90,122,.12)' : '';
   }
 
-  function updateQuickSaveAvailability() {
-    quickLoadBtn.disabled = !window.localStorage.getItem(QUICK_SAVE_STORAGE_KEY);
+  function loadSaveSlotsFromStorage() {
+    return parseSaveSlots(window.localStorage.getItem(SAVE_SLOTS_STORAGE_KEY));
   }
 
-  function updateSaveStatusFromSnapshot(snapshot) {
-    if (!snapshot?.savedAt) {
+  function persistSaveSlots(slots) {
+    window.localStorage.setItem(SAVE_SLOTS_STORAGE_KEY, stringifySaveSlots(slots));
+  }
+
+  function updateSaveControls(slots, selectedId = saveSlotSelect.value) {
+    const safeSlots = Array.isArray(slots) ? slots : [];
+    const previous = selectedId || saveSlotSelect.value;
+    saveSlotSelect.innerHTML = '';
+    if (!safeSlots.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '(no saves yet)';
+      saveSlotSelect.appendChild(opt);
+      saveSlotSelect.value = '';
+      loadSlotBtn.disabled = true;
+      deleteSlotBtn.disabled = true;
+      return;
+    }
+
+    for (const slot of safeSlots) {
+      const opt = document.createElement('option');
+      opt.value = slot.id;
+      opt.textContent = slot.name;
+      saveSlotSelect.appendChild(opt);
+    }
+
+    const resolved = safeSlots.some((slot) => slot.id === previous) ? previous : safeSlots[0].id;
+    saveSlotSelect.value = resolved;
+    loadSlotBtn.disabled = false;
+    deleteSlotBtn.disabled = false;
+  }
+
+  function updateSaveStatusFromSlot(slot) {
+    if (!slot?.savedAt) {
       setSaveStatus('Save slot empty');
       return;
     }
-    const stamp = new Date(snapshot.savedAt);
+    const stamp = new Date(slot.savedAt);
     const label = Number.isNaN(stamp.getTime())
-      ? 'Quick save ready'
-      : `Saved ${stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+      ? `${slot.name} ready`
+      : `${slot.name} saved ${stamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
     setSaveStatus(label);
   }
 
-  function syncQuickSaveUiFromStorage() {
-    const raw = window.localStorage.getItem(QUICK_SAVE_STORAGE_KEY);
-    if (!raw) {
-      updateQuickSaveAvailability();
-      updateSaveStatusFromSnapshot(null);
-      return null;
-    }
+  function syncSaveSlotsUiFromStorage(preferredSlotId = saveSlotSelect.value) {
     try {
-      const parsed = parseBoardSnapshot(JSON.parse(raw));
-      updateQuickSaveAvailability();
-      updateSaveStatusFromSnapshot(parsed);
-      return parsed;
+      const slots = loadSaveSlotsFromStorage();
+      updateSaveControls(slots, preferredSlotId);
+      const activeSlot = slots.find((slot) => slot.id === saveSlotSelect.value) || slots[0] || null;
+      updateSaveStatusFromSlot(activeSlot);
+      return slots;
     } catch {
-      updateQuickSaveAvailability();
-      setSaveStatus('Save slot unreadable', true);
-      return null;
+      updateSaveControls([], '');
+      setSaveStatus('Save slots unreadable', true);
+      return [];
     }
   }
 
@@ -1091,8 +1154,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     syncTurnDropdown();
     loadCurrentTurnTokenToEditor();
     refreshExport();
-    updateSaveStatusFromSnapshot(snapshot);
-    updateQuickSaveAvailability();
+    updateSaveStatusFromSlot({ name: saveSlotNameInput.value || 'Save slot', savedAt: snapshot.savedAt });
+    syncSaveSlotsUiFromStorage(saveSlotSelect.value);
     return snapshot;
   }
 
@@ -1100,19 +1163,44 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     return createBoardSnapshot(state);
   }
 
-  function quickSaveBoardState() {
+  function saveBoardToSlot(slotName, slotId = '') {
     const snapshot = buildSerializableBoardSnapshot();
-    window.localStorage.setItem(QUICK_SAVE_STORAGE_KEY, JSON.stringify(snapshot));
-    updateQuickSaveAvailability();
-    updateSaveStatusFromSnapshot(snapshot);
-    return snapshot;
+    const normalizedName = normalizeSlotName(slotName);
+    const nextSlot = {
+      id: slotId || uid(),
+      name: normalizedName,
+      savedAt: snapshot.savedAt,
+      snapshot
+    };
+    const slots = upsertSaveSlot(loadSaveSlotsFromStorage(), nextSlot);
+    persistSaveSlots(slots);
+    saveSlotNameInput.value = normalizedName;
+    updateSaveControls(slots, nextSlot.id);
+    updateSaveStatusFromSlot(nextSlot);
+    return nextSlot;
   }
 
-  async function quickLoadBoardState() {
-    const raw = window.localStorage.getItem(QUICK_SAVE_STORAGE_KEY);
-    if (!raw) throw new Error('No quick save found yet.');
-    const parsed = JSON.parse(raw);
-    return await hydrateBoardState(parsed);
+  async function loadBoardFromSelectedSlot() {
+    const slots = loadSaveSlotsFromStorage();
+    const slot = slots.find((entry) => entry.id === saveSlotSelect.value);
+    if (!slot) throw new Error('No saved board selected.');
+    saveSlotNameInput.value = slot.name;
+    await hydrateBoardState(slot.snapshot);
+    updateSaveControls(slots, slot.id);
+    updateSaveStatusFromSlot(slot);
+    return slot;
+  }
+
+  function deleteSelectedSlot() {
+    const slotId = saveSlotSelect.value;
+    if (!slotId) throw new Error('No save slot selected.');
+    const currentSlots = loadSaveSlotsFromStorage();
+    const slot = currentSlots.find((entry) => entry.id === slotId);
+    const remaining = removeSaveSlot(currentSlots, slotId);
+    persistSaveSlots(remaining);
+    updateSaveControls(remaining, remaining[0]?.id || '');
+    updateSaveStatusFromSlot(remaining.find((entry) => entry.id === saveSlotSelect.value) || null);
+    return slot;
   }
 
   function screenToWorld(x, y) {
@@ -1836,23 +1924,44 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   }
 
   document.getElementById('fitMap').addEventListener('click', fitMapToCanvas);
-  quickSaveBtn.addEventListener('click', () => {
+  saveSlotBtn.addEventListener('click', () => {
     try {
-      const snapshot = quickSaveBoardState();
-      pushLog(`Quick saved board state (v${snapshot.version}).`);
+      const existingId = loadSaveSlotsFromStorage().find((slot) => slot.name === normalizeSlotName(saveSlotNameInput.value))?.id || '';
+      const slot = saveBoardToSlot(saveSlotNameInput.value, existingId);
+      pushLog(`Saved board to slot "${slot.name}" (v${slot.snapshot.version}).`);
     } catch (err) {
       setSaveStatus('Save failed', true);
-      pushLog(`Quick save failed: ${err.message || err}`);
+      pushLog(`Save slot failed: ${err.message || err}`);
     }
   });
-  quickLoadBtn.addEventListener('click', async () => {
+  loadSlotBtn.addEventListener('click', async () => {
     try {
-      const snapshot = await quickLoadBoardState();
-      pushLog(`Loaded quick save from ${snapshot.savedAt || 'saved state'}.`);
+      const slot = await loadBoardFromSelectedSlot();
+      pushLog(`Loaded slot "${slot.name}" from ${slot.savedAt || 'saved state'}.`);
     } catch (err) {
       setSaveStatus('Load failed', true);
-      pushLog(`Quick load failed: ${err.message || err}`);
+      pushLog(`Load slot failed: ${err.message || err}`);
     }
+  });
+  deleteSlotBtn.addEventListener('click', () => {
+    try {
+      const slot = deleteSelectedSlot();
+      pushLog(`Deleted slot "${slot?.name || 'unknown'}".`);
+    } catch (err) {
+      setSaveStatus('Delete failed', true);
+      pushLog(`Delete slot failed: ${err.message || err}`);
+    }
+  });
+  saveSlotSelect.addEventListener('change', () => {
+    const slots = loadSaveSlotsFromStorage();
+    const slot = slots.find((entry) => entry.id === saveSlotSelect.value) || null;
+    if (slot) {
+      saveSlotNameInput.value = slot.name;
+      updateSaveStatusFromSlot(slot);
+    } else {
+      updateSaveStatusFromSlot(null);
+    }
+    updateSaveControls(slots, saveSlotSelect.value);
   });
   document.getElementById('resetView').addEventListener('click', () => {
     state.view.zoom = 1; state.view.panX = 0; state.view.panY = 0;
@@ -2921,13 +3030,14 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   refreshExport();
   renderTokenList();
   loadCurrentTurnTokenToEditor();
-  syncQuickSaveUiFromStorage();
+  syncSaveSlotsUiFromStorage();
 
   setTimeout(resizeCanvasToCSS, 0);
 
   window.__VTT_DEBUG__ = {
     getAiOverlay: () => JSON.parse(JSON.stringify(state.aiOverlay)),
     getBoardSnapshot: () => buildSerializableBoardSnapshot(),
+    getSaveSlots: () => loadSaveSlotsFromStorage().map((slot) => ({ id: slot.id, name: slot.name, savedAt: slot.savedAt })),
     getTokens: () => state.tokens.map((token) => ({
       id: token.id,
       name: token.name,
