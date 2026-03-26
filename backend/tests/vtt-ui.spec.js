@@ -53,6 +53,8 @@ async function setCurrentTurnToken(page, name) {
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => window.localStorage.removeItem('drowvtt.saveSlots.v1'));
+  await page.addInitScript(() => window.localStorage.removeItem('drowvtt.autosaveHistory.v1'));
+  await page.addInitScript(() => window.localStorage.removeItem('drowvtt.autosaveEnabled.v1'));
   await page.goto('/');
   await expect(page).toHaveTitle(/Web VTT Prototype/);
   await clearTokens(page);
@@ -388,6 +390,25 @@ test('board snapshots can be exported and imported as json files', async ({ page
   await expectTokenCell(page, 'Mage', 6, 4);
   await expect(page.locator('#roundNum')).toHaveValue('5');
   await expect(page.locator('#saveStateStatus')).toContainText('Imported JSON');
+});
+
+test('autosave history can restore a recent board snapshot', async ({ page }) => {
+  await openDetails(page, '#saveSection');
+  await page.locator('#autosaveEnabled').check();
+
+  await addToken(page, { name: 'Scout', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 2, cellY: 5 });
+
+  await page.waitForFunction(() => window.__VTT_DEBUG__.getAutosaves().length > 0);
+  await expect(page.locator('#autosaveSelect option')).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Clear all' }).click();
+  await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Restore Autosave' }).click();
+
+  await expectTokenCell(page, 'Scout', 2, 5);
+  await expect(page.locator('#saveStateStatus')).toContainText('Restored autosave');
 });
 
 test('manual AI JSON application draws a move path, shows a short summary, and writes detailed reasoning to the log', async ({ page }) => {
