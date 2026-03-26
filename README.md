@@ -238,6 +238,7 @@ Current coverage includes:
 - Storage hardening for saved boards. Detect `localStorage` quota issues earlier, surface friendlier errors, and handle large embedded map images more gracefully.
 - Save-slot polish. Add rename support, clearer timestamps, and a stronger “current board differs from saved slot” signal.
 - Autosave polish. Improve autosave history labels, make restore intent clearer, and decide whether autosave should be enabled by default.
+- Token UX cleanup. Make common token actions like art editing, selection, and future status markers faster to reach during play.
 - Better tactical packet shaping. Reduce unnecessary prompt bulk while keeping enough board context for reliable movement and action choices.
 
 ## Backend Contract
