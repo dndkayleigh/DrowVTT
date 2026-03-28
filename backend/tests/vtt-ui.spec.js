@@ -51,6 +51,33 @@ async function setCurrentTurnToken(page, name) {
   await page.locator('#turnToken').selectOption(await option.getAttribute('value'));
 }
 
+async function uploadTestMap(page, { width = 256, height = 256 } = {}) {
+  await openDetails(page, '#mapSection');
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <rect width="${width}" height="${height}" fill="#1b263b" />
+      <path d="M 0 0 L ${width} ${height} M ${width} 0 L 0 ${height}" stroke="#5aa9ff" stroke-width="2" opacity="0.45" />
+    </svg>
+  `;
+  await page.locator('#mapFile').setInputFiles({
+    name: 'test-map.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(svg)
+  });
+}
+
+async function clickStageWorld(page, worldX, worldY) {
+  const canvas = page.locator('#stage');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box unavailable');
+
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  const { zoom, panX, panY } = snapshot.state.view;
+  const clientX = box.x + (worldX * zoom) + panX;
+  const clientY = box.y + (worldY * zoom) + panY;
+  await page.mouse.click(clientX, clientY);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => window.localStorage.removeItem('drowvtt.saveSlots.v1'));
   await page.addInitScript(() => window.localStorage.removeItem('drowvtt.autosaveHistory.v1'));
@@ -623,4 +650,41 @@ test('map controls update the map pill and drag mode label', async ({ page }) =>
   await expect(page.locator('#mapPill')).toContainText('off(64,64)');
   await expect(page.locator('#mapPill')).toContainText('scale 1.25');
   await expect(page.locator('#mapPill')).toContainText('rot 1.50°');
+});
+
+test('manual calibration measures one cell and then shifts the map alignment', async ({ page }) => {
+  await uploadTestMap(page);
+  await openDetails(page, '#mapSection');
+
+  await expect(page.locator('#gridCalibrationNote')).toContainText('Current grid: 64px');
+  await page.getByRole('button', { name: 'Start calibration' }).click();
+  await expect(page.locator('#gridCalibrationNote')).toContainText('step 1 of 2');
+
+  await clickStageWorld(page, 20, 20);
+  await expect(page.locator('#gridCalibrationNote')).toContainText('adjacent grid line or corner');
+
+  await clickStageWorld(page, 84, 20);
+  await expect(page.locator('#gridSize')).toHaveValue('64');
+  await expect(page.locator('#saveStateStatus')).toContainText('Grid size set to 64px');
+  await expect(page.locator('#gridCalibrationNote')).toContainText('step 2 of 2');
+
+  await clickStageWorld(page, 20, 20);
+  await expect(page.locator('#saveStateStatus')).toContainText('Calibration applied');
+  await expect(page.locator('#gridCalibrationNote')).toContainText('Current grid: 64px');
+  await expect(page.locator('#mapPill')).toContainText('off(-20,-20)');
+});
+
+test('manual calibration can be cancelled with escape before changing the map', async ({ page }) => {
+  await uploadTestMap(page);
+  await openDetails(page, '#mapSection');
+
+  await page.getByRole('button', { name: 'Start calibration' }).click();
+  await clickStageWorld(page, 20, 20);
+  await expect(page.locator('#gridCalibrationNote')).toContainText('adjacent grid line or corner');
+
+  await page.keyboard.press('Escape');
+
+  await expect(page.locator('#gridCalibrationNote')).toContainText('Current grid: 64px');
+  await expect(page.locator('#gridSize')).toHaveValue('64');
+  await expect(page.locator('#mapPill')).toContainText('off(0,0)');
 });

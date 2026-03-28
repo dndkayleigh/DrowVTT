@@ -26,7 +26,7 @@
     }
     .stageWrap{
       display:grid;
-      grid-template-rows:auto auto minmax(0,1fr);
+      grid-template-rows:auto minmax(0,1fr);
       background:rgba(18,26,42,.45);
       border:1px solid rgba(110,150,210,.18);
       border-radius:14px;overflow:hidden;position:relative;
@@ -38,30 +38,6 @@
       background:rgba(15,21,36,.85);
     }
     .topbar .hint{color:var(--muted);font-size:12px}
-    .stageTools{
-      display:grid;
-      grid-template-columns:1fr auto;
-      gap:8px;
-      align-items:start;
-      padding:10px;
-      border-bottom:1px solid var(--line);
-      background:var(--surface-soft);
-    }
-    .stageTools .cluster{
-      display:flex;gap:8px;flex-wrap:wrap;align-items:center;
-      padding:8px;border-radius:12px;background:var(--surface-soft);border:1px solid var(--line);
-    }
-    .miniPanel{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:flex-end;
-      padding:8px;
-      border-radius:12px;
-      background:var(--surface-soft);
-      border:1px solid var(--line);
-    }
     .miniField{
       display:grid;
       gap:4px;
@@ -110,6 +86,35 @@
       border:1px solid var(--line);
       border-radius:12px;
       padding:8px;
+    }
+    .mapControlsGrid{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+    .mapToolbar{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .nudgeCard{
+      display:grid;
+      gap:8px;
+    }
+    .nudgeHeader{
+      display:flex;
+      gap:8px;
+      align-items:end;
+      flex-wrap:wrap;
+    }
+    .nudgeButtons{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+    .nudgeButtons button{
+      padding:10px 0;
     }
     .panelSection{margin-bottom:8px}
     .panelSection summary{
@@ -491,8 +496,6 @@
     input[type="checkbox"]{transform:scale(1.1)}
     @media (max-width: 1180px){
       .app{grid-template-columns:340px 1fr}
-      .stageTools{grid-template-columns:1fr}
-      .miniPanel{justify-content:flex-start}
       .drawerBody{grid-template-columns:1fr}
       .tokenFormRow{grid-template-columns:1fr 1fr}
     }
@@ -505,9 +508,9 @@
       .compactRow{grid-template-columns:1fr 1fr}
       .saveSlotGrid{grid-template-columns:1fr}
       .tokenFormRow{grid-template-columns:1fr}
-      .stageTools{padding:8px}
       .miniField{min-width:72px}
       .pill{font-size:11px;padding:5px 8px}
+      .nudgeButtons{grid-template-columns:repeat(2,minmax(0,1fr))}
       .aiDrawer{
         position:static;
         width:auto;
@@ -593,10 +596,53 @@
             <input id="nudgeCells" type="number" min="0.1" step="0.1" value="0.5" />
           </div>
         </div>
+        <div class="subcard">
+          <div class="subtleLabel">Manual Calibration</div>
+          <div class="btnbar">
+            <button id="startCalibrationBtn" type="button" class="primary">Start calibration</button>
+            <button id="cancelCalibrationBtn" type="button">Cancel</button>
+          </div>
+          <div class="sectionNote" id="gridCalibrationNote">Load a map, then click Start calibration to measure one cell and shift the map onto the grid.</div>
+        </div>
+
+        <div class="mapControlsGrid">
+          <div class="subcard">
+            <div class="subtleLabel">Board Tools</div>
+            <div class="mapToolbar">
+              <button id="fitMap" class="primary">Fit map</button>
+              <button id="resetView">Reset view</button>
+              <button id="dragModeBtn" class="primary">Drag: Tokens</button>
+            </div>
+          </div>
+
+          <div class="subcard nudgeCard">
+            <div class="subtleLabel">Map Alignment</div>
+            <div class="nudgeHeader">
+              <div class="miniField">
+                <label for="mapScale">Scale</label>
+                <input id="mapScale" type="number" min="0.1" step="0.01" value="1" />
+              </div>
+              <div class="miniField">
+                <label for="mapRotDeg">Rotate</label>
+                <input id="mapRotDeg" type="number" min="-10" max="10" step="0.05" value="0" />
+              </div>
+              <div class="miniField">
+                <label for="mapOpacity">Opacity</label>
+                <input id="mapOpacity" type="number" min="0.05" max="1" step="0.05" value="1" />
+              </div>
+            </div>
+            <div class="nudgeButtons">
+              <button id="nudgeLeft">◀ Left</button>
+              <button id="nudgeRight">Right ▶</button>
+              <button id="nudgeUp">▲ Up</button>
+              <button id="nudgeDown">Down ▼</button>
+            </div>
+          </div>
+        </div>
 
         <div class="sectionNote">
           Pan with <span class="kbd">Space</span> + drag. Zoom with the wheel.
-          Map alignment controls live on the board side for quicker tweaking.
+          Map alignment controls now live here so the board has more room.
         </div>
       </div>
     </details>
@@ -741,31 +787,6 @@
       <span class="pill" id="gridPill">Grid: 64px</span>
       <span class="pill" id="mapPill">Map: off(0,0) scale 1 rot 0°</span>
       <span class="hint">Grid combat, map alignment, and AI-assisted turns.</span>
-    </div>
-    <div class="stageTools">
-      <div class="cluster">
-        <button id="fitMap" class="primary">Fit map</button>
-        <button id="resetView">Reset view</button>
-        <button id="dragModeBtn" class="primary">Drag: Tokens</button>
-        <button id="nudgeLeft">◀</button>
-        <button id="nudgeRight">▶</button>
-        <button id="nudgeUp">▲</button>
-        <button id="nudgeDown">▼</button>
-      </div>
-      <div class="miniPanel">
-        <div class="miniField">
-          <label for="mapScale">Scale</label>
-          <input id="mapScale" type="number" min="0.1" step="0.01" value="1" />
-        </div>
-        <div class="miniField">
-          <label for="mapRotDeg">Rotate</label>
-          <input id="mapRotDeg" type="number" min="-10" max="10" step="0.05" value="0" />
-        </div>
-        <div class="miniField">
-          <label for="mapOpacity">Opacity</label>
-          <input id="mapOpacity" type="number" min="0.05" max="1" step="0.05" value="1" />
-        </div>
-      </div>
     </div>
     <details class="aiDrawer" id="aiDrawer" open>
       <summary>
@@ -977,6 +998,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   const importBoardBtn = document.getElementById('importBoardBtn');
   const importBoardFileInput = document.getElementById('importBoardFile');
   const saveStateStatus = document.getElementById('saveStateStatus');
+  const startCalibrationBtn = document.getElementById('startCalibrationBtn');
+  const cancelCalibrationBtn = document.getElementById('cancelCalibrationBtn');
+  const gridCalibrationNote = document.getElementById('gridCalibrationNote');
   const tokNameInput = document.getElementById('tokName');
   const tokTypeSelect = document.getElementById('tokType');
   const tokSizeSelect = document.getElementById('tokSize');
@@ -991,6 +1015,12 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   let autosaveTimer = null;
   let autosaveSuppressed = false;
   let lastAutosaveSignature = '';
+  let calibrationCursor = null;
+  const calibrationState = {
+    active: false,
+    step: 'idle',
+    firstPoint: null
+  };
 
   function getTokenById(id) {
     return state.tokens.find((token) => token.id === id) || null;
@@ -1184,6 +1214,178 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     });
   }
 
+  function updateCalibrationNote() {
+    if (!state.map.w || !state.map.h) {
+      gridCalibrationNote.textContent = 'Load a map, then click Start calibration to measure one cell and shift the map onto the grid.';
+      return;
+    }
+    if (!calibrationState.active) {
+      gridCalibrationNote.textContent = `Current grid: ${state.gridSize}px. Click Start calibration when you want to measure a cell and shift the map into place.`;
+      return;
+    }
+    if (calibrationState.step === 'size-first') {
+      gridCalibrationNote.textContent = 'Calibration step 1 of 2: click the first map grid line or corner for one cell measurement.';
+      return;
+    }
+    if (calibrationState.step === 'size-second') {
+      gridCalibrationNote.textContent = 'Calibration step 1 of 2: click the adjacent grid line or corner to measure one full cell.';
+      return;
+    }
+    if (calibrationState.step === 'shift') {
+      gridCalibrationNote.textContent = 'Calibration step 2 of 2: click a map grid intersection that should land on the overlay grid.';
+      return;
+    }
+  }
+
+  function stopCalibration() {
+    calibrationState.active = false;
+    calibrationState.step = 'idle';
+    calibrationState.firstPoint = null;
+    calibrationCursor = null;
+    updateCalibrationNote();
+    draw();
+  }
+
+  function startCalibration() {
+    if (!state.map.img) {
+      setSaveStatus('Load a map first', true);
+      return;
+    }
+    calibrationState.active = true;
+    calibrationState.step = 'size-first';
+    calibrationState.firstPoint = null;
+    calibrationCursor = null;
+    updateCalibrationNote();
+    setSaveStatus('Calibration started');
+    draw();
+  }
+
+  function handleCalibrationClick(world) {
+    if (calibrationState.step === 'size-first') {
+      calibrationState.firstPoint = { x: world.x, y: world.y };
+      calibrationState.step = 'size-second';
+      updateCalibrationNote();
+      draw();
+      return;
+    }
+
+    if (calibrationState.step === 'size-second') {
+      const first = calibrationState.firstPoint;
+      if (!first) {
+        calibrationState.step = 'size-first';
+        updateCalibrationNote();
+        draw();
+        return;
+      }
+
+      const measured = Math.max(Math.abs(world.x - first.x), Math.abs(world.y - first.y));
+      if (!Number.isFinite(measured) || measured < 8) {
+        setSaveStatus('Calibration needs a wider second click', true);
+        return;
+      }
+
+      const nextGrid = Math.round(measured);
+      state.gridSize = nextGrid;
+      document.getElementById('gridSize').value = String(nextGrid);
+      calibrationState.step = 'shift';
+      updateCalibrationNote();
+      setSaveStatus(`Grid size set to ${nextGrid}px`);
+      refreshExport();
+      draw();
+      return;
+    }
+
+    if (calibrationState.step === 'shift') {
+      const g = state.gridSize;
+      const targetX = Math.round(world.x / g) * g;
+      const targetY = Math.round(world.y / g) * g;
+      state.map.offX += targetX - world.x;
+      state.map.offY += targetY - world.y;
+      pushLog(`Map aligned to grid at (${Math.round(targetX / g)},${Math.round(targetY / g)}).`);
+      setSaveStatus('Calibration applied');
+      refreshExport();
+      stopCalibration();
+    }
+  }
+
+  function drawCalibrationOverlay() {
+    if (!calibrationState.active) return;
+
+    const first = calibrationState.firstPoint ? worldToScreen(calibrationState.firstPoint.x, calibrationState.firstPoint.y) : null;
+    const hover = calibrationCursor ? worldToScreen(calibrationCursor.x, calibrationCursor.y) : null;
+    const w = canvas.getBoundingClientRect().width;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 209, 102, 0.95)';
+    ctx.fillStyle = 'rgba(255, 209, 102, 0.95)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+
+    if (first && hover && calibrationState.step === 'size-second') {
+      ctx.beginPath();
+      ctx.moveTo(first.x, first.y);
+      ctx.lineTo(hover.x, hover.y);
+      ctx.stroke();
+
+      const measured = Math.round(Math.max(
+        Math.abs(calibrationCursor.x - calibrationState.firstPoint.x),
+        Math.abs(calibrationCursor.y - calibrationState.firstPoint.y)
+      ));
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(8,12,22,0.88)';
+      ctx.fillRect((first.x + hover.x) / 2 - 40, (first.y + hover.y) / 2 - 16, 80, 22);
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.font = '12px ui-sans-serif, system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${measured}px`, (first.x + hover.x) / 2, (first.y + hover.y) / 2 - 4);
+      ctx.setLineDash([8, 6]);
+    }
+
+    const drawCrosshair = (point, label) => {
+      if (!point) return;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(point.x - 12, point.y);
+      ctx.lineTo(point.x + 12, point.y);
+      ctx.moveTo(point.x, point.y - 12);
+      ctx.lineTo(point.x, point.y + 12);
+      ctx.stroke();
+      if (label) {
+        ctx.fillStyle = 'rgba(8,12,22,0.88)';
+        ctx.fillRect(point.x + 10, point.y - 26, 76, 20);
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.font = '11px ui-sans-serif, system-ui';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, point.x + 16, point.y - 16);
+      }
+      ctx.setLineDash([8, 6]);
+    };
+
+    drawCrosshair(first, 'Point 1');
+    if (hover) drawCrosshair(hover, calibrationState.step === 'shift' ? 'Shift' : 'Point 2');
+
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(8,12,22,0.88)';
+    ctx.fillRect(12, 12, Math.min(440, w - 24), 30);
+    ctx.fillStyle = 'rgba(255,255,255,0.96)';
+    ctx.font = '12px ui-sans-serif, system-ui';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(
+      calibrationState.step === 'shift'
+        ? 'Calibration: click a map grid intersection to shift the map onto the overlay grid.'
+        : 'Calibration: click two neighboring grid lines or corners to measure one cell.',
+      22,
+      27
+    );
+    ctx.restore();
+  }
+
   async function hydrateBoardState(snapshotInput) {
     autosaveSuppressed = true;
     const snapshot = parseBoardSnapshot(snapshotInput);
@@ -1225,6 +1427,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     document.getElementById('mapOpacity').value = String(state.map.opacity);
     document.getElementById('aiControls').value = state.aiControls;
     document.getElementById('roundNum').value = String(state.round);
+    stopCalibration();
+    updateCalibrationNote();
 
     if (!state.currentTurnTokenId || !state.tokens.some((token) => token.id === state.currentTurnTokenId)) {
       state.currentTurnTokenId = state.tokens[0]?.id ?? null;
@@ -1999,6 +2203,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     drawGrid();
     drawAiPaths();
     drawTokens();
+    drawCalibrationOverlay();
     updatePills();
     scheduleAutosave();
   }
@@ -2030,6 +2235,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       state.map.img = img;
       state.map.w = img?.naturalWidth || 0;
       state.map.h = img?.naturalHeight || 0;
+      stopCalibration();
+      updateCalibrationNote();
       fitMapToCanvas();
       draw();
       refreshExport();
@@ -2155,6 +2362,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     const v = Number(document.getElementById('gridSize').value);
     if (!Number.isFinite(v) || v < 10) return;
     state.gridSize = v;
+    updateCalibrationNote();
     for (const t of state.tokens) {
       const s = snapWorldPoint(t.x, t.y, t.sizeCells);
       t.x = s.x; t.y = s.y;
@@ -2185,6 +2393,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   document.getElementById('nudgeRight').addEventListener('click', () => { state.map.offX += nudgeWorldAmount(); draw(); });
   document.getElementById('nudgeUp').addEventListener('click', () => { state.map.offY -= nudgeWorldAmount(); draw(); });
   document.getElementById('nudgeDown').addEventListener('click', () => { state.map.offY += nudgeWorldAmount(); draw(); });
+  startCalibrationBtn.addEventListener('click', startCalibration);
+  cancelCalibrationBtn.addEventListener('click', stopCalibration);
 
   document.getElementById('mapScale').addEventListener('input', () => {
     const v = Number(document.getElementById('mapScale').value);
@@ -3075,6 +3285,11 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     const isMiddle = e.button === 1;
     const wantPan = state.spaceDown || isMiddle;
 
+    if (calibrationState.active && e.button === 0 && !wantPan) {
+      handleCalibrationClick(world);
+      return;
+    }
+
     if (hit && !wantPan && state.dragMode === 'tokens') {
       setCurrentTurnTokenId(hit.id);
       state.draggingToken = hit;
@@ -3148,6 +3363,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     const dx = m.x - state.lastMouse.x;
     const dy = m.y - state.lastMouse.y;
     state.lastMouse = m;
+    calibrationCursor = screenToWorld(m.x, m.y);
 
     if (state.draggingArtPreview) {
       const draft = state.tokenArtEditor?.draft;
@@ -3214,6 +3430,10 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   });
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      if (calibrationState.active) {
+        stopCalibration();
+        return;
+      }
       if (!tokenContextMenu.hidden) hideTokenContextMenu();
       if (!tokenArtModal.hidden) closeTokenArtEditor();
     }
@@ -3246,6 +3466,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   syncSaveSlotsUiFromStorage();
   setAutosaveEnabled(window.localStorage.getItem(AUTOSAVE_ENABLED_STORAGE_KEY) === '1');
   syncAutosaveUiFromStorage();
+  updateCalibrationNote();
 
   setTimeout(resizeCanvasToCSS, 0);
 
