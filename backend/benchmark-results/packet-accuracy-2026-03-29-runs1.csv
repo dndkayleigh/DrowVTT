@@ -1,0 +1,2 @@
+scenario,variant,run_index,packet_bytes,tat_ms,input_tokens,output_tokens,total_tokens,valid_json,schema_valid,moves_legal,actions_legal,legal_turn,move_candidate_match,attack_candidate_match,move_count,action_count,issues
+duel-goblin-vs-acolyte,compact_moves5,1,2128,37317,908,2570,3478,true,true,true,true,true,true,true,1,1,[]

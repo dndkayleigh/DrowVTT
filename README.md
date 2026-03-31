@@ -53,7 +53,7 @@ This only needs to be done once, unless you update dependencies later.
 
 ### Step 3: Create the `.env` file
 
-Inside the [`backend/`](backend) folder, create a file named:
+Inside the [`backend/`](backend/) folder, create a file named:
 
 ```text
 .env
@@ -210,7 +210,7 @@ http://localhost:3000/api/vtt
 
 ## Testing
 
-Run the tests from [`backend/`](backend):
+Run the tests from [`backend/`](backend/):
 
 ```bash
 npm test
@@ -250,7 +250,7 @@ The frontend posts a small payload to the backend:
 ```json
 {
   "aiExport": "SYSTEM: You are the tactical controller ...",
-  "model": "gpt-4.1-mini"
+  "model": "gpt-5"
 }
 ```
 

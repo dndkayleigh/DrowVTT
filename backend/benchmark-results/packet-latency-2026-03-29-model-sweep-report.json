@@ -1,0 +1,36 @@
+{
+  "generated_at": "2026-03-29T16:55:28.927Z",
+  "runs_per_variant_per_scenario": 3,
+  "variants": [
+    "full",
+    "compact_moves5",
+    "compact_moves5_attacks6"
+  ],
+  "scenarios": "all",
+  "results": [
+    {
+      "model": "gpt-5",
+      "ok": true,
+      "raw_log": "benchmark-results/packet-latency-2026-03-29-gpt-5-runs3.raw.log",
+      "summary_json": "benchmark-results/packet-latency-2026-03-29-gpt-5-runs3.summary.json",
+      "runs_csv": "benchmark-results/packet-latency-2026-03-29-gpt-5-runs3.runs.csv",
+      "overall_csv": "benchmark-results/packet-latency-2026-03-29-gpt-5-runs3.overall.csv"
+    },
+    {
+      "model": "gpt-5-mini",
+      "ok": true,
+      "raw_log": "benchmark-results/packet-latency-2026-03-29-gpt-5-mini-runs3.raw.log",
+      "summary_json": "benchmark-results/packet-latency-2026-03-29-gpt-5-mini-runs3.summary.json",
+      "runs_csv": "benchmark-results/packet-latency-2026-03-29-gpt-5-mini-runs3.runs.csv",
+      "overall_csv": "benchmark-results/packet-latency-2026-03-29-gpt-5-mini-runs3.overall.csv"
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "ok": true,
+      "raw_log": "benchmark-results/packet-latency-2026-03-29-gpt-5-4-mini-runs3.raw.log",
+      "summary_json": "benchmark-results/packet-latency-2026-03-29-gpt-5-4-mini-runs3.summary.json",
+      "runs_csv": "benchmark-results/packet-latency-2026-03-29-gpt-5-4-mini-runs3.runs.csv",
+      "overall_csv": "benchmark-results/packet-latency-2026-03-29-gpt-5-4-mini-runs3.overall.csv"
+    }
+  ]
+}

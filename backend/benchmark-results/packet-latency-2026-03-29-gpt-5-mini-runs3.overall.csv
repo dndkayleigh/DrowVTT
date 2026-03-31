@@ -1,0 +1,4 @@
+variant,count,mean_ms,median_ms,min_ms,max_ms,stddev_ms,mean_saved_vs_full_ms,mean_pct_faster_vs_full
+compact_moves5,18,23701.72,22875,17427,32008,4475.65,1815.67,7.12
+compact_moves5_attacks6,18,24643,25001.5,10275,37602,6752,874.39,3.43
+full,18,25517.39,22525,10317,56806,10950.21,0,0

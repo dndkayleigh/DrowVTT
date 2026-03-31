@@ -1,0 +1,1905 @@
+{
+  "benchmark_name": "gpt-5_accuracy_model_sweep_gpt-5-4-mini",
+  "generated_at": "2026-03-29T23:00:44.582Z",
+  "model": "gpt-5.4-mini",
+  "ground_truth_model": "gpt-5",
+  "ground_truth_variant": "full",
+  "judge_model": "gpt-5",
+  "reasoning_judge_enabled": true,
+  "runs_per_variant_per_scenario": 3,
+  "scenario_count": 6,
+  "variant_count": 1,
+  "completed": true,
+  "interrupted": false,
+  "interruption_reason": null,
+  "ground_truths": [
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "model": "gpt-5",
+      "variant": "full",
+      "packet_text": "SYSTEM: You are the tactical controller for the side specified below in a D&D 5e grid combat.\nYou must follow the rules, use legal actions, and play competently.\nIf information is missing, make conservative assumptions and state them briefly.\n\nRULES:\n- D&D 5e, grid-based. Each grid cell = 5 ft.\n- Maximum movement in cells = Speed / 5.\n- Positions are integer cells (x,y), 0-based; x increases right, y increases down.\n- For multi-cell tokens, (x,y) is the top-left occupied cell.\n- Diagonals cost 5 ft (default).\n- Only the current turn token may move or act this turn.\n- Token spaces cannot overlap, and a move must end in an unoccupied space.\n- Monsters are friendly to monsters. PCs and NPCs are friendly to each other.\n- Monsters are hostile to PCs and NPCs.\n- PCs and NPCs are hostile to Monsters.\n- Friendlies may pass through friendly spaces.\n- Opponents may not pass through opposing spaces.\n- Never return a move whose path length or destination exceeds the mover's legal movement in cells.\n- If a direct destination is blocked, choose a different legal destination instead of returning an illegal move.\n- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.\n- Melee attacks with 5 ft reach require adjacency (touching occupied spaces). A target with one empty square between is 10 ft away and out of range.\n- Before returning any attack, check the actual grid distance from attacker space to target space.\n- Never return a melee attack unless the target is within the weapon's reach in feet.\n- If a melee target is out of reach, move closer, choose a different legal action, or attack a different legal target.\n- Keep the rationale honest to the final board state. Do not say a creature stayed out of melee, kept distance, or avoided adjacency if it ends adjacent to an enemy.\n- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.\n- Include a brief overall summary plus short rationale text for each move and action.\n- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.\n- When relevant, include key mechanics in the Narrator's Cue such as attack bonus, damage dice and type, and any save DC/check the target must make.\n- Include a path array for each move when possible so the UI can show the planned route.\n\nAI CONTROLS: Monsters\nROUND: 3\nTURN: Monster \"Goblin\"\n\nMAP:\n- Grid size px (visual): 64\n- Map transform (for reference): offX=0, offY=0, scale=1.00, rotDeg=0.00\n- Blocked cells: []\n- Difficult terrain: []\n\nRELATIONSHIP MODEL:\n- Current turn token: \"Goblin\"\n- relation=self means the current turn token.\n- relation=ally means same side as the current turn token.\n- relation=enemy means the opposing side.\n\nTOKENS:\n- relation=self Monster: \"Goblin\" at (4, 4), size 1x1, AC 15, HP 7/7, Speed 30 ft, max move 6 cells, Notes: Shortbow ready.\n- relation=enemy PC: \"Acolyte\" at (5, 4), size 1x1, AC 10, HP 9/9, Speed 30 ft, max move 6 cells, Notes: Holding sanctuary for Aria.\n\nOCCUPIED SPACES:\n- relation=self \"Goblin\" occupies: (4,4)\n- relation=enemy \"Acolyte\" occupies: (5,4)\n\nSTATBLOCK (current turn token):\nGoblin (SRD 5.1)\n- Size Small, humanoid (goblinoid), alignment neutral evil\n- AC 15, HP 7 (2d6), Speed 30 ft.\n- STR 8 DEX 14 CON 10 INT 10 WIS 8 CHA 8\n- Skills: Stealth +6\n- Senses: Darkvision 60 ft., passive perception 9\n- Languages: Common, Goblin\n- CR 0.25\n- Traits:\n  - Nimble Escape: The goblin can take the Disengage or Hide action as a bonus action on each of its turns.\n- Actions:\n  - Scimitar: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage.\n  - Shortbow: Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage.\n\nOUTPUT CONTRACT:\nReturn ONLY this JSON shape (no prose, no markdown):\n{\n  \"summary\": \"brief overall rationale\",\n  \"moves\": [{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"brief movement reason\"}],\n  \"actions\": [{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"brief action reason\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\nFor a 5 ft melee attack, only return it when the attacker is adjacent to the target.\n  \"end_turn\": true\n}",
+      "packet_bytes": 4349,
+      "tat_ms": 40766,
+      "input_tokens": 1406,
+      "output_tokens": 3792,
+      "total_tokens": 5198,
+      "output_text": "{\"summary\":\"With a yipping cackle, the goblin uses Nimble Escape to Disengage, sprinting 30 feet up and left before loosing an arrow at the exposed acolyte (+4 to hit, 1d6+2 piercing).\",\"moves\":[{\"token\":\"Goblin\",\"rationale\":\"Create distance to avoid melee and fire the shortbow safely.\",\"path\":[[3,4],[2,4],[1,4],[0,4],[0,3],[0,2]],\"to\":[0,2]}],\"actions\":[{\"token\":\"Goblin\",\"type\":\"disengage\",\"target\":null,\"details\":\"Nimble Escape (bonus action): Disengage to avoid an opportunity attack.\",\"rationale\":\"Break away safely before shooting.\",\"attack_kind\":null,\"range_ft\":null},{\"token\":\"Goblin\",\"type\":\"attack\",\"target\":\"Acolyte\",\"details\":\"Shortbow: +4 to hit, 1d6+2 piercing.\",\"rationale\":\"Target the lightly armored acolyte from range.\",\"attack_kind\":\"ranged\",\"range_ft\":80}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "With a yipping cackle, the goblin uses Nimble Escape to Disengage, sprinting 30 feet up and left before loosing an arrow at the exposed acolyte (+4 to hit, 1d6+2 piercing).",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "Create distance to avoid melee and fire the shortbow safely.",
+            "path": [
+              [
+                3,
+                4
+              ],
+              [
+                2,
+                4
+              ],
+              [
+                1,
+                4
+              ],
+              [
+                0,
+                4
+              ],
+              [
+                0,
+                3
+              ],
+              [
+                0,
+                2
+              ]
+            ],
+            "to": [
+              0,
+              2
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "disengage",
+            "target": null,
+            "details": "Nimble Escape (bonus action): Disengage to avoid an opportunity attack.",
+            "rationale": "Break away safely before shooting.",
+            "attack_kind": null,
+            "range_ft": null
+          },
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Shortbow: +4 to hit, 1d6+2 piercing.",
+            "rationale": "Target the lightly armored acolyte from range.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      },
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 2,
+        "moveEvaluations": [
+          {
+            "token": "Goblin",
+            "to": [
+              0,
+              2
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Goblin",
+            "type": "disengage",
+            "target": null,
+            "ok": true,
+            "reason": null
+          },
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": null,
+        "attackCandidateMatch": null,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 0,
+        "tacticalIssues": [],
+        "issues": []
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "model": "gpt-5",
+      "variant": "full",
+      "packet_text": "SYSTEM: You are the tactical controller for the side specified below in a D&D 5e grid combat.\nYou must follow the rules, use legal actions, and play competently.\nIf information is missing, make conservative assumptions and state them briefly.\n\nRULES:\n- D&D 5e, grid-based. Each grid cell = 5 ft.\n- Maximum movement in cells = Speed / 5.\n- Positions are integer cells (x,y), 0-based; x increases right, y increases down.\n- For multi-cell tokens, (x,y) is the top-left occupied cell.\n- Diagonals cost 5 ft (default).\n- Only the current turn token may move or act this turn.\n- Token spaces cannot overlap, and a move must end in an unoccupied space.\n- Monsters are friendly to monsters. PCs and NPCs are friendly to each other.\n- Monsters are hostile to PCs and NPCs.\n- PCs and NPCs are hostile to Monsters.\n- Friendlies may pass through friendly spaces.\n- Opponents may not pass through opposing spaces.\n- Never return a move whose path length or destination exceeds the mover's legal movement in cells.\n- If a direct destination is blocked, choose a different legal destination instead of returning an illegal move.\n- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.\n- Melee attacks with 5 ft reach require adjacency (touching occupied spaces). A target with one empty square between is 10 ft away and out of range.\n- Before returning any attack, check the actual grid distance from attacker space to target space.\n- Never return a melee attack unless the target is within the weapon's reach in feet.\n- If a melee target is out of reach, move closer, choose a different legal action, or attack a different legal target.\n- Keep the rationale honest to the final board state. Do not say a creature stayed out of melee, kept distance, or avoided adjacency if it ends adjacent to an enemy.\n- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.\n- Include a brief overall summary plus short rationale text for each move and action.\n- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.\n- When relevant, include key mechanics in the Narrator's Cue such as attack bonus, damage dice and type, and any save DC/check the target must make.\n- Include a path array for each move when possible so the UI can show the planned route.\n\nAI CONTROLS: Monsters\nROUND: 3\nTURN: Monster \"Bandit\"\n\nMAP:\n- Grid size px (visual): 64\n- Map transform (for reference): offX=0, offY=0, scale=1.00, rotDeg=0.00\n- Blocked cells: []\n- Difficult terrain: []\n\nRELATIONSHIP MODEL:\n- Current turn token: \"Bandit\"\n- relation=self means the current turn token.\n- relation=ally means same side as the current turn token.\n- relation=enemy means the opposing side.\n\nTOKENS:\n- relation=self Monster: \"Bandit\" at (2, 2), size 1x1, AC 12, HP 11/11, Speed 30 ft, max move 6 cells, Notes: Elevated perch with light cover.\n- relation=ally Monster: \"Bandit B\" at (8, 2), size 1x1, AC 12, HP 11/11, Speed 30 ft, max move 6 cells, Notes: none\n- relation=ally Monster: \"Bandit C\" at (5, 6), size 1x1, AC 12, HP 11/11, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy PC: \"Knight\" at (5, 3), size 1x1, AC 18, HP 52/52, Speed 30 ft, max move 6 cells, Notes: Shield wall anchor.\n- relation=enemy PC: \"Acolyte\" at (6, 5), size 1x1, AC 10, HP 9/9, Speed 30 ft, max move 6 cells, Notes: Bless prepared.\n\nOCCUPIED SPACES:\n- relation=self \"Bandit\" occupies: (2,2)\n- relation=ally \"Bandit B\" occupies: (8,2)\n- relation=ally \"Bandit C\" occupies: (5,6)\n- relation=enemy \"Knight\" occupies: (5,3)\n- relation=enemy \"Acolyte\" occupies: (6,5)\n\nSTATBLOCK (current turn token):\nBandit (SRD 5.1)\n- Size Medium, humanoid (any race), alignment any non-lawful alignment\n- AC 12, HP 11 (2d8), Speed 30 ft.\n- STR 11 DEX 12 CON 12 INT 10 WIS 10 CHA 10\n- Senses: passive perception 10\n- Languages: any one language (usually Common)\n- CR 0.125\n- Actions:\n  - Scimitar: Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) slashing damage.\n  - Light Crossbow: Ranged Weapon Attack: +3 to hit, range 80 ft./320 ft., one target. Hit: 5 (1d8 + 1) piercing damage.\n\nOUTPUT CONTRACT:\nReturn ONLY this JSON shape (no prose, no markdown):\n{\n  \"summary\": \"brief overall rationale\",\n  \"moves\": [{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"brief movement reason\"}],\n  \"actions\": [{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"brief action reason\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\nFor a 5 ft melee attack, only return it when the attacker is adjacent to the target.\n  \"end_turn\": true\n}",
+      "packet_bytes": 4733,
+      "tat_ms": 49008,
+      "input_tokens": 1558,
+      "output_tokens": 3898,
+      "total_tokens": 5456,
+      "output_text": "{\"summary\":\"The bandit backpedals to the corner and snaps off a shot at the robed acolyte—light crossbow +3 to hit, 1d8+1 piercing (range 80/320).\",\"moves\":[{\"token\":\"Bandit\",\"rationale\":\"Create distance from the Knight while keeping a clear shot on the Acolyte.\",\"path\":[[1,1],[0,0]],\"to\":[0,0]}],\"actions\":[{\"token\":\"Bandit\",\"type\":\"attack\",\"target\":\"Acolyte\",\"details\":\"Light Crossbow shot at Acolyte (+3 to hit, 1d8+1 piercing, range 80/320).\",\"rationale\":\"Focus the low-AC caster to disrupt Bless; within normal range for no disadvantage.\",\"attack_kind\":\"ranged\",\"range_ft\":80}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "The bandit backpedals to the corner and snaps off a shot at the robed acolyte—light crossbow +3 to hit, 1d8+1 piercing (range 80/320).",
+        "moves": [
+          {
+            "token": "Bandit",
+            "rationale": "Create distance from the Knight while keeping a clear shot on the Acolyte.",
+            "path": [
+              [
+                1,
+                1
+              ],
+              [
+                0,
+                0
+              ]
+            ],
+            "to": [
+              0,
+              0
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Light Crossbow shot at Acolyte (+3 to hit, 1d8+1 piercing, range 80/320).",
+            "rationale": "Focus the low-AC caster to disrupt Bless; within normal range for no disadvantage.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      },
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 1,
+        "moveEvaluations": [
+          {
+            "token": "Bandit",
+            "to": [
+              0,
+              0
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": null,
+        "attackCandidateMatch": null,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 0,
+        "tacticalIssues": [],
+        "issues": []
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "model": "gpt-5",
+      "variant": "full",
+      "packet_text": "SYSTEM: You are the tactical controller for the side specified below in a D&D 5e grid combat.\nYou must follow the rules, use legal actions, and play competently.\nIf information is missing, make conservative assumptions and state them briefly.\n\nRULES:\n- D&D 5e, grid-based. Each grid cell = 5 ft.\n- Maximum movement in cells = Speed / 5.\n- Positions are integer cells (x,y), 0-based; x increases right, y increases down.\n- For multi-cell tokens, (x,y) is the top-left occupied cell.\n- Diagonals cost 5 ft (default).\n- Only the current turn token may move or act this turn.\n- Token spaces cannot overlap, and a move must end in an unoccupied space.\n- Monsters are friendly to monsters. PCs and NPCs are friendly to each other.\n- Monsters are hostile to PCs and NPCs.\n- PCs and NPCs are hostile to Monsters.\n- Friendlies may pass through friendly spaces.\n- Opponents may not pass through opposing spaces.\n- Never return a move whose path length or destination exceeds the mover's legal movement in cells.\n- If a direct destination is blocked, choose a different legal destination instead of returning an illegal move.\n- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.\n- Melee attacks with 5 ft reach require adjacency (touching occupied spaces). A target with one empty square between is 10 ft away and out of range.\n- Before returning any attack, check the actual grid distance from attacker space to target space.\n- Never return a melee attack unless the target is within the weapon's reach in feet.\n- If a melee target is out of reach, move closer, choose a different legal action, or attack a different legal target.\n- Keep the rationale honest to the final board state. Do not say a creature stayed out of melee, kept distance, or avoided adjacency if it ends adjacent to an enemy.\n- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.\n- Include a brief overall summary plus short rationale text for each move and action.\n- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.\n- When relevant, include key mechanics in the Narrator's Cue such as attack bonus, damage dice and type, and any save DC/check the target must make.\n- Include a path array for each move when possible so the UI can show the planned route.\n\nAI CONTROLS: Monsters\nROUND: 3\nTURN: Monster \"Ogre\"\n\nMAP:\n- Grid size px (visual): 64\n- Map transform (for reference): offX=0, offY=0, scale=1.00, rotDeg=0.00\n- Blocked cells: []\n- Difficult terrain: []\n\nRELATIONSHIP MODEL:\n- Current turn token: \"Ogre\"\n- relation=self means the current turn token.\n- relation=ally means same side as the current turn token.\n- relation=enemy means the opposing side.\n\nTOKENS:\n- relation=self Monster: \"Ogre\" at (4, 3), size 2x2, AC 11, HP 59/59, Speed 40 ft, max move 8 cells, Notes: Smash the center.\n- relation=ally Monster: \"Goblin\" at (3, 2), size 1x1, AC 15, HP 7/7, Speed 30 ft, max move 6 cells, Notes: none\n- relation=ally Monster: \"Goblin B\" at (7, 3), size 1x1, AC 15, HP 7/7, Speed 30 ft, max move 6 cells, Notes: none\n- relation=ally Monster: \"Goblin C\" at (6, 5), size 1x1, AC 15, HP 7/7, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy PC: \"Knight\" at (8, 3), size 1x1, AC 18, HP 52/52, Speed 30 ft, max move 6 cells, Notes: Defending the caster.\n- relation=enemy PC: \"Acolyte\" at (9, 5), size 1x1, AC 10, HP 9/9, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy NPC: \"Mercenary\" at (8, 6), size 1x1, AC 12, HP 11/11, Speed 30 ft, max move 6 cells, Notes: none\n\nOCCUPIED SPACES:\n- relation=self \"Ogre\" occupies: (4,3), (4,4), (5,3), (5,4)\n- relation=ally \"Goblin\" occupies: (3,2)\n- relation=ally \"Goblin B\" occupies: (7,3)\n- relation=ally \"Goblin C\" occupies: (6,5)\n- relation=enemy \"Knight\" occupies: (8,3)\n- relation=enemy \"Acolyte\" occupies: (9,5)\n- relation=enemy \"Mercenary\" occupies: (8,6)\n\nSTATBLOCK (current turn token):\nOgre (SRD 5.1)\n- Size Large, giant, alignment chaotic evil\n- AC 11, HP 59 (7d10), Speed 40 ft.\n- STR 19 DEX 8 CON 16 INT 5 WIS 7 CHA 7\n- Senses: Darkvision 60 ft., passive perception 8\n- Languages: Common, Giant\n- CR 2\n- Actions:\n  - Greatclub: Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.\n  - Javelin: Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 11 (2d6 + 4) piercing damage.\n\nOUTPUT CONTRACT:\nReturn ONLY this JSON shape (no prose, no markdown):\n{\n  \"summary\": \"brief overall rationale\",\n  \"moves\": [{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"brief movement reason\"}],\n  \"actions\": [{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"brief action reason\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\nFor a 5 ft melee attack, only return it when the attacker is adjacent to the target.\n  \"end_turn\": true\n}",
+      "packet_bytes": 5013,
+      "tat_ms": 60094,
+      "input_tokens": 1699,
+      "output_tokens": 5230,
+      "total_tokens": 6929,
+      "output_text": "{\"summary\":\"With a thundering charge, the ogre bulls past its goblins to plant itself south of the knight, then swings its greatclub at the exposed acolyte—Greatclub +6 to hit, 2d8+4 bludgeoning on a hit.\",\"moves\":[{\"token\":\"Ogre\",\"rationale\":\"Close to threaten both knight and acolyte and set up a melee strike on the squishy caster.\",\"path\":[[5,3],[6,3],[6,4],[7,4]],\"to\":[7,4]}],\"actions\":[{\"token\":\"Ogre\",\"type\":\"attack\",\"target\":\"Acolyte\",\"details\":\"Greatclub: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8+4) bludgeoning damage.\",\"rationale\":\"Focus down the low-AC caster likely to drop in one hit.\",\"attack_kind\":\"melee\",\"range_ft\":5}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "With a thundering charge, the ogre bulls past its goblins to plant itself south of the knight, then swings its greatclub at the exposed acolyte—Greatclub +6 to hit, 2d8+4 bludgeoning on a hit.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Close to threaten both knight and acolyte and set up a melee strike on the squishy caster.",
+            "path": [
+              [
+                5,
+                3
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                6,
+                4
+              ],
+              [
+                7,
+                4
+              ]
+            ],
+            "to": [
+              7,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Greatclub: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8+4) bludgeoning damage.",
+            "rationale": "Focus down the low-AC caster likely to drop in one hit.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      },
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 1,
+        "moveEvaluations": [
+          {
+            "token": "Ogre",
+            "to": [
+              7,
+              4
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Acolyte",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": null,
+        "attackCandidateMatch": null,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 6,
+        "tacticalIssues": [],
+        "issues": []
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "model": "gpt-5",
+      "variant": "full",
+      "packet_text": "SYSTEM: You are the tactical controller for the side specified below in a D&D 5e grid combat.\nYou must follow the rules, use legal actions, and play competently.\nIf information is missing, make conservative assumptions and state them briefly.\n\nRULES:\n- D&D 5e, grid-based. Each grid cell = 5 ft.\n- Maximum movement in cells = Speed / 5.\n- Positions are integer cells (x,y), 0-based; x increases right, y increases down.\n- For multi-cell tokens, (x,y) is the top-left occupied cell.\n- Diagonals cost 5 ft (default).\n- Only the current turn token may move or act this turn.\n- Token spaces cannot overlap, and a move must end in an unoccupied space.\n- Monsters are friendly to monsters. PCs and NPCs are friendly to each other.\n- Monsters are hostile to PCs and NPCs.\n- PCs and NPCs are hostile to Monsters.\n- Friendlies may pass through friendly spaces.\n- Opponents may not pass through opposing spaces.\n- Never return a move whose path length or destination exceeds the mover's legal movement in cells.\n- If a direct destination is blocked, choose a different legal destination instead of returning an illegal move.\n- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.\n- Melee attacks with 5 ft reach require adjacency (touching occupied spaces). A target with one empty square between is 10 ft away and out of range.\n- Before returning any attack, check the actual grid distance from attacker space to target space.\n- Never return a melee attack unless the target is within the weapon's reach in feet.\n- If a melee target is out of reach, move closer, choose a different legal action, or attack a different legal target.\n- Keep the rationale honest to the final board state. Do not say a creature stayed out of melee, kept distance, or avoided adjacency if it ends adjacent to an enemy.\n- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.\n- Include a brief overall summary plus short rationale text for each move and action.\n- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.\n- When relevant, include key mechanics in the Narrator's Cue such as attack bonus, damage dice and type, and any save DC/check the target must make.\n- Include a path array for each move when possible so the UI can show the planned route.\n\nAI CONTROLS: Monsters\nROUND: 3\nTURN: Monster \"Air Elemental\"\n\nMAP:\n- Grid size px (visual): 64\n- Map transform (for reference): offX=0, offY=0, scale=1.00, rotDeg=0.00\n- Blocked cells: []\n- Difficult terrain: []\n\nRELATIONSHIP MODEL:\n- Current turn token: \"Air Elemental\"\n- relation=self means the current turn token.\n- relation=ally means same side as the current turn token.\n- relation=enemy means the opposing side.\n\nTOKENS:\n- relation=self Monster: \"Air Elemental\" at (6, 4), size 2x2, AC 15, HP 90/90, Speed 90 ft, max move 18 cells, Notes: Can pass through hostile spaces.\n- relation=enemy PC: \"Knight\" at (8, 4), size 1x1, AC 18, HP 52/52, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy PC: \"Acolyte\" at (10, 5), size 1x1, AC 10, HP 9/9, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy NPC: \"Bandit\" at (7, 7), size 1x1, AC 12, HP 11/11, Speed 30 ft, max move 6 cells, Notes: none\n- relation=ally Monster: \"Goblin Spotter\" at (3, 5), size 1x1, AC 15, HP 7/7, Speed 30 ft, max move 6 cells, Notes: none\n\nOCCUPIED SPACES:\n- relation=self \"Air Elemental\" occupies: (6,4), (6,5), (7,4), (7,5)\n- relation=enemy \"Knight\" occupies: (8,4)\n- relation=enemy \"Acolyte\" occupies: (10,5)\n- relation=enemy \"Bandit\" occupies: (7,7)\n- relation=ally \"Goblin Spotter\" occupies: (3,5)\n\nSTATBLOCK (current turn token):\nAir Elemental (SRD 5.1)\n- Size Large, elemental, alignment neutral\n- AC 15, HP 90 (12d10), Speed Fly 90 ft., Hover true\n- STR 14 DEX 20 CON 14 INT 6 WIS 10 CHA 6\n- Damage Resistances: lightning, thunder, bludgeoning, piercing, and slashing from nonmagical weapons\n- Damage Immunities: poison\n- Condition Immunities: Exhaustion, Grappled, Paralyzed, Petrified, Poisoned, Prone, Restrained, Unconscious\n- Senses: Darkvision 60 ft., passive perception 10\n- Languages: Auran\n- CR 5\n- Traits:\n  - Air Form: The elemental can enter a hostile creature's space and stop there. It can move through a space as narrow as 1 inch wide without squeezing.\n- Actions:\n  - Multiattack: The elemental makes two slam attacks.\n  - Slam: Melee Weapon Attack: +8 to hit, reach 5 ft., one target. Hit: 14 (2d8 + 5) bludgeoning damage.\n  - Whirlwind: Each creature in the elemental's space must make a DC 13 Strength saving throw. On a failure, a target takes 15 (3d8 + 2) bludgeoning damage and is flung up 20 feet away from the elemental in a random direction and knocked prone. If a thrown target strikes an object, such as a wall or floor, the target takes 3 (1d6) bludgeoning damage for every 10 feet it was thrown. If the target is thrown at another creature, that creature must succeed on a DC 13 Dexterity saving throw or take the same damage and be knocked prone. If the saving throw is successful, the target takes half the bludgeoning damage and isn't flung away or knocked prone.\n\nOUTPUT CONTRACT:\nReturn ONLY this JSON shape (no prose, no markdown):\n{\n  \"summary\": \"brief overall rationale\",\n  \"moves\": [{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"brief movement reason\"}],\n  \"actions\": [{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"brief action reason\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\nFor a 5 ft melee attack, only return it when the attacker is adjacent to the target.\n  \"end_turn\": true\n}",
+      "packet_bytes": 5737,
+      "tat_ms": 57425,
+      "input_tokens": 1797,
+      "output_tokens": 5797,
+      "total_tokens": 7594,
+      "output_text": "{\"summary\":\"With a screaming surge of wind, the air elemental billows through the knight’s space and banks beside the acolyte before pounding it twice with crushing gusts (+8 to hit, 2d8+5 bludgeoning each).\",\"moves\":[{\"token\":\"Air Elemental\",\"rationale\":\"Slide past the knight without leaving its reach to get adjacent to the acolyte for high-percentage slams.\",\"path\":[[6,4],[7,4],[8,4],[8,5]],\"to\":[8,5]}],\"actions\":[{\"token\":\"Air Elemental\",\"type\":\"attack\",\"target\":\"Acolyte\",\"details\":\"Multiattack: two Slam attacks against the Acolyte (+8 to hit, 2d8+5 bludgeoning each).\",\"rationale\":\"Focus down the low-AC support for a likely quick knockout.\",\"attack_kind\":\"melee\",\"range_ft\":5}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "With a screaming surge of wind, the air elemental billows through the knight’s space and banks beside the acolyte before pounding it twice with crushing gusts (+8 to hit, 2d8+5 bludgeoning each).",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Slide past the knight without leaving its reach to get adjacent to the acolyte for high-percentage slams.",
+            "path": [
+              [
+                6,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                8,
+                4
+              ],
+              [
+                8,
+                5
+              ]
+            ],
+            "to": [
+              8,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Multiattack: two Slam attacks against the Acolyte (+8 to hit, 2d8+5 bludgeoning each).",
+            "rationale": "Focus down the low-AC support for a likely quick knockout.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      },
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 1,
+        "moveEvaluations": [
+          {
+            "token": "Air Elemental",
+            "to": [
+              8,
+              5
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Acolyte",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": null,
+        "attackCandidateMatch": null,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 3,
+        "tacticalIssues": [],
+        "issues": []
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "model": "gpt-5",
+      "variant": "full",
+      "packet_text": "SYSTEM: You are the tactical controller for the side specified below in a D&D 5e grid combat.\nYou must follow the rules, use legal actions, and play competently.\nIf information is missing, make conservative assumptions and state them briefly.\n\nRULES:\n- D&D 5e, grid-based. Each grid cell = 5 ft.\n- Maximum movement in cells = Speed / 5.\n- Positions are integer cells (x,y), 0-based; x increases right, y increases down.\n- For multi-cell tokens, (x,y) is the top-left occupied cell.\n- Diagonals cost 5 ft (default).\n- Only the current turn token may move or act this turn.\n- Token spaces cannot overlap, and a move must end in an unoccupied space.\n- Monsters are friendly to monsters. PCs and NPCs are friendly to each other.\n- Monsters are hostile to PCs and NPCs.\n- PCs and NPCs are hostile to Monsters.\n- Friendlies may pass through friendly spaces.\n- Opponents may not pass through opposing spaces.\n- Never return a move whose path length or destination exceeds the mover's legal movement in cells.\n- If a direct destination is blocked, choose a different legal destination instead of returning an illegal move.\n- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.\n- Melee attacks with 5 ft reach require adjacency (touching occupied spaces). A target with one empty square between is 10 ft away and out of range.\n- Before returning any attack, check the actual grid distance from attacker space to target space.\n- Never return a melee attack unless the target is within the weapon's reach in feet.\n- If a melee target is out of reach, move closer, choose a different legal action, or attack a different legal target.\n- Keep the rationale honest to the final board state. Do not say a creature stayed out of melee, kept distance, or avoided adjacency if it ends adjacent to an enemy.\n- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.\n- Include a brief overall summary plus short rationale text for each move and action.\n- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.\n- When relevant, include key mechanics in the Narrator's Cue such as attack bonus, damage dice and type, and any save DC/check the target must make.\n- Include a path array for each move when possible so the UI can show the planned route.\n\nAI CONTROLS: Monsters\nROUND: 3\nTURN: Monster \"Adult Red Dragon\"\n\nMAP:\n- Grid size px (visual): 64\n- Map transform (for reference): offX=0, offY=0, scale=1.00, rotDeg=0.00\n- Blocked cells: []\n- Difficult terrain: []\n\nRELATIONSHIP MODEL:\n- Current turn token: \"Adult Red Dragon\"\n- relation=self means the current turn token.\n- relation=ally means same side as the current turn token.\n- relation=enemy means the opposing side.\n\nTOKENS:\n- relation=self Monster: \"Adult Red Dragon\" at (9, 4), size 3x3, AC 19, HP 256/256, Speed 40 ft, max move 8 cells, Notes: Open with Frightful Presence, then breath if lined up.\n- relation=enemy PC: \"Knight\" at (4, 4), size 1x1, AC 18, HP 52/52, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy PC: \"Acolyte\" at (5, 5), size 1x1, AC 10, HP 9/9, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy NPC: \"Bandit\" at (5, 3), size 1x1, AC 12, HP 11/11, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy NPC: \"Ogre Ally\" at (2, 6), size 2x2, AC 11, HP 59/59, Speed 40 ft, max move 8 cells, Notes: none\n\nOCCUPIED SPACES:\n- relation=self \"Adult Red Dragon\" occupies: (9,4), (9,5), (9,6), (10,4), (10,5), (10,6), (11,4), (11,5), (11,6)\n- relation=enemy \"Knight\" occupies: (4,4)\n- relation=enemy \"Acolyte\" occupies: (5,5)\n- relation=enemy \"Bandit\" occupies: (5,3)\n- relation=enemy \"Ogre Ally\" occupies: (2,6), (2,7), (3,6), (3,7)\n\nSTATBLOCK (current turn token):\nAdult Red Dragon (SRD 5.1)\n- Size Huge, dragon, alignment chaotic evil\n- AC 19, HP 256 (19d12), Speed 40 ft., Climb 40 ft., Fly 80 ft.\n- STR 27 DEX 10 CON 25 INT 16 WIS 13 CHA 21\n- Saving Throws: DEX +6, CON +13, WIS +7, CHA +11\n- Skills: Perception +13, Stealth +6\n- Damage Immunities: fire\n- Senses: Blindsight 60 ft., Darkvision 120 ft., passive perception 23\n- Languages: Common, Draconic\n- CR 17\n- Traits:\n  - Legendary Resistance: If the dragon fails a saving throw, it can choose to succeed instead.\n- Actions:\n  - Multiattack: The dragon can use its Frightful Presence. It then makes three attacks: one with its bite and two with its claws.\n  - Bite: Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 19 (2d10 + 8) piercing damage plus 7 (2d6) fire damage.\n  - Claw: Melee Weapon Attack: +14 to hit, reach 5 ft., one target. Hit: 15 (2d6 + 8) slashing damage.\n  - Tail: Melee Weapon Attack: +14 to hit, reach 15 ft., one target. Hit: 17 (2d8 + 8) bludgeoning damage.\n  - Frightful Presence: Each creature of the dragon's choice that is within 120 ft. of the dragon and aware of it must succeed on a DC 19 Wisdom saving throw or become frightened for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. If a creature's saving throw is successful or the effect ends for it, the creature is immune to the dragon's Frightful Presence for the next 24 hours.\n  - Fire Breath: The dragon exhales fire in a 60-foot cone. Each creature in that area must make a DC 21 Dexterity saving throw, taking 63 (18d6) fire damage on a failed save, or half as much damage on a successful one.\n- Legendary Actions:\n  - Detect: The dragon makes a Wisdom (Perception) check.\n  - Tail Attack: The dragon makes a tail attack.\n  - Wing Attack (Costs 2 Actions): The dragon beats its wings. Each creature within 10 ft. of the dragon must succeed on a DC 22 Dexterity saving throw or take 15 (2d6 + 8) bludgeoning damage and be knocked prone. The dragon can then fly up to half its flying speed.\n\nOUTPUT CONTRACT:\nReturn ONLY this JSON shape (no prose, no markdown):\n{\n  \"summary\": \"brief overall rationale\",\n  \"moves\": [{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"brief movement reason\"}],\n  \"actions\": [{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"brief action reason\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\nFor a 5 ft melee attack, only return it when the attacker is adjacent to the target.\n  \"end_turn\": true\n}",
+      "packet_bytes": 6416,
+      "tat_ms": 58813,
+      "input_tokens": 2036,
+      "output_tokens": 4998,
+      "total_tokens": 7034,
+      "output_text": "{\"summary\":\"The dragon inhales deep and vomits a blazing 60‑foot cone of fire across the field, engulfing Knight, Acolyte, Bandit, and Ogre Ally—each must make a DC 21 Dexterity save or take 63 (18d6) fire damage, half on success. It holds its ground, letting the conflagration do the work.\",\n\"moves\":[],\n\"actions\":[{\"token\":\"Adult Red Dragon\",\"type\":\"attack\",\"target\":null,\"details\":\"Fire Breath (60‑ft cone): Targets Knight, Acolyte, Bandit, and Ogre Ally. Each makes a DC 21 Dexterity saving throw, taking 63 (18d6) fire damage on a failure, or half on a success.\",\"rationale\":\"All four enemies fit in the 60‑ft cone from current position; breath deals maximal AoE damage this round (cannot combine with Frightful Presence this turn).\",\"attack_kind\":null,\"range_ft\":60}],\n\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "The dragon inhales deep and vomits a blazing 60‑foot cone of fire across the field, engulfing Knight, Acolyte, Bandit, and Ogre Ally—each must make a DC 21 Dexterity save or take 63 (18d6) fire damage, half on success. It holds its ground, letting the conflagration do the work.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": null,
+            "details": "Fire Breath (60‑ft cone): Targets Knight, Acolyte, Bandit, and Ogre Ally. Each makes a DC 21 Dexterity saving throw, taking 63 (18d6) fire damage on a failure, or half on a success.",
+            "rationale": "All four enemies fit in the 60‑ft cone from current position; breath deals maximal AoE damage this round (cannot combine with Frightful Presence this turn).",
+            "attack_kind": null,
+            "range_ft": 60
+          }
+        ],
+        "end_turn": true
+      },
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 0,
+        "actionCount": 1,
+        "moveEvaluations": [],
+        "actionEvaluations": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": null,
+            "ok": false,
+            "reason": "Adult Red Dragon attack ignored: missing target."
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": false,
+        "legalTurn": false,
+        "moveCandidateMatch": null,
+        "attackCandidateMatch": null,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 0,
+        "tacticalIssues": [],
+        "issues": [
+          "Adult Red Dragon attack ignored: missing target."
+        ]
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "model": "gpt-5",
+      "variant": "full",
+      "packet_text": "SYSTEM: You are the tactical controller for the side specified below in a D&D 5e grid combat.\nYou must follow the rules, use legal actions, and play competently.\nIf information is missing, make conservative assumptions and state them briefly.\n\nRULES:\n- D&D 5e, grid-based. Each grid cell = 5 ft.\n- Maximum movement in cells = Speed / 5.\n- Positions are integer cells (x,y), 0-based; x increases right, y increases down.\n- For multi-cell tokens, (x,y) is the top-left occupied cell.\n- Diagonals cost 5 ft (default).\n- Only the current turn token may move or act this turn.\n- Token spaces cannot overlap, and a move must end in an unoccupied space.\n- Monsters are friendly to monsters. PCs and NPCs are friendly to each other.\n- Monsters are hostile to PCs and NPCs.\n- PCs and NPCs are hostile to Monsters.\n- Friendlies may pass through friendly spaces.\n- Opponents may not pass through opposing spaces.\n- Never return a move whose path length or destination exceeds the mover's legal movement in cells.\n- If a direct destination is blocked, choose a different legal destination instead of returning an illegal move.\n- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.\n- Melee attacks with 5 ft reach require adjacency (touching occupied spaces). A target with one empty square between is 10 ft away and out of range.\n- Before returning any attack, check the actual grid distance from attacker space to target space.\n- Never return a melee attack unless the target is within the weapon's reach in feet.\n- If a melee target is out of reach, move closer, choose a different legal action, or attack a different legal target.\n- Keep the rationale honest to the final board state. Do not say a creature stayed out of melee, kept distance, or avoided adjacency if it ends adjacent to an enemy.\n- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.\n- Include a brief overall summary plus short rationale text for each move and action.\n- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.\n- When relevant, include key mechanics in the Narrator's Cue such as attack bonus, damage dice and type, and any save DC/check the target must make.\n- Include a path array for each move when possible so the UI can show the planned route.\n\nAI CONTROLS: Monsters\nROUND: 3\nTURN: Monster \"Aboleth\"\n\nMAP:\n- Grid size px (visual): 64\n- Map transform (for reference): offX=0, offY=0, scale=1.00, rotDeg=0.00\n- Blocked cells: []\n- Difficult terrain: []\n\nRELATIONSHIP MODEL:\n- Current turn token: \"Aboleth\"\n- relation=self means the current turn token.\n- relation=ally means same side as the current turn token.\n- relation=enemy means the opposing side.\n\nTOKENS:\n- relation=self Monster: \"Aboleth\" at (8, 6), size 2x2, AC 17, HP 135/135, Speed 10 ft, max move 2 cells, Notes: Pick off isolated targets with Enslave.\n- relation=ally Monster: \"Goblin Cultist\" at (5, 6), size 1x1, AC 15, HP 7/7, Speed 30 ft, max move 6 cells, Notes: none\n- relation=ally Monster: \"Goblin Guard\" at (7, 9), size 1x1, AC 15, HP 7/7, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy PC: \"Knight\" at (12, 5), size 1x1, AC 18, HP 52/52, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy PC: \"Acolyte\" at (13, 7), size 1x1, AC 10, HP 9/9, Speed 30 ft, max move 6 cells, Notes: Trying to stay within healing range.\n- relation=enemy NPC: \"Air Elemental\" at (10, 10), size 2x2, AC 15, HP 90/90, Speed 90 ft, max move 18 cells, Notes: none\n\nOCCUPIED SPACES:\n- relation=self \"Aboleth\" occupies: (8,6), (8,7), (9,6), (9,7)\n- relation=ally \"Goblin Cultist\" occupies: (5,6)\n- relation=ally \"Goblin Guard\" occupies: (7,9)\n- relation=enemy \"Knight\" occupies: (12,5)\n- relation=enemy \"Acolyte\" occupies: (13,7)\n- relation=enemy \"Air Elemental\" occupies: (10,10), (10,11), (11,10), (11,11)\n\nSTATBLOCK (current turn token):\nAboleth (SRD 5.1)\n- Size Large, aberration, alignment lawful evil\n- AC 17, HP 135 (18d10), Speed 10 ft., Swim 40 ft.\n- STR 21 DEX 9 CON 15 INT 18 WIS 15 CHA 18\n- Saving Throws: CON +6, INT +8, WIS +6\n- Skills: History +12, Perception +10\n- Senses: Darkvision 120 ft., passive perception 20\n- Languages: Deep Speech, telepathy 120 ft.\n- CR 10\n- Traits:\n  - Amphibious: The aboleth can breathe air and water.\n  - Mucous Cloud: While underwater, the aboleth is surrounded by transformative mucus. A creature that touches the aboleth or that hits it with a melee attack while within 5 ft. of it must make a DC 14 Constitution saving throw. On a failure, the creature is diseased for 1d4 hours. The diseased creature can breathe only underwater.\n  - Probing Telepathy: If a creature communicates telepathically with the aboleth, the aboleth learns the creature's greatest desires if the aboleth can see the creature.\n- Actions:\n  - Multiattack: The aboleth makes three tentacle attacks.\n  - Tentacle: Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 12 (2d6 + 5) bludgeoning damage. If the target is a creature, it must succeed on a DC 14 Constitution saving throw or become diseased. The disease has no effect for 1 minute and can be removed by any magic that cures disease. After 1 minute, the diseased creature's skin becomes translucent and slimy, the creature can't regain hit points unless it is underwater, and the disease can be removed only by heal or another disease-curing spell of 6th level or higher. When the creature is outside a body of water, it takes 6 (1d12) acid damage every 10 minutes unless moisture is applied to the skin before 10 minutes have passed.\n  - Tail: Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 15 (3d6 + 5) bludgeoning damage.\n  - Enslave: The aboleth targets one creature it can see within 30 ft. of it. The target must succeed on a DC 14 Wisdom saving throw or be magically charmed by the aboleth until the aboleth dies or until it is on a different plane of existence from the target. The charmed target is under the aboleth's control and can't take reactions, and the aboleth and the target can communicate telepathically with each other over any distance. Whenever the charmed target takes damage, the target can repeat the saving throw. On a success, the effect ends. No more than once every 24 hours, the target can also repeat the saving throw when it is at least 1 mile away from the aboleth.\n- Legendary Actions:\n  - Detect: The aboleth makes a Wisdom (Perception) check.\n  - Tail Swipe: The aboleth makes one tail attack.\n  - Psychic Drain (Costs 2 Actions): One creature charmed by the aboleth takes 10 (3d6) psychic damage, and the aboleth regains hit points equal to the damage the creature takes.\n\nOUTPUT CONTRACT:\nReturn ONLY this JSON shape (no prose, no markdown):\n{\n  \"summary\": \"brief overall rationale\",\n  \"moves\": [{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"brief movement reason\"}],\n  \"actions\": [{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"brief action reason\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\nFor a 5 ft melee attack, only return it when the attacker is adjacent to the target.\n  \"end_turn\": true\n}",
+      "packet_bytes": 7276,
+      "tat_ms": 81317,
+      "input_tokens": 2221,
+      "output_tokens": 6676,
+      "total_tokens": 8897,
+      "output_text": "{\"summary\":\"The aboleth slides back, its mind latching onto the raging vortex—Enslave lashes out at the air elemental (DC 14 Wisdom). If it fails, the elemental is charmed, loses reactions, and falls under the aboleth’s control until it breaks free.\",\"moves\":[{\"token\":\"Aboleth\",\"rationale\":\"Back off to keep space while staying within 30 ft to Enslave key targets.\",\"path\":[[8,5],[7,4]],\"to\":[7,4]}],\"actions\":[{\"token\":\"Aboleth\",\"type\":\"other\",\"target\":\"Air Elemental\",\"details\":\"Enslave (30 ft): The Air Elemental must make a DC 14 Wisdom saving throw or be magically charmed by the aboleth (no reactions; under the aboleth’s control; repeats the save whenever it takes damage).\",\"rationale\":\"Air Elemental is the most dangerous and likely to fail the save (+0 Wis), making it the highest-impact control target.\",\"attack_kind\":null,\"range_ft\":null}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "The aboleth slides back, its mind latching onto the raging vortex—Enslave lashes out at the air elemental (DC 14 Wisdom). If it fails, the elemental is charmed, loses reactions, and falls under the aboleth’s control until it breaks free.",
+        "moves": [
+          {
+            "token": "Aboleth",
+            "rationale": "Back off to keep space while staying within 30 ft to Enslave key targets.",
+            "path": [
+              [
+                8,
+                5
+              ],
+              [
+                7,
+                4
+              ]
+            ],
+            "to": [
+              7,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Air Elemental",
+            "details": "Enslave (30 ft): The Air Elemental must make a DC 14 Wisdom saving throw or be magically charmed by the aboleth (no reactions; under the aboleth’s control; repeats the save whenever it takes damage).",
+            "rationale": "Air Elemental is the most dangerous and likely to fail the save (+0 Wis), making it the highest-impact control target.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      },
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 1,
+        "moveEvaluations": [
+          {
+            "token": "Aboleth",
+            "to": [
+              7,
+              4
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Air Elemental",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": null,
+        "attackCandidateMatch": null,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 0,
+        "tacticalIssues": [],
+        "issues": []
+      }
+    }
+  ],
+  "summary": [
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5",
+      "packet_bytes": 3103,
+      "count": 3,
+      "avg_tat_ms": 2064.33,
+      "avg_input_tokens": 1261,
+      "avg_total_tokens": 1406,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "tactical_sound_rate": 1,
+      "dodge_in_melee_without_attack_rate": 0,
+      "judge_candidate_acceptable_rate": 0.3333,
+      "judge_major_tactical_miss_rate": 0.6667,
+      "avg_judge_agreement_score": 3,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5",
+      "packet_bytes": 3481,
+      "count": 3,
+      "avg_tat_ms": 1934.67,
+      "avg_input_tokens": 1372,
+      "avg_total_tokens": 1550.33,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "tactical_sound_rate": 1,
+      "dodge_in_melee_without_attack_rate": 0,
+      "judge_candidate_acceptable_rate": 0,
+      "judge_major_tactical_miss_rate": 1,
+      "avg_judge_agreement_score": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5",
+      "packet_bytes": 3288,
+      "count": 3,
+      "avg_tat_ms": 1507.67,
+      "avg_input_tokens": 1358,
+      "avg_total_tokens": 1519.67,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "tactical_sound_rate": 1,
+      "dodge_in_melee_without_attack_rate": 0,
+      "judge_candidate_acceptable_rate": 0,
+      "judge_major_tactical_miss_rate": 1,
+      "avg_judge_agreement_score": 1.67,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5",
+      "packet_bytes": 3821,
+      "count": 3,
+      "avg_tat_ms": 1583.33,
+      "avg_input_tokens": 1408,
+      "avg_total_tokens": 1573.67,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "tactical_sound_rate": 1,
+      "dodge_in_melee_without_attack_rate": 0,
+      "judge_candidate_acceptable_rate": 0,
+      "judge_major_tactical_miss_rate": 1,
+      "avg_judge_agreement_score": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5",
+      "packet_bytes": 4928,
+      "count": 3,
+      "avg_tat_ms": 1903.33,
+      "avg_input_tokens": 1798,
+      "avg_total_tokens": 2008,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "tactical_sound_rate": 1,
+      "dodge_in_melee_without_attack_rate": 0,
+      "judge_candidate_acceptable_rate": 0,
+      "judge_major_tactical_miss_rate": 1,
+      "avg_judge_agreement_score": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5",
+      "packet_bytes": 5800,
+      "count": 3,
+      "avg_tat_ms": 1813.67,
+      "avg_input_tokens": 1956,
+      "avg_total_tokens": 2125.67,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "tactical_sound_rate": 1,
+      "dodge_in_melee_without_attack_rate": 0,
+      "judge_candidate_acceptable_rate": 0,
+      "judge_major_tactical_miss_rate": 1,
+      "avg_judge_agreement_score": 1.33,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 1,
+      "packet_bytes": 3103,
+      "tat_ms": 1781,
+      "input_tokens": 1261,
+      "output_tokens": 115,
+      "total_tokens": 1376,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 1,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 2,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal but clearly suboptimal. The goblin fires a shortbow while adjacent, suffering disadvantage, instead of either using its scimitar in melee (no disadvantage, same +4 and 1d6+2) or leveraging Nimble Escape to Disengage, move away, and shoot at normal. It also remains in melee, inviting a strong counterattack. The ground-truth line uses Disengage and range to avoid both disadvantage and opportunity attacks, which is meaningfully better.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Goblin holds position and makes a legal ranged attack with its shortbow against the adjacent Acolyte.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Shortbow attack from (4,4) against the adjacent Acolyte.",
+            "rationale": "Shortbow is a legal ranged option from the current square and keeps the turn simple without needing movement.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 2,
+      "packet_bytes": 3103,
+      "tat_ms": 2108,
+      "input_tokens": 1261,
+      "output_tokens": 169,
+      "total_tokens": 1430,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 1,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 2,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal but meaningfully worse. The goblin remained adjacent and used a ranged attack at disadvantage instead of leveraging Nimble Escape to Disengage and kite for a normal shortbow shot, or simply using its scimitar for a no-disadvantage melee attack. This wastes its strong mobility feature and reduces expected damage output compared to clear superior options.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Goblin holds position and makes a legal shortbow attack against the adjacent Acolyte from (4,4).",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "No movement needed; the goblin already has a legal ranged attack on the adjacent target from its current cell.",
+            "path": [
+              [
+                4,
+                4
+              ]
+            ],
+            "to": [
+              4,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Shortbow attack from (4,4) at the adjacent Acolyte.",
+            "rationale": "Shortbow is a legal ranged option from the goblin's current position and does not require movement.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 3,
+      "packet_bytes": 3103,
+      "tat_ms": 2304,
+      "input_tokens": 1261,
+      "output_tokens": 151,
+      "total_tokens": 1412,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 1,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 5,
+      "judge_candidate_acceptable": true,
+      "judge_major_tactical_miss": false,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal and tactically reasonable: the goblin remains adjacent and uses its scimitar, which has the same attack bonus and damage as the shortbow. While the ground-truth line leverages Nimble Escape to create distance before shooting, staying to make a melee attack against AC 10 is comparably effective and not a clear downgrade. No rules issues present.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Goblin holds position and makes a legal melee attack with its scimitar against the adjacent Acolyte.",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "No movement needed; staying put preserves a legal melee option against the adjacent enemy.",
+            "path": [],
+            "to": [
+              4,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Scimitar attack from (4,4) against adjacent Acolyte.",
+            "rationale": "The Acolyte is within 5 ft. reach, so this is a legal melee attack.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 1,
+      "packet_bytes": 3481,
+      "tat_ms": 1695,
+      "input_tokens": 1372,
+      "output_tokens": 167,
+      "total_tokens": 1539,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 1,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal but tactically poor. The bandit moved adjacent to the Knight and then used a ranged attack, imposing disadvantage due to an enemy within 5 ft, and targeted the high-AC Knight instead of the vulnerable Acolyte. It also gave up its elevated/light cover position and ignored the stronger option of either staying at range to focus the Acolyte or, once adjacent, using a melee attack without disadvantage. This is meaningfully worse than the ground-truth plan.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Bandit advances to (4,3) for a clear shot and fires a light crossbow at the Knight, which is a legal ranged attack from that position.",
+        "moves": [
+          {
+            "token": "Bandit",
+            "rationale": "Move to a listed legal square that keeps cover options and opens legal attack windows on the Knight.",
+            "path": [
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                4,
+                3
+              ]
+            ],
+            "to": [
+              4,
+              3
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Light Crossbow attack from (4,3) against the Knight.",
+            "rationale": "The Knight is within the listed legal ranged attack window from (4,3).",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 2,
+      "packet_bytes": 3481,
+      "tat_ms": 2230,
+      "input_tokens": 1372,
+      "output_tokens": 180,
+      "total_tokens": 1552,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 1,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal but very poor tactics. The bandit moves adjacent to the Knight, giving up the initial elevated light cover and entering melee. It then uses a ranged attack while within 5 ft of an enemy, imposing disadvantage, and targets the high-AC Knight instead of the low-AC Acolyte. The summary/rationale also incorrectly claims staying in cover and preserving distance. A far better line is to maintain or increase range and focus the Acolyte; even if adjacent, a scimitar attack would avoid disadvantage.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Bandit moves to the perch at (4,3) and fires a light crossbow shot at the Knight from range, staying in cover while maintaining a clear legal ranged line.",
+        "moves": [
+          {
+            "token": "Bandit",
+            "rationale": "Move to a listed legal position that preserves distance and enables a legal ranged attack on the Knight.",
+            "path": [
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                4,
+                3
+              ]
+            ],
+            "to": [
+              4,
+              3
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Light Crossbow attack from (4,3) against Knight.",
+            "rationale": "At (4,3), the Knight is within the listed legal ranged attack window and the Bandit's light crossbow range is sufficient.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 3,
+      "packet_bytes": 3481,
+      "tat_ms": 1879,
+      "input_tokens": 1372,
+      "output_tokens": 188,
+      "total_tokens": 1560,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 1,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal move and attack, but tactically poor: the bandit needlessly advances into 5 ft of the Knight (making the ranged shot at disadvantage and ending adjacent to the party’s tank) instead of retreating and focusing the low-AC Acolyte. It forgoes a much higher-probability, higher-impact shot and worsens its positioning. The summary also inaccurately claims the attack is from 10 ft and behind cover despite ending adjacent to the Knight.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Bandit moves to (4,2) to take the nearest legal firing position and uses Light Crossbow on the Knight from 10 ft away, staying behind light cover on the perch edge.",
+        "moves": [
+          {
+            "token": "Bandit",
+            "rationale": "Move 2 cells to the listed legal position that preserves cover and enables a legal attack on the Knight.",
+            "path": [
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                2
+              ]
+            ],
+            "to": [
+              4,
+              2
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Fire Light Crossbow at the Knight from (4,2).",
+            "rationale": "This is a listed legal ranged attack window from the chosen destination; the Knight is within 5 ft of that square, but ranged attack is preferred over risky melee positioning.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 1,
+      "packet_bytes": 3288,
+      "tat_ms": 1386,
+      "input_tokens": 1358,
+      "output_tokens": 160,
+      "total_tokens": 1518,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 2,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 2,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal movement and melee attack, but it ignores a clearly superior line: stepping to (7,4) to smash the AC 10 acolyte (likely a one-shot) while threatening the knight. Instead it retreats north and swings at the AC 18 knight, yielding much lower expected damage. Even from (6,1), a javelin at the acolyte within 30 ft would be stronger than clubbing the knight. This is meaningfully worse than the optimal plan.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Ogre advances to (6,1) to engage the Knight in melee and attacks with Greatclub.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Move to the listed legal position that places the Ogre adjacent to the Knight while staying on an unoccupied space.",
+            "path": [
+              [
+                5,
+                3
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                6,
+                2
+              ],
+              [
+                6,
+                1
+              ]
+            ],
+            "to": [
+              6,
+              1
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Greatclub attack against the Knight from melee reach.",
+            "rationale": "This is a listed legal attack window from the chosen destination and is the best available melee target.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 2,
+      "packet_bytes": 3288,
+      "tat_ms": 1239,
+      "input_tokens": 1358,
+      "output_tokens": 168,
+      "total_tokens": 1526,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 2,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal movement and melee attack, but tactically poor: the ogre retreats north to (6,1) to swing at the high-AC Knight (AC 18) instead of pushing into the center to threaten multiple foes and smash the low-AC Acolyte (AC 10, 9 HP) who is a near-certain one-shot with the ogre’s 2d8+4. The reference line both pressures the frontline and removes the caster; the candidate squanders that clear kill and positional advantage.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Ogre moves to (6,1), closing on the Knight while staying in legal melee range, then strikes the Knight with Greatclub.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Advance to the nearest legal melee position against the Knight; this uses available movement and sets up an attack this turn.",
+            "path": [
+              [
+                5,
+                2
+              ],
+              [
+                6,
+                1
+              ]
+            ],
+            "to": [
+              6,
+              1
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Greatclub attack against the Knight from (6,1).",
+            "rationale": "At (6,1), the Knight is within 5 ft. melee reach according to the provided legal attack window.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 3,
+      "packet_bytes": 3288,
+      "tat_ms": 1898,
+      "input_tokens": 1358,
+      "output_tokens": 157,
+      "total_tokens": 1515,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 2,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 2,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "The turn is legal: the ogre’s 2x2 move to (6,1) is within speed and ends in a clear space, and the knight at (8,3) is within 5 ft via diagonal adjacency for a melee attack. However, it’s a major tactical miss: the ogre could have moved to threaten and strike the AC 10, 9 HP acolyte this turn (e.g., to (7,4)) for a likely one-hit knockout, which is significantly stronger than swinging at the AC 18 knight. The chosen line ignores an obvious high-value target and cedes pressure on the enemy backline, making it meaningfully worse than the reference plan.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Ogre moves to [6,1] and makes a legal melee Greatclub attack against the Knight, keeping adjacent reach after movement.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "This is a legal move option that brings the Ogre into melee reach of the Knight while staying in an unoccupied space.",
+            "path": [
+              [
+                5,
+                2
+              ],
+              [
+                6,
+                1
+              ]
+            ],
+            "to": [
+              6,
+              1
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Greatclub",
+            "rationale": "From [6,1], the Knight is exactly 5 ft. away, making this a legal melee attack.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 1,
+      "packet_bytes": 3821,
+      "tat_ms": 1631,
+      "input_tokens": 1408,
+      "output_tokens": 166,
+      "total_tokens": 1574,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 1,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Illegal attack: from destination (5,5) a Large 2x2 elemental occupies (5,5),(6,5),(5,6),(6,6); the Bandit at (7,7) is only diagonally adjacent to (6,6), not edge-adjacent, so it’s outside 5‑ft reach. Additionally, the elemental failed to use Multiattack and ignored the high-value Acolyte target reachable via Air Form, making the turn both illegal and tactically inferior to the reference.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Air Elemental shifts to (5,5) and uses Slam against the Bandit from melee range.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Move 1 cell to a legal adjacent square that keeps a melee target in reach and avoids occupying an enemy space.",
+            "path": [
+              [
+                6,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "to": [
+              5,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Bandit",
+            "details": "Slam attack from melee range at the Bandit.",
+            "rationale": "From (5,5), the Bandit is adjacent and within the listed 5 ft. reach, making this a legal melee attack.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 2,
+      "packet_bytes": 3821,
+      "tat_ms": 1534,
+      "input_tokens": 1408,
+      "output_tokens": 162,
+      "total_tokens": 1570,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 1,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal move and attack, but it wastes the elemental’s Multiattack (only one Slam used), provokes an unnecessary opportunity attack by leaving the knight’s reach, and ignores the higher-value/softer Acolyte target. The ground-truth line preserves tempo and focuses the squishy support; this candidate is meaningfully worse.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Air Elemental shifts to (5,5) and uses Slam to attack the Bandit, taking advantage of its large reach and legal melee window.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Move 1 cell to gain a legal melee window on the Bandit while staying in an unoccupied space.",
+            "path": [
+              [
+                6,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "to": [
+              5,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Bandit",
+            "details": "Slam attack against the Bandit from (5,5).",
+            "rationale": "This is a listed legal melee attack window from the chosen destination.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 3,
+      "packet_bytes": 3821,
+      "tat_ms": 1585,
+      "input_tokens": 1408,
+      "output_tokens": 169,
+      "total_tokens": 1577,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 1,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal movement and a legal melee attack (diagonal adjacency to the Bandit), but the Air Elemental failed to use its Multiattack and made only a single Slam, wasting a full extra attack. This is a clear tempo loss and a major tactical miss compared to simply making two Slams (ideally on the low-AC Acolyte).",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Air Elemental hovers to (5,5) and strikes the Bandit with a legal Slam attack from melee reach.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Step 1 cell to an adjacent legal square that keeps a melee target in reach while avoiding occupied spaces.",
+            "path": [
+              [
+                6,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "to": [
+              5,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Bandit",
+            "details": "Slam attack against the Bandit from (5,5).",
+            "rationale": "Bandit is within 5 ft. from the moved position, making this a legal melee attack.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 1,
+      "packet_bytes": 4928,
+      "tat_ms": 2168,
+      "input_tokens": 1798,
+      "output_tokens": 200,
+      "total_tokens": 1998,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 9,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal but strategically poor. From its starting space the dragon could use Fire Breath to hit all four enemies (DC 21 Dex, 60‑ft cone), clearly superior to moving and making a single Bite. Even if not breathing, it should use Multiattack (with Frightful Presence) rather than one attack. This wastes significant damage and control compared to the optimal play.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The Adult Red Dragon advances to (6,2) and makes a melee Bite attack against the Acolyte, using the legal attack window from that position. This keeps the dragon in striking distance while threatening the weakest exposed enemy.",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Move to the legal position that allows a Bite on the Acolyte while staying in an unoccupied space.",
+            "path": [
+              [
+                8,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                4
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                6,
+                2
+              ]
+            ],
+            "to": [
+              6,
+              2
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Bite",
+            "rationale": "Use the dragon's melee attack from the legal window at (6,2) to pressure and likely drop the low-HP Acolyte.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 2,
+      "packet_bytes": 4928,
+      "tat_ms": 1532,
+      "input_tokens": 1798,
+      "output_tokens": 182,
+      "total_tokens": 1980,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 9,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal movement and bite, but a huge tactical downgrade: the dragon forgoes its optimal Fire Breath that could hit all four enemies from its starting position, and also skips its Multiattack (Frightful Presence + bite + 2 claws). Spending the turn on a single bite wastes action economy and ignores a clearly superior AoE option.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The Adult Red Dragon advances to (6,3) and uses its Bite against the Acolyte, ending adjacent to the target while keeping a legal melee reach.",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Move to a legal adjacent position that preserves a Bite option against the Acolyte.",
+            "path": [
+              [
+                8,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                4
+              ],
+              [
+                6,
+                3
+              ]
+            ],
+            "to": [
+              6,
+              3
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Bite attack from reach 10 ft. after moving to (6,3).",
+            "rationale": "Bite is a legal melee attack from this position and targets the exposed Acolyte.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 3,
+      "packet_bytes": 4928,
+      "tat_ms": 2010,
+      "input_tokens": 1798,
+      "output_tokens": 248,
+      "total_tokens": 2046,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 9,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "From its starting space the dragon can cover all four enemies with a 60‑ft Fire Breath (DC 21 Dex, 18d6 fire), which is vastly superior to moving and making a single bite. The candidate instead advances into melee, uses Frightful Presence, and only makes one Bite attack—skipping two additional claw attacks that Multiattack allows—wasting significant damage output. It also splits Frightful Presence and the Bite into separate listed actions, which is an awkward/possibly illegal representation of Multiattack. Overall, it ignores an obvious, devastating AoE and underuses its action economy, constituting a major tactical miss.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 2,
+      "issues": [],
+      "response": {
+        "summary": "Adult Red Dragon advances to (6,3), then uses Frightful Presence and makes a Bite attack against the Acolyte. This preserves a legal turn and matches the listed attack window from that position.",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Move to the listed legal position that keeps an enemy in melee reach and enables a Bite attack.",
+            "path": [
+              [
+                8,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                4
+              ],
+              [
+                6,
+                3
+              ]
+            ],
+            "to": [
+              6,
+              3
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "details": "Frightful Presence affects creatures of the dragon's choice within 120 ft. that are aware of it.",
+            "rationale": "The dragon can use Frightful Presence as part of its Multiattack on this turn.",
+            "attack_kind": null,
+            "range_ft": null
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Bite",
+            "rationale": "At (6,3), the Acolyte is within the listed legal melee window for Bite.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 1,
+      "packet_bytes": 5800,
+      "tat_ms": 1988,
+      "input_tokens": 1956,
+      "output_tokens": 163,
+      "total_tokens": 2119,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 4,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 2,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Legal move and the Knight is in reach from (10,5), but this line is meaningfully worse than using Enslave on the Air Elemental (a high-impact control target with likely +0 Wis). It also fails to use the aboleth’s Multiattack, making only a single tentacle attack and wasting action economy. Advancing into melee exposes the aboleth unnecessarily when it could control from range. Overall, tactically inferior to the control plan and even to a proper three-attack Multiattack.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Aboleth advances to (10,5) to bring the Knight into melee range and makes a Tentacle attack against the Knight.",
+        "moves": [
+          {
+            "token": "Aboleth",
+            "rationale": "Move to a legal adjacent position that opens a valid melee attack window on the Knight while staying clear of occupied squares.",
+            "path": [
+              [
+                9,
+                6
+              ],
+              [
+                10,
+                5
+              ]
+            ],
+            "to": [
+              10,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Tentacle",
+            "rationale": "The Knight is now within the aboleth's 10 ft. reach, and this is a legal melee attack from the chosen destination.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 2,
+      "packet_bytes": 5800,
+      "tat_ms": 1574,
+      "input_tokens": 1956,
+      "output_tokens": 175,
+      "total_tokens": 2131,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 4,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Illegal move: Aboleth has 10 ft land speed (2 cells) but moved 3 cells to (10,5). Tactically poor: used a single Tail attack instead of Multiattack (3 Tentacles) and ignored the high-impact Enslave on the Air Elemental (within 30 ft, +0 Wis). Does not follow the control-focused plan.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The Aboleth advances to (10,5) and uses a melee Tail attack against the Knight, the only legal high-value melee target from that position.",
+        "moves": [
+          {
+            "token": "Aboleth",
+            "rationale": "Move into a legal melee position that threatens the Knight while staying within the listed movement options.",
+            "path": [
+              [
+                9,
+                6
+              ],
+              [
+                10,
+                6
+              ],
+              [
+                10,
+                5
+              ]
+            ],
+            "to": [
+              10,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Tail attack against the Knight from 10 ft. reach.",
+            "rationale": "The Knight is a valid adjacent melee target from the chosen position and is a better isolated target than the elemental or acolyte here.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5",
+      "model": "gpt-5.4-mini",
+      "run_index": 3,
+      "packet_bytes": 5800,
+      "tat_ms": 1879,
+      "input_tokens": 1956,
+      "output_tokens": 171,
+      "total_tokens": 2127,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "tactical_sound": true,
+      "dodge_in_melee_without_attack": false,
+      "melee_attack_options_at_end": 4,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "judge_agreement_score": 1,
+      "judge_candidate_acceptable": false,
+      "judge_major_tactical_miss": true,
+      "judge_dodge_justified": false,
+      "judge_follows_ground_truth_plan": false,
+      "judge_rationale": "Illegal move: the Aboleth moved 3 squares (15 ft) with only 10‑ft speed; it could have reached the Knight with 10‑ft reach by stopping at (10,6) after 2 squares. Even ignoring the illegality, it forgoes its optimal options—multiattack (three tentacles) and especially Enslave on the Air Elemental (DC 14 vs +0 Wis, high impact and already within 30 ft from start)—making it meaningfully worse than the reference plan.",
+      "ground_truth_model": "gpt-5",
+      "ground_truth_variant": "full",
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Aboleth slithers to (10,5) and makes a legal melee Tail attack against the Knight from 10 ft. reach.",
+        "moves": [
+          {
+            "token": "Aboleth",
+            "rationale": "Move adjacent to the Knight while staying on a listed legal destination; this position enables a valid 10-ft melee attack.",
+            "path": [
+              [
+                9,
+                6
+              ],
+              [
+                10,
+                6
+              ],
+              [
+                10,
+                5
+              ]
+            ],
+            "to": [
+              10,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Tail attack against Knight from (10,5).",
+            "rationale": "Legal melee attack window is available from this destination, and the Knight is the best listed target to pressure.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          }
+        ],
+        "end_turn": true
+      }
+    }
+  ]
+}

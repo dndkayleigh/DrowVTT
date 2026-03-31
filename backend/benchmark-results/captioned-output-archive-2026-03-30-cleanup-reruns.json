@@ -1,0 +1,42 @@
+[
+  {
+    "scenario": "duel-goblin-vs-acolyte",
+    "variant": "compact_moves5_attacks6_summary",
+    "summary": "Goblin stays in place and slashes the adjacent Acolyte with its scimitar.",
+    "action": "attack",
+    "target": "Acolyte",
+    "legalTurn": true,
+    "tacticalSound": true,
+    "issues": []
+  },
+  {
+    "scenario": "air-elemental-flank",
+    "variant": "compact_moves5",
+    "summary": "Air Elemental shifts south to (6,5), then splits its Multiattack: first Slam at the Bandit, second Slam at the Knight.",
+    "action": "attack",
+    "target": "Bandit",
+    "legalTurn": true,
+    "tacticalSound": true,
+    "issues": []
+  },
+  {
+    "scenario": "boss-dragon-vs-party",
+    "variant": "compact_moves5_attacks6",
+    "summary": "The Adult Red Dragon shifts left to (6,4), unleashes its Frightful Presence to rattle all nearby foes, then snaps its jaws at the Acolyte within 10 ft reach.",
+    "action": "other",
+    "target": null,
+    "legalTurn": true,
+    "tacticalSound": true,
+    "issues": []
+  },
+  {
+    "scenario": "aboleth-control-web",
+    "variant": "compact_moves5",
+    "summary": "Aboleth slides south to threaten the Air Elemental and unleashes a full tentacle flurry from 10 ft reach against the lower-AC target.",
+    "action": "attack",
+    "target": "Air Elemental",
+    "legalTurn": true,
+    "tacticalSound": true,
+    "issues": []
+  }
+]

@@ -1,0 +1,3217 @@
+{
+  "benchmark_name": "gpt-5_packet_accuracy",
+  "generated_at": "2026-03-29T15:40:53.937Z",
+  "model": "gpt-5",
+  "runs_per_variant_per_scenario": 3,
+  "scenario_count": 6,
+  "variant_count": 3,
+  "completed": true,
+  "interrupted": false,
+  "interruption_reason": null,
+  "summary": [
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full",
+      "packet_bytes": 4349,
+      "count": 3,
+      "avg_tat_ms": 44100,
+      "avg_input_tokens": 1406,
+      "avg_total_tokens": 5044.33,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full_moves5_attacks6",
+      "packet_bytes": 4682,
+      "count": 3,
+      "avg_tat_ms": 37365,
+      "avg_input_tokens": 1513,
+      "avg_total_tokens": 4665.33,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5_attacks6",
+      "packet_bytes": 2128,
+      "count": 3,
+      "avg_tat_ms": 35313.33,
+      "avg_input_tokens": 908,
+      "avg_total_tokens": 3382.67,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full",
+      "packet_bytes": 4733,
+      "count": 3,
+      "avg_tat_ms": 37766,
+      "avg_input_tokens": 1558,
+      "avg_total_tokens": 4817,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full_moves5_attacks6",
+      "packet_bytes": 5066,
+      "count": 3,
+      "avg_tat_ms": 38917.33,
+      "avg_input_tokens": 1665,
+      "avg_total_tokens": 3807,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5_attacks6",
+      "packet_bytes": 2252,
+      "count": 3,
+      "avg_tat_ms": 38263.33,
+      "avg_input_tokens": 968,
+      "avg_total_tokens": 3557,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 0.6667
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full",
+      "packet_bytes": 5013,
+      "count": 3,
+      "avg_tat_ms": 70328,
+      "avg_input_tokens": 1699,
+      "avg_total_tokens": 7667.33,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full_moves5_attacks6",
+      "packet_bytes": 5346,
+      "count": 3,
+      "avg_tat_ms": 44307.67,
+      "avg_input_tokens": 1806,
+      "avg_total_tokens": 6565.33,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5_attacks6",
+      "packet_bytes": 2321,
+      "count": 3,
+      "avg_tat_ms": 42728.67,
+      "avg_input_tokens": 1026,
+      "avg_total_tokens": 5940.33,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full",
+      "packet_bytes": 5737,
+      "count": 3,
+      "avg_tat_ms": 46818,
+      "avg_input_tokens": 1797,
+      "avg_total_tokens": 6302,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full_moves5_attacks6",
+      "packet_bytes": 6070,
+      "count": 3,
+      "avg_tat_ms": 50172,
+      "avg_input_tokens": 1904,
+      "avg_total_tokens": 6638,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 0.6667,
+      "moves_legal_rate": 0.6667,
+      "actions_legal_rate": 0.6667,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5_attacks6",
+      "packet_bytes": 3191,
+      "count": 3,
+      "avg_tat_ms": 28026.67,
+      "avg_input_tokens": 1181,
+      "avg_total_tokens": 4412.67,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full",
+      "packet_bytes": 6416,
+      "count": 3,
+      "avg_tat_ms": 42454.67,
+      "avg_input_tokens": 2036,
+      "avg_total_tokens": 6323,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full_moves5_attacks6",
+      "packet_bytes": 6749,
+      "count": 3,
+      "avg_tat_ms": 42224.67,
+      "avg_input_tokens": 2143,
+      "avg_total_tokens": 7636.67,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5_attacks6",
+      "packet_bytes": 3807,
+      "count": 3,
+      "avg_tat_ms": 36911,
+      "avg_input_tokens": 1381,
+      "avg_total_tokens": 5509.67,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full",
+      "packet_bytes": 7276,
+      "count": 3,
+      "avg_tat_ms": 49458.67,
+      "avg_input_tokens": 2221,
+      "avg_total_tokens": 7410.33,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full_moves5_attacks6",
+      "packet_bytes": 7612,
+      "count": 3,
+      "avg_tat_ms": 55044.67,
+      "avg_input_tokens": 2328,
+      "avg_total_tokens": 7425.33,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 0,
+      "attack_candidate_match_rate": 0
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5_attacks6",
+      "packet_bytes": 4625,
+      "count": 3,
+      "avg_tat_ms": 52185.67,
+      "avg_input_tokens": 1560,
+      "avg_total_tokens": 6138.33,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full",
+      "run_index": 1,
+      "packet_bytes": 4349,
+      "tat_ms": 46558,
+      "input_tokens": 1406,
+      "output_tokens": 3963,
+      "total_tokens": 5369,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 2,
+      "issues": [],
+      "response": {
+        "summary": "With a sharp yip, the goblin slips free under Nimble Escape, skittering 30 feet away before loosing a shortbow shot at the exposed acolyte (+4 to hit, 1d6+2 piercing).",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "Create distance to avoid melee and fire without disadvantage.",
+            "path": [
+              [
+                5,
+                5
+              ],
+              [
+                6,
+                6
+              ],
+              [
+                7,
+                7
+              ],
+              [
+                8,
+                8
+              ],
+              [
+                9,
+                9
+              ],
+              [
+                10,
+                10
+              ]
+            ],
+            "to": [
+              10,
+              10
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "disengage",
+            "target": null,
+            "details": "Nimble Escape: Disengage as a bonus action.",
+            "rationale": "Avoid any opportunity attack before retreating.",
+            "attack_kind": null,
+            "range_ft": null
+          },
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Shortbow attack +4 to hit, 1d6+2 piercing.",
+            "rationale": "Ranged strike after creating space against a low-AC target.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full",
+      "run_index": 2,
+      "packet_bytes": 4349,
+      "tat_ms": 47766,
+      "input_tokens": 1406,
+      "output_tokens": 3849,
+      "total_tokens": 5255,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 2,
+      "issues": [],
+      "response": {
+        "summary": "The goblin darts away in a blur, then looses an arrow at the exposed acolyte—shortbow +4 to hit, 1d6+2 piercing—keeping the fight at range.",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "Create distance after Disengaging to avoid opportunity attacks and set up a safe bow shot.",
+            "path": [
+              [
+                3,
+                5
+              ],
+              [
+                2,
+                6
+              ],
+              [
+                1,
+                7
+              ],
+              [
+                0,
+                8
+              ],
+              [
+                0,
+                9
+              ],
+              [
+                0,
+                10
+              ]
+            ],
+            "to": [
+              0,
+              10
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "disengage",
+            "target": null,
+            "details": "Nimble Escape (bonus action): Disengage",
+            "rationale": "Avoid provoking an opportunity attack before retreating.",
+            "attack_kind": null,
+            "range_ft": null
+          },
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Shortbow +4 to hit (1d6+2 piercing)",
+            "rationale": "Attack from a safe distance within normal range.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full",
+      "run_index": 3,
+      "packet_bytes": 4349,
+      "tat_ms": 37976,
+      "input_tokens": 1406,
+      "output_tokens": 3103,
+      "total_tokens": 4509,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 2,
+      "issues": [],
+      "response": {
+        "summary": "With a snarling retreat, the goblin slips free with Nimble Escape before loosing an arrow at the acolyte—Shortbow +4 to hit, 1d6+2 piercing.",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "Create distance to avoid melee and shoot without disadvantage (open terrain assumed).",
+            "path": [
+              [
+                3,
+                3
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                0,
+                0
+              ]
+            ],
+            "to": [
+              0,
+              0
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "disengage",
+            "target": null,
+            "details": "Nimble Escape (bonus action): Disengage.",
+            "rationale": "Avoid opportunity attack before withdrawing.",
+            "attack_kind": null,
+            "range_ft": null
+          },
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Shortbow +4 to hit, 1d6+2 piercing.",
+            "rationale": "Attack from range after disengaging to stay safe.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 4682,
+      "tat_ms": 35657,
+      "input_tokens": 1513,
+      "output_tokens": 2891,
+      "total_tokens": 4404,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Snarling, the goblin holds its ground and slashes at the adjacent acolyte with its scimitar (+4 to hit, 1d6+2 slashing).",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "Stay in melee to use scimitar; shooting in melee would suffer disadvantage.",
+            "path": [
+              [
+                4,
+                4
+              ]
+            ],
+            "to": [
+              4,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Scimitar slash (+4 to hit, 1d6+2 slashing)",
+            "rationale": "Adjacent target; melee attack is optimal and avoids ranged disadvantage in melee.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 4682,
+      "tat_ms": 43701,
+      "input_tokens": 1513,
+      "output_tokens": 3660,
+      "total_tokens": 5173,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Snarling at arm’s length, the goblin lashes out with its scimitar at the adjacent acolyte (+4 to hit, 1d6+2 slashing).",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Scimitar — Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6+2) slashing damage.",
+            "rationale": "Already adjacent; scimitar strikes without risking disadvantage or opportunity attacks.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 4682,
+      "tat_ms": 32737,
+      "input_tokens": 1513,
+      "output_tokens": 2906,
+      "total_tokens": 4419,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Snarling at point-blank range, the goblin lashes out with its scimitar at the adjacent acolyte (+4 to hit, 1d6+2 slashing).",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "Already adjacent to the target; no need to reposition.",
+            "path": [
+              [
+                4,
+                4
+              ]
+            ],
+            "to": [
+              4,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Scimitar slash",
+            "rationale": "Use melee while adjacent; a bow attack here would suffer disadvantage.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 2128,
+      "tat_ms": 28957,
+      "input_tokens": 908,
+      "output_tokens": 2146,
+      "total_tokens": 3054,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "No legal attack windows available. Goblin holds position at (4,4) and takes the Dodge action to stay safe while adjacent to the Acolyte.",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "No legal attack windows; remain in place and focus on defense with Dodge.",
+            "path": [
+              [
+                4,
+                4
+              ]
+            ],
+            "to": [
+              4,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action, imposing disadvantage on attacks against it until the start of its next turn.",
+            "rationale": "No legal attacks available from any listed move candidate this turn.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 2128,
+      "tat_ms": 39977,
+      "input_tokens": 908,
+      "output_tokens": 2750,
+      "total_tokens": 3658,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Goblin slips diagonally to (5,5) to stay engaged without provoking and then Dodges to make itself harder to hit.",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "Reposition while remaining within the Acolyte’s reach to avoid opportunity attacks and set up for future movement or shots.",
+            "path": [
+              [
+                4,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "to": [
+              5,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action, focusing on defense until the start of its next turn.",
+            "rationale": "No legal attack windows this turn; prioritize survivability.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 2128,
+      "tat_ms": 37006,
+      "input_tokens": 908,
+      "output_tokens": 2528,
+      "total_tokens": 3436,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Goblin shifts diagonally to (5,5) and uses Dodge since no legal attacks are available from the listed positions.",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "Reposition slightly while remaining adjacent; set up for future retreat or shot.",
+            "path": [
+              [
+                4,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "to": [
+              5,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action, imposing disadvantage on attacks against it until the start of its next turn.",
+            "rationale": "No legal attack windows available this turn; prioritize defense while in melee.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full",
+      "run_index": 1,
+      "packet_bytes": 4733,
+      "tat_ms": 34224,
+      "input_tokens": 1558,
+      "output_tokens": 2827,
+      "total_tokens": 4385,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "From his elevated perch, the bandit snaps a shot at the acolyte 20 feet away with a light crossbow (+3 to hit, 1d8+1 piercing). He keeps position to leverage light cover while targeting the frail caster.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Light Crossbow shot (+3 to hit, 1d8+1 piercing) at normal range.",
+            "rationale": "Focus the low-AC caster at safe range while keeping light cover; best chance to weaken enemy support.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full",
+      "run_index": 2,
+      "packet_bytes": 4733,
+      "tat_ms": 33842,
+      "input_tokens": 1558,
+      "output_tokens": 2947,
+      "total_tokens": 4505,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "From his elevated perch, the bandit steadies his light crossbow and fires at the acolyte—ranged +3 to hit, for 1d8+1 piercing. He stays put to keep the benefit of light cover.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Light Crossbow: +3 to hit, Hit: 1d8+1 piercing.",
+            "rationale": "Focus down the low-AC caster while retaining light cover at the current position.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full",
+      "run_index": 3,
+      "packet_bytes": 4733,
+      "tat_ms": 45232,
+      "input_tokens": 1558,
+      "output_tokens": 4003,
+      "total_tokens": 5561,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "From his elevated perch, the bandit steadies his light crossbow and looses a bolt at the acolyte 20 ft away—+3 to hit, 1d8+1 piercing (range 80/320 ft).",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Light Crossbow: +3 to hit, range 80/320 ft., Hit: 5 (1d8+1) piercing damage.",
+            "rationale": "Stay in light cover and focus the low-AC caster to disrupt incoming support magic.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 5066,
+      "tat_ms": 36530,
+      "input_tokens": 1665,
+      "output_tokens": 2015,
+      "total_tokens": 3680,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "From his elevated perch, the bandit steadies a light crossbow and picks off the acolyte at 20 ft—attack +3 to hit for 1d8+1 piercing—keeping his distance behind light cover.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Light Crossbow",
+            "rationale": "Prioritize the low-AC caster; remain in safety and use ranged pressure.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 5066,
+      "tat_ms": 37846,
+      "input_tokens": 1665,
+      "output_tokens": 2127,
+      "total_tokens": 3792,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "From his perch, the bandit looses a bolt at the exposed acolyte, picking the softer target. Light crossbow shot (+3 to hit, 1d8+1 piercing) at 20 ft, fired from cover without advancing.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Light Crossbow attack +3 to hit, 1d8+1 piercing",
+            "rationale": "Focus the low-AC caster at safe range while keeping cover; no need to close.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 5066,
+      "tat_ms": 42376,
+      "input_tokens": 1665,
+      "output_tokens": 2284,
+      "total_tokens": 3949,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "From his elevated perch, the bandit holds position and snaps a bolt at the exposed Acolyte: Light Crossbow +3 to hit, 1d8+1 piercing.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Light Crossbow: +3 to hit, 1d8+1 piercing",
+            "rationale": "Focus the low-AC caster at 20 ft while retaining cover and distance.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 2252,
+      "tat_ms": 55446,
+      "input_tokens": 968,
+      "output_tokens": 3599,
+      "total_tokens": 4567,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Bandit drops from perch and advances to engage the Knight, then takes the Dodge action to make incoming attacks harder.",
+        "moves": [
+          {
+            "token": "Bandit",
+            "rationale": "Close distance to threaten the Knight next round while minimizing risk this turn.",
+            "path": [
+              [
+                3,
+                3
+              ],
+              [
+                4,
+                3
+              ]
+            ],
+            "to": [
+              4,
+              3
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action, imposing disadvantage on attacks against the Bandit until the start of its next turn.",
+            "rationale": "No legal attack window this turn; Dodge increases survivability while adjacent to the Knight.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 2252,
+      "tat_ms": 34672,
+      "input_tokens": 968,
+      "output_tokens": 2351,
+      "total_tokens": 3319,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": false,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [
+        "Attack on Acolyte was not listed in compact legal attack windows."
+      ],
+      "response": {
+        "summary": "Bandit holds position on the elevated perch and fires a light crossbow at the Acolyte (about 20 ft away), focusing the low-AC caster while keeping light cover.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Light Crossbow +3 to hit, 1d8+1 piercing",
+            "rationale": "Target the vulnerable caster within normal range while maintaining light cover; no melee reach available and moving provides no better attack window.",
+            "attack_kind": "ranged",
+            "range_ft": 20
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 2252,
+      "tat_ms": 24672,
+      "input_tokens": 968,
+      "output_tokens": 1817,
+      "total_tokens": 2785,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Bandit holds position on the elevated perch at (2,2). With no clear attack window, it takes the Dodge action to impose disadvantage on incoming attacks while maintaining light cover.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action, focusing on defense while keeping cover on the perch.",
+            "rationale": "No legal attack windows available; best to maintain defensive posture and wait for a clearer shot or better position next round.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full",
+      "run_index": 1,
+      "packet_bytes": 5013,
+      "tat_ms": 91996,
+      "input_tokens": 1699,
+      "output_tokens": 7870,
+      "total_tokens": 9569,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "With a bellow, the ogre bulls around its own line to crash into the knight’s flank, then swings a massive greatclub. Greatclub +6 to hit, reach 5 ft.; on hit 13 (2d8+4) bludgeoning.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Skirt around allies to get adjacent to the Knight and bring strongest melee to bear.",
+            "path": [
+              [
+                4,
+                3
+              ],
+              [
+                4,
+                2
+              ],
+              [
+                5,
+                2
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                7,
+                1
+              ]
+            ],
+            "to": [
+              7,
+              1
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Greatclub — Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.",
+            "rationale": "Now adjacent to the Knight; use highest-damage attack to pressure the front line.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full",
+      "run_index": 2,
+      "packet_bytes": 5013,
+      "tat_ms": 67842,
+      "input_tokens": 1699,
+      "output_tokens": 5329,
+      "total_tokens": 7028,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The ogre bellows and thunders 15 feet forward, shouldering past its goblins to loom over the backline, then brings its greatclub down on the acolyte (+6 to hit, reach 5 ft., 2d8+4 bludgeoning).",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Close to threaten the caster and knight simultaneously without provoking; set up a high-value melee target.",
+            "path": [
+              [
+                5,
+                3
+              ],
+              [
+                6,
+                4
+              ],
+              [
+                7,
+                4
+              ]
+            ],
+            "to": [
+              7,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Greatclub — Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.",
+            "rationale": "Prioritize the low-AC caster for a likely one-hit down, denying enemy support.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full",
+      "run_index": 3,
+      "packet_bytes": 5013,
+      "tat_ms": 51146,
+      "input_tokens": 1699,
+      "output_tokens": 4706,
+      "total_tokens": 6405,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "With a ground-shaking charge, the ogre bulls past its goblins and bears down on the squishy acolyte, swinging its greatclub (+6 to hit, 2d8+4 bludgeoning). It crashes into the center, menacing both knight and caster at once.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Close to the soft target in the center while engaging multiple enemies; passing through allies is allowed.",
+            "path": [
+              [
+                5,
+                3
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                6,
+                4
+              ],
+              [
+                7,
+                4
+              ]
+            ],
+            "to": [
+              7,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Greatclub swing (+6 to hit), 2d8+4 bludgeoning damage on hit.",
+            "rationale": "Focus down the low-AC caster to remove support quickly.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 5346,
+      "tat_ms": 44595,
+      "input_tokens": 1806,
+      "output_tokens": 4284,
+      "total_tokens": 6090,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Bellowing, the ogre hurls a javelin at the acolyte—attack +6, range 30/120 ft.; on a hit it deals 2d6+4 piercing—to break the enemy’s support line before closing.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Javelin: +6 to hit, 30/120 ft., 11 (2d6+4) piercing damage on hit.",
+            "rationale": "Pick off the low-AC caster at normal range before engaging in melee; no adjacent foes impose disadvantage.",
+            "attack_kind": "ranged",
+            "range_ft": 30
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 5346,
+      "tat_ms": 43312,
+      "input_tokens": 1806,
+      "output_tokens": 4514,
+      "total_tokens": 6320,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "With a roar, the ogre plants its feet and hurls a javelin at the robed acolyte 20 feet away—Javelin +6 to hit, 2d6+4 piercing.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Javelin at the Acolyte: +6 to hit, 2d6+4 piercing.",
+            "rationale": "Focus down the low-AC caster at normal range without stepping into the knight’s melee.",
+            "attack_kind": "ranged",
+            "range_ft": 30
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 5346,
+      "tat_ms": 45016,
+      "input_tokens": 1806,
+      "output_tokens": 5480,
+      "total_tokens": 7286,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "With a bellow, the ogre bulls forward, muscling past its goblin and planting itself between the defenders before crushing down on the robed acolyte. Greatclub +6 to hit; on a hit: 2d8+4 bludgeoning.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Close to engage and threaten multiple enemies; set up a melee strike on the squishy caster.",
+            "path": [
+              [
+                5,
+                3
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                7,
+                4
+              ]
+            ],
+            "to": [
+              7,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Greatclub swing at the Acolyte (+6 to hit, 2d8+4 bludgeoning)",
+            "rationale": "Eliminate the fragile caster while adjacent; likely to drop them in one hit.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 2321,
+      "tat_ms": 59528,
+      "input_tokens": 1026,
+      "output_tokens": 6785,
+      "total_tokens": 7811,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Ogre advances to pressure the Knight, then Dodges since no legal attack windows are available.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Close on the Knight while keeping a clear lane; set up for melee next round.",
+            "path": [
+              [
+                5,
+                2
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                7,
+                1
+              ],
+              [
+                8,
+                1
+              ]
+            ],
+            "to": [
+              8,
+              1
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action to impose disadvantage on attacks against it until the start of its next turn.",
+            "rationale": "No legal attack windows listed after movement; brace for retaliation while threatening the front line next round.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 2321,
+      "tat_ms": 30366,
+      "input_tokens": 1026,
+      "output_tokens": 3649,
+      "total_tokens": 4675,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Ogre advances to pressure the Knight and takes the Dodge action to mitigate incoming attacks.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Close on the Knight to threaten the front line while staying safe this round.",
+            "path": [
+              [
+                5,
+                2
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                7,
+                1
+              ]
+            ],
+            "to": [
+              7,
+              1
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action, imposing disadvantage on attacks against it until the start of its next turn.",
+            "rationale": "No legal attack windows this turn; Dodging while adjacent pressures the Knight and reduces incoming damage.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 2321,
+      "tat_ms": 38292,
+      "input_tokens": 1026,
+      "output_tokens": 4309,
+      "total_tokens": 5335,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Ogre advances to (8,1) to pressure the Knight from the north; no legal attacks available, so it Dodges to stay safe while closing.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Close on the Knight to set up melee next round while avoiding immediate engagement; path avoids enemy-occupied cells.",
+            "path": [
+              [
+                5,
+                2
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                7,
+                1
+              ],
+              [
+                8,
+                1
+              ]
+            ],
+            "to": [
+              8,
+              1
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action to impose disadvantage on attacks against it until the start of its next turn.",
+            "rationale": "No legal attack windows this turn; Dodging increases survivability while advancing.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full",
+      "run_index": 1,
+      "packet_bytes": 5737,
+      "tat_ms": 42436,
+      "input_tokens": 1797,
+      "output_tokens": 4261,
+      "total_tokens": 6058,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 2,
+      "issues": [],
+      "response": {
+        "summary": "The air elemental surges past the knight in a swirling gale, sliding into position beside the acolyte before hammering both foes—two Slam attacks (+8 to hit, 2d8+5 bludgeoning each).",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Reposition to threaten the acolyte while staying within the knight’s reach to avoid opportunity attacks.",
+            "path": [
+              [
+                6,
+                4
+              ],
+              [
+                6,
+                5
+              ],
+              [
+                7,
+                5
+              ],
+              [
+                8,
+                5
+              ]
+            ],
+            "to": [
+              8,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Slam: +8 to hit, 2d8+5 bludgeoning",
+            "rationale": "Focus the fragile target first to remove a support threat.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          },
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Slam: +8 to hit, 2d8+5 bludgeoning",
+            "rationale": "Use second slam on the adjacent frontline to pressure their defender.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full",
+      "run_index": 2,
+      "packet_bytes": 5737,
+      "tat_ms": 52592,
+      "input_tokens": 1797,
+      "output_tokens": 4055,
+      "total_tokens": 5852,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 2,
+      "issues": [],
+      "response": {
+        "summary": "A roaring cyclone slides to flank both foes, then lashes out—first crushing the acolyte with a battering gust (Slam +8 to hit, 2d8+5 bludgeoning) before smashing at the armored knight with another thundering blow.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Shift to be adjacent to both the Knight and Acolyte, enabling two slams without overlapping spaces.",
+            "path": [
+              [
+                7,
+                5
+              ],
+              [
+                8,
+                5
+              ]
+            ],
+            "to": [
+              8,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Slam (+8 to hit, 2d8+5 bludgeoning)",
+            "rationale": "Prioritize the fragile caster to remove support quickly.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          },
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Slam (+8 to hit, 2d8+5 bludgeoning)",
+            "rationale": "Follow through against the frontliner while in position.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full",
+      "run_index": 3,
+      "packet_bytes": 5737,
+      "tat_ms": 45426,
+      "input_tokens": 1797,
+      "output_tokens": 5199,
+      "total_tokens": 6996,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 2,
+      "issues": [],
+      "response": {
+        "summary": "The air elemental whips around in a cyclone blur, sliding between foes before lashing out twice—Slam x2 (+8 to hit, 2d8+5 bludgeoning each)—cracking into the acolyte first, then the armored knight.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Reposition to be adjacent to both Acolyte and Knight for a legal multiattack without overlapping their spaces.",
+            "path": [
+              [
+                7,
+                5
+              ],
+              [
+                8,
+                5
+              ]
+            ],
+            "to": [
+              8,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Slam (+8 to hit, 2d8+5 bludgeoning). Multiattack (1/2).",
+            "rationale": "Eliminate the low-AC, low-HP target first to reduce enemy actions.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          },
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Slam (+8 to hit, 2d8+5 bludgeoning). Multiattack (2/2).",
+            "rationale": "Use second slam on the adjacent tank to pressure the front line.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 6070,
+      "tat_ms": 45868,
+      "input_tokens": 1904,
+      "output_tokens": 4968,
+      "total_tokens": 6872,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 2,
+      "issues": [],
+      "response": {
+        "summary": "With a roar of wind, the elemental slides between knight and acolyte, then hammers both with gale-forced blows—two Slam attacks (+8 to hit, 2d8+5 bludgeoning each).",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Reposition to stay adjacent to both Knight and Acolyte for optimal multiattack pressure.",
+            "path": [
+              [
+                7,
+                5
+              ],
+              [
+                8,
+                5
+              ]
+            ],
+            "to": [
+              8,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Slam (Multiattack 1/2): +8 to hit, 2d8+5 bludgeoning",
+            "rationale": "Pick off the low-AC caster first; likely to drop in one hit.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          },
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Slam (Multiattack 2/2): +8 to hit, 2d8+5 bludgeoning",
+            "rationale": "Keep pressure on the frontliner while remaining adjacent.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 6070,
+      "tat_ms": 34038,
+      "input_tokens": 1904,
+      "output_tokens": 3582,
+      "total_tokens": 5486,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The roaring gale holds its ground, lashing the knight with a double slam—two crushing blows (+8 to hit, 2d8+5 bludgeoning each) in a whirling barrage.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Already adjacent to the knight; hold position to deliver full multiattack safely.",
+            "path": [
+              [
+                6,
+                4
+              ]
+            ],
+            "to": [
+              6,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Multiattack—two Slam attacks: +8 to hit, reach 5 ft.; on hit 14 (2d8+5) bludgeoning each.",
+            "rationale": "Focus highest-value adjacent target and apply maximum DPR.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 6070,
+      "tat_ms": 70610,
+      "input_tokens": 1904,
+      "output_tokens": 5652,
+      "total_tokens": 7556,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": false,
+      "actions_legal": false,
+      "legal_turn": false,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 2,
+      "issues": [
+        "Air Elemental cannot pass through Knight.",
+        "Air Elemental cannot make a melee attack on Acolyte from 15 ft away; range 5 ft requires within 1 cells."
+      ],
+      "response": {
+        "summary": "With a howling surge, the air elemental gusts past the knight to menace the acolyte, then batters both front and back line with crushing slams (+8 to hit, 2d8+5 bludgeoning each). The gale stays within the knight’s reach as it repositions, denying an opening for a counterstrike.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Reposition to threaten the acolyte while remaining adjacent to the knight to avoid opportunity attacks.",
+            "path": [
+              [
+                6,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                8,
+                4
+              ],
+              [
+                9,
+                4
+              ],
+              [
+                9,
+                3
+              ]
+            ],
+            "to": [
+              9,
+              3
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Slam +8 to hit, reach 5 ft.; on hit 2d8+5 bludgeoning.",
+            "rationale": "Focus the frail backliner to quickly remove support.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          },
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Slam +8 to hit, reach 5 ft.; on hit 2d8+5 bludgeoning.",
+            "rationale": "Use second attack on adjacent durable threat to apply pressure after striking the acolyte.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 3191,
+      "tat_ms": 34164,
+      "input_tokens": 1181,
+      "output_tokens": 3816,
+      "total_tokens": 4997,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Air Elemental shifts diagonally to (7,5) to pressure the enemy backline while staying within the Knight’s reach to avoid provoking, then Dodges since no legal attacks are available this turn.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Reposition closer to Acolyte/Bandit while remaining in Knight’s reach to avoid opportunity attacks and set up for a potential Whirlwind next turn.",
+            "path": [
+              [
+                7,
+                5
+              ]
+            ],
+            "to": [
+              7,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action, imposing disadvantage on attack rolls against it until the start of its next turn.",
+            "rationale": "No legal attack windows available; Dodging maximizes survivability while engaged.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 3191,
+      "tat_ms": 21994,
+      "input_tokens": 1181,
+      "output_tokens": 2495,
+      "total_tokens": 3676,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Air Elemental holds position (no legal attacks available from current/candidate positions) and takes the Dodge action to impose disadvantage on incoming attacks.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "No legal attack windows; remain engaged with the Knight while minimizing risk.",
+            "path": [
+              [
+                6,
+                4
+              ]
+            ],
+            "to": [
+              6,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action.",
+            "rationale": "Without a legal attack this turn, Dodging maximizes defense while staying in melee range.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 3191,
+      "tat_ms": 27922,
+      "input_tokens": 1181,
+      "output_tokens": 3384,
+      "total_tokens": 4565,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The Air Elemental shifts diagonally to (7,5) to pressure the south side while staying adjacent to the Knight, then takes the Dodge action since no legal attacks are available.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Reposition to threaten multiple enemies while maintaining adjacency to the Knight.",
+            "path": [
+              [
+                7,
+                5
+              ]
+            ],
+            "to": [
+              7,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action to impose disadvantage on attacks against it.",
+            "rationale": "No legal attack windows are available from the listed move candidates, so defense is prioritized.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full",
+      "run_index": 1,
+      "packet_bytes": 6416,
+      "tat_ms": 42873,
+      "input_tokens": 2036,
+      "output_tokens": 4730,
+      "total_tokens": 6766,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The ancient wyrm rears back and unleashes a furnace-hot blast in a 60‑ft cone, engulfing the clustered foes; each must make a DC 21 Dexterity save or take 63 (18d6) fire damage, half on a success.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "details": "Fire Breath (60-ft cone) aimed to catch Knight, Acolyte, Bandit, and Ogre Ally; each creature in the area must make a DC 21 Dexterity saving throw, taking 63 (18d6) fire damage on a failed save, or half as much on a success.",
+            "rationale": "All enemies are tightly clustered within a 60-ft cone; breath maximizes damage against four targets without entering melee. Assuming breath is available this turn.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full",
+      "run_index": 2,
+      "packet_bytes": 6416,
+      "tat_ms": 34591,
+      "input_tokens": 2036,
+      "output_tokens": 2797,
+      "total_tokens": 4833,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "With a thunderous inhale, the adult red dragon exhales a 60‑foot cone of searing flame westward, engulfing the Knight, Acolyte, Bandit, and Ogre Ally. Each must make a DC 21 Dexterity save, taking 63 (18d6) fire damage on a failure, or half on success.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "details": "Fire Breath (60‑ft cone) aimed west to catch Knight, Acolyte, Bandit, and Ogre Ally; DC 21 Dex save, 63 (18d6) fire damage, half on success.",
+            "rationale": "Maximize area damage against all clustered enemies; breath assumed available (recharge not tracked) and no melee targets in reach.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full",
+      "run_index": 3,
+      "packet_bytes": 6416,
+      "tat_ms": 49900,
+      "input_tokens": 2036,
+      "output_tokens": 5334,
+      "total_tokens": 7370,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 4,
+      "issues": [],
+      "response": {
+        "summary": "With a thunderous wingbeat, the red dragon surges left and unleashes its Frightful Presence (DC 19 Wis) before tearing into the front line—snapping at the knight with a +14 bite (2d10+8 piercing + 2d6 fire) and raking the acolyte and bandit with two +14 claws (2d6+8 slashing each).",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Close to bring key targets into bite (10 ft) and claw (5 ft) reach while lining up multiple enemies for fear.",
+            "path": [
+              [
+                9,
+                4
+              ],
+              [
+                8,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                4
+              ]
+            ],
+            "to": [
+              6,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "details": "Frightful Presence: Each enemy of the dragon’s choice within 120 ft and aware of it must make a DC 19 Wisdom save or become frightened for 1 minute (repeat save at end of each of its turns). Targets: Knight, Acolyte, Bandit, Ogre Ally.",
+            "rationale": "Open with fear to debilitate the party before striking.",
+            "attack_kind": null,
+            "range_ft": null
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Bite: +14 to hit, reach 10 ft. Hit: 19 (2d10+8) piercing + 7 (2d6) fire damage.",
+            "rationale": "Focus high-damage bite on the toughest front-liner within 10 ft.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Claw: +14 to hit, reach 5 ft. Hit: 15 (2d6+8) slashing damage.",
+            "rationale": "Eliminate the fragile caster adjacent to the dragon.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Bandit",
+            "details": "Claw: +14 to hit, reach 5 ft. Hit: 15 (2d6+8) slashing damage.",
+            "rationale": "Cut down an adjacent foe to reduce incoming actions.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 6749,
+      "tat_ms": 33264,
+      "input_tokens": 2143,
+      "output_tokens": 4183,
+      "total_tokens": 6326,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 4,
+      "issues": [],
+      "response": {
+        "summary": "With a thunderous sweep, the red dragon lumbers left and unleashes its aura of terror (Frightful Presence DC 19 Wis), then savages the line—biting the knight (+14 to hit, 2d10+8 piercing + 2d6 fire) and raking the acolyte and bandit with its claws (+14 to hit, 2d6+8 slashing each).",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Shift left to bring multiple foes within bite/claw reach and set up for future breath cone.",
+            "path": [
+              [
+                8,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                4
+              ]
+            ],
+            "to": [
+              6,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "details": "Frightful Presence: Each of Knight, Acolyte, Bandit, and Ogre Ally within 120 ft must make a DC 19 Wisdom save or be frightened for 1 minute (repeat save at end of each of its turns).",
+            "rationale": "Open with fear to debilitate as many foes as possible.",
+            "attack_kind": null,
+            "range_ft": null
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Bite: +14 to hit; reach 10 ft; on hit 2d10+8 piercing + 2d6 fire.",
+            "rationale": "Focus the toughest target with the highest-damage attack at reach.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Claw: +14 to hit; reach 5 ft; on hit 2d6+8 slashing.",
+            "rationale": "Cut down the frail caster adjacent to its space.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Bandit",
+            "details": "Claw: +14 to hit; reach 5 ft; on hit 2d6+8 slashing.",
+            "rationale": "Eliminate another adjacent foe to thin the ranks.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 6749,
+      "tat_ms": 54953,
+      "input_tokens": 2143,
+      "output_tokens": 6819,
+      "total_tokens": 8962,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 4,
+      "issues": [],
+      "response": {
+        "summary": "With a thunderous sweep, the red dragon surges forward, its baleful presence washing over the field (Frightful Presence DC 19 Wis). It snaps at the knight (+14 to hit, bite 2d10+8 piercing + 2d6 fire) and rends the acolyte and bandit with its claws (+14 to hit, 2d6+8 slashing each).",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Close to threaten multiple foes at both 5 ft and 10 ft for optimal Multiattack after Frightful Presence.",
+            "path": [
+              [
+                8,
+                4
+              ],
+              [
+                7,
+                3
+              ],
+              [
+                6,
+                3
+              ]
+            ],
+            "to": [
+              6,
+              3
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "details": "Frightful Presence (DC 19 Wis): Knight, Acolyte, Bandit, Ogre Ally must save or be frightened for 1 minute (repeat save at end of each of their turns).",
+            "rationale": "Open with fright to hinder enemy offense before striking.",
+            "attack_kind": null,
+            "range_ft": null
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Bite +14 to hit, reach 10 ft. Hit: 19 (2d10+8) piercing + 7 (2d6) fire.",
+            "rationale": "High-damage reach attack against the armored frontliner at 10 ft.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Claw +14 to hit, reach 5 ft. Hit: 15 (2d6+8) slashing.",
+            "rationale": "Adjacent squishy target to quickly reduce enemy support.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Bandit",
+            "details": "Claw +14 to hit, reach 5 ft. Hit: 15 (2d6+8) slashing.",
+            "rationale": "Adjacent target to capitalize on positioning and thin numbers.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 6749,
+      "tat_ms": 38457,
+      "input_tokens": 2143,
+      "output_tokens": 5479,
+      "total_tokens": 7622,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 4,
+      "issues": [],
+      "response": {
+        "summary": "The red dragon surges left, its roar freezing hearts (Frightful Presence, DC 19 Wis) before it snaps at the knight (+14 to hit, 2d10+8 piercing + 2d6 fire) and rends the acolyte and bandit with hooked claws (+14 to hit, 2d6+8 slashing each).",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Close to put the acolyte within claw range and the knight within bite reach for full multiattack after Frightful Presence.",
+            "path": [
+              [
+                8,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                4
+              ]
+            ],
+            "to": [
+              6,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "details": "Use Frightful Presence: Each of Knight, Acolyte, Bandit, and Ogre Ally within 120 ft must make a DC 19 Wisdom save or be frightened for 1 minute (save repeats at end of each of its turns).",
+            "rationale": "Open with Frightful Presence per tactics to debuff the whole enemy side.",
+            "attack_kind": null,
+            "range_ft": null
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Knight",
+            "details": "+14 to hit, Bite, reach 10 ft; on hit: 2d10+8 piercing + 2d6 fire damage.",
+            "rationale": "Focus bite on the toughest foe within 10 ft reach.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "+14 to hit, Claw, reach 5 ft; on hit: 2d6+8 slashing damage.",
+            "rationale": "Remove the fragile support adjacent to the dragon.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Bandit",
+            "details": "+14 to hit, Claw, reach 5 ft; on hit: 2d6+8 slashing damage.",
+            "rationale": "Press advantage by striking another nearby foe.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 3807,
+      "tat_ms": 44995,
+      "input_tokens": 1381,
+      "output_tokens": 4250,
+      "total_tokens": 5631,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The dragon advances to pressure the clustered foes, then uses Frightful Presence on all enemies (DC 19 Wis). No melee attacks are in range this turn.",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Close distance to the enemy cluster to threaten next-round multiattack/breath while remaining outside melee this turn.",
+            "path": [
+              [
+                8,
+                3
+              ],
+              [
+                7,
+                3
+              ],
+              [
+                6,
+                3
+              ]
+            ],
+            "to": [
+              6,
+              3
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "details": "Use Frightful Presence: each chosen enemy (Knight, Acolyte, Bandit, Ogre Ally) within 120 ft that can see the dragon must make a DC 19 Wisdom saving throw or become frightened for 1 minute (repeat save at the end of each of its turns).",
+            "rationale": "Open with Frightful Presence per tactics to debuff foes before engaging.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 3807,
+      "tat_ms": 28612,
+      "input_tokens": 1381,
+      "output_tokens": 3638,
+      "total_tokens": 5019,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The Adult Red Dragon advances west to (6,4), closing with the party, and unleashes its Frightful Presence (DC 19 Wis) on all enemies within 120 ft. No melee attacks available this turn.",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Close distance to pressure the clustered enemies and set up future breath/engagement, then trigger Frightful Presence as opener.",
+            "path": [
+              [
+                8,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                4
+              ]
+            ],
+            "to": [
+              6,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "details": "Use Frightful Presence: each chosen creature within 120 ft. that can see the dragon must make a DC 19 Wisdom saving throw or be frightened for 1 minute (repeat save at end of each of its turns; on success or effect end, immune for 24 hours).",
+            "rationale": "Follow opener note to debuff and scatter foes before committing to breath or melee.",
+            "attack_kind": null,
+            "range_ft": 120
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 3807,
+      "tat_ms": 37126,
+      "input_tokens": 1381,
+      "output_tokens": 4498,
+      "total_tokens": 5879,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The Adult Red Dragon advances to (6,4) to pressure the clustered enemies, then takes the Dodge action since no legal attacks are available from the listed positions.",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Close distance to threaten multiple foes next round (breath or melee) while maintaining safe positioning.",
+            "path": [
+              [
+                8,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                4
+              ]
+            ],
+            "to": [
+              6,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "dodge",
+            "target": null,
+            "details": "The dragon takes the Dodge action.",
+            "rationale": "No legal attack windows from available move candidates; defend while closing to set up next-round offense.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full",
+      "run_index": 1,
+      "packet_bytes": 7276,
+      "tat_ms": 54084,
+      "input_tokens": 2221,
+      "output_tokens": 6183,
+      "total_tokens": 8404,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The aboleth fixes its unblinking gaze on the frontline and invades a mortal mind—Enslave on the Knight (DC 14 Wisdom). If the will fails, the heavy-armored champion becomes the aboleth’s puppet, telepathically bound until it can break free after taking damage.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Knight",
+            "details": "Enslave (DC 14 Wisdom save) targeting the Knight; on a failure, the Knight is charmed and under the aboleth's control until it succeeds a repeat save after taking damage or other end conditions.",
+            "rationale": "Open with signature control on the enemy frontliner to swing the action economy and positioning in our favor.",
+            "attack_kind": null,
+            "range_ft": 30
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full",
+      "run_index": 2,
+      "packet_bytes": 7276,
+      "tat_ms": 42829,
+      "input_tokens": 2221,
+      "output_tokens": 4582,
+      "total_tokens": 6803,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The aboleth undulates backward, then its alien will slams into the storm of air—Enslave, DC 14 Wisdom save at 30 ft; on a failure the Air Elemental is charmed and under the aboleth’s control until it takes damage or escapes.",
+        "moves": [
+          {
+            "token": "Aboleth",
+            "rationale": "Retreat to extend distance from the frontliners while keeping targets within Enslave range.",
+            "path": [
+              [
+                7,
+                6
+              ],
+              [
+                6,
+                6
+              ]
+            ],
+            "to": [
+              6,
+              6
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Air Elemental",
+            "details": "Enslave: DC 14 Wisdom save or the Air Elemental is magically charmed and under the aboleth’s control until the aboleth dies or it’s on a different plane; the target can repeat the save whenever it takes damage.",
+            "rationale": "High-impact charm on a likely low-Wis target to swing the fight and set up Psychic Drain.",
+            "attack_kind": null,
+            "range_ft": 30
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full",
+      "run_index": 3,
+      "packet_bytes": 7276,
+      "tat_ms": 51463,
+      "input_tokens": 2221,
+      "output_tokens": 4803,
+      "total_tokens": 7024,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The aboleth slithers back, its mind lashing out to bend the gale to its will—Enslave (DC 14 Wisdom) targets the air elemental; on a failure it’s charmed and under the aboleth’s control until freed by damage or distance. It keeps its bulk out of easy reach while seizing a potent servant.",
+        "moves": [
+          {
+            "token": "Aboleth",
+            "rationale": "Back up to maintain distance from melee threats while keeping key targets within 30 ft for Enslave.",
+            "path": [
+              [
+                8,
+                6
+              ],
+              [
+                7,
+                5
+              ],
+              [
+                7,
+                4
+              ]
+            ],
+            "to": [
+              7,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Air Elemental",
+            "details": "Enslave: The aboleth targets the Air Elemental within 30 ft. The target must succeed on a DC 14 Wisdom saving throw or be magically charmed and under the aboleth’s control (can telepathically command; repeats save when it takes damage).",
+            "rationale": "Prioritize controlling the most dangerous foe to turn it against its allies.",
+            "attack_kind": null,
+            "range_ft": 30
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 7612,
+      "tat_ms": 58626,
+      "input_tokens": 2328,
+      "output_tokens": 5481,
+      "total_tokens": 7809,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Cold alien will floods the field as the aboleth reaches into the gale’s mind—Enslave (DC 14 Wisdom, 30 ft.) targeting the Air Elemental. On a failure, the elemental is charmed and under the aboleth’s control, able to repeat the save whenever it takes damage.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Air Elemental",
+            "details": "Enslave: The aboleth targets the Air Elemental it can see within 30 ft. DC 14 Wisdom save or the target is magically charmed and under the aboleth’s control; it can repeat the save whenever it takes damage.",
+            "rationale": "Prioritize controlling the most dangerous foe to swing the battle.",
+            "attack_kind": null,
+            "range_ft": 30
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 7612,
+      "tat_ms": 54889,
+      "input_tokens": 2328,
+      "output_tokens": 4831,
+      "total_tokens": 7159,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The aboleth’s mind surges outward, seeking to bend the storm to its will—Enslave on the Air Elemental (DC 14 Wisdom save); on a failure, the elemental is charmed and under the aboleth’s control.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Air Elemental",
+            "details": "Enslave: Target one creature the aboleth can see within 30 ft (Air Elemental). DC 14 Wisdom saving throw or the target is magically charmed and under the aboleth’s control until the aboleth dies or changes planes. The target can repeat the save whenever it takes damage.",
+            "rationale": "Prioritize controlling the most powerful, somewhat isolated foe to swing the fight without entering melee.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 7612,
+      "tat_ms": 51619,
+      "input_tokens": 2328,
+      "output_tokens": 4980,
+      "total_tokens": 7308,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": null,
+      "attack_candidate_match": null,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "The aboleth slithers back, its mind unfurling like a net as it seeks to bind the raging gale. It attempts to Enslave the Air Elemental (DC 14 Wisdom, charm until damaged or distant).",
+        "moves": [
+          {
+            "token": "Aboleth",
+            "rationale": "Increase distance from the Knight while staying within 30 ft of the elemental to set up Enslave.",
+            "path": [
+              [
+                8,
+                6
+              ],
+              [
+                8,
+                7
+              ],
+              [
+                8,
+                8
+              ]
+            ],
+            "to": [
+              8,
+              8
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Air Elemental",
+            "details": "Enslave: Target the Air Elemental within 30 ft; DC 14 Wisdom save or it is charmed and under the aboleth’s control (save repeats when damaged or 1/day at 1+ mile).",
+            "rationale": "Prioritize dominating the most powerful foe to turn it against its allies.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "packet_bytes": 4625,
+      "tat_ms": 63639,
+      "input_tokens": 1560,
+      "output_tokens": 5049,
+      "total_tokens": 6609,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Aboleth holds position and uses Enslave on the Air Elemental (DC 14 Wis), targeting the most impactful foe within 30 ft while avoiding moving into melee this round.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Air Elemental",
+            "details": "Enslave: The aboleth targets the Air Elemental it can see within 30 ft. DC 14 Wisdom saving throw or be magically charmed and under the aboleth’s control.",
+            "rationale": "Prioritize high-impact control on a likely low-Wis target without entering melee; sets up battlefield control for subsequent rounds.",
+            "attack_kind": null,
+            "range_ft": 30
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "packet_bytes": 4625,
+      "tat_ms": 37169,
+      "input_tokens": 1560,
+      "output_tokens": 3282,
+      "total_tokens": 4842,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Aboleth holds position and uses Enslave on the Air Elemental within 30 ft to seize control of the party’s strongest asset. No legal melee attacks available this turn.",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Air Elemental",
+            "details": "Enslave (DC 14 Wisdom saving throw)",
+            "rationale": "Air Elemental has likely low Wisdom and is a high-impact control target; within 30 ft; no melee options available.",
+            "attack_kind": null,
+            "range_ft": 30
+          }
+        ],
+        "end_turn": true
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "packet_bytes": 4625,
+      "tat_ms": 55749,
+      "input_tokens": 1560,
+      "output_tokens": 5404,
+      "total_tokens": 6964,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 0,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Aboleth holds position to avoid melee with the Knight and Air Elemental, then attempts to Enslave the Air Elemental (within 30 ft, DC 14 Wis).",
+        "moves": [],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "other",
+            "target": "Air Elemental",
+            "details": "Use Enslave on the Air Elemental (DC 14 Wisdom saving throw) to magically charm and control it.",
+            "rationale": "Prioritize isolating and controlling a powerful foe at range without entering melee; Air Elemental likely has weaker Wisdom save and becomes a strong asset if charmed.",
+            "attack_kind": null,
+            "range_ft": 30
+          }
+        ],
+        "end_turn": true
+      }
+    }
+  ]
+}

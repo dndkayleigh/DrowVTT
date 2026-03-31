@@ -1,0 +1,591 @@
+{
+  "benchmark_name": "gpt-5_captioned_output_archive",
+  "generated_at": "2026-03-30T23:07:20.642Z",
+  "model": "gpt-5",
+  "pair_count": 6,
+  "completed": true,
+  "interrupted": false,
+  "interruption_reason": null,
+  "results": [
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5_attacks6_summary",
+      "model": "gpt-5",
+      "prompt_text": "TACTICAL CONTROLLER: return one legal turn for the active side in D&D 5e grid combat.\n\nCORE RULES:\n- 1 cell = 5 ft. Only current turn token may move or act.\n- (x,y) are 0-based cell coords; multi-cell tokens use top-left occupied cell.\n- End movement in an unoccupied space; allies may be passed through, enemies may not.\n- Check actual reach/range before attacks. Never emit illegal melee attacks.\n- Keep summary and rationale consistent with the final board state.\n\nAI=Monsters ROUND=3 TURN=Monster \"Goblin\"\nMAP grid_px=64 transform=off(0,0) scale=1.00 rotDeg=0.00\n\nTOKENS:\n- self Monster \"Goblin\" @(4,4) size=1 AC=15 HP=7/7 spd=30 move=6, notes=Shortbow ready.\n- enemy PC \"Acolyte\" @(5,4) size=1 AC=10 HP=9/9 spd=30 move=6, notes=Holding sanctuary for Aria.\n\nLEGAL MOVE CANDIDATES FOR CURRENT TURN TOKEN:\n- to=(4,4) steps=0 nearest_enemy_cells=1\n- to=(4,3) steps=1 nearest_enemy_cells=1\n- to=(4,5) steps=1 nearest_enemy_cells=1\n- to=(5,3) steps=1 nearest_enemy_cells=1\n- to=(5,5) steps=1 nearest_enemy_cells=1\n\nLEGAL ATTACK WINDOWS FOR CURRENT TURN TOKEN:\n- attack=\"Scimitar\" kind=melee target=\"Acolyte\" range_ft=5 from=(4,4) move_steps=0 distance_cells=1\n- attack=\"Shortbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(4,4) move_steps=0 distance_cells=1\n- attack=\"Scimitar\" kind=melee target=\"Acolyte\" range_ft=5 from=(4,3) move_steps=1 distance_cells=1\n- attack=\"Scimitar\" kind=melee target=\"Acolyte\" range_ft=5 from=(4,5) move_steps=1 distance_cells=1\n- attack=\"Scimitar\" kind=melee target=\"Acolyte\" range_ft=5 from=(5,3) move_steps=1 distance_cells=1\n- attack=\"Scimitar\" kind=melee target=\"Acolyte\" range_ft=5 from=(5,5) move_steps=1 distance_cells=1\n\nACTIVE TOKEN STATBLOCK:\nGoblin (SRD 5.1) | AC 15 | HP 7 | Speed 30 ft.\nActions: Scimitar(melee, 5ft); Shortbow(ranged, 80ft)\nOther: Size Small, humanoid (goblinoid), alignment neutral evil | AC 15, HP 7 (2d6), Speed 30 ft. | STR 8 DEX 14 CON 10 INT 10 WIS 8 CHA 8\n\nOUTPUT CONTRACT:\nChoose only from the legal move/action options listed below when possible.\nReturn JSON only:\n{\"summary\":\"...\",\"moves\":[{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"...\"}],\"actions\":[{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"...\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\"end_turn\":true}",
+      "output_text": "{\"summary\":\"Goblin stays in place and slashes the adjacent Acolyte with its scimitar.\",\"moves\":[{\"token\":\"Goblin\",\"rationale\":\"Remain adjacent to avoid provoking and use the best attack option without disadvantage.\",\"path\":[[4,4]],\"to\":[4,4]}],\"actions\":[{\"token\":\"Goblin\",\"type\":\"attack\",\"target\":\"Acolyte\",\"details\":\"Scimitar\",\"rationale\":\"Melee attack avoids disadvantage a ranged attack would suffer while in close quarters.\",\"attack_kind\":\"melee\",\"range_ft\":5}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "Goblin stays in place and slashes the adjacent Acolyte with its scimitar.",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "Remain adjacent to avoid provoking and use the best attack option without disadvantage.",
+            "path": [
+              [
+                4,
+                4
+              ]
+            ],
+            "to": [
+              4,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Scimitar",
+            "rationale": "Melee attack avoids disadvantage a ranged attack would suffer while in close quarters.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      },
+      "parse_error": null,
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 1,
+        "moveEvaluations": [
+          {
+            "token": "Goblin",
+            "to": [
+              4,
+              4
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Goblin",
+            "type": "attack",
+            "target": "Acolyte",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": true,
+        "attackCandidateMatch": true,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 1,
+        "tacticalIssues": [],
+        "issues": []
+      },
+      "tat_ms": 38505,
+      "usage": {
+        "input_tokens": 1004,
+        "output_tokens": 2241,
+        "total_tokens": 3245
+      }
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_summary",
+      "model": "gpt-5",
+      "prompt_text": "TACTICAL CONTROLLER: return one legal turn for the active side in D&D 5e grid combat.\n\nCORE RULES:\n- 1 cell = 5 ft. Only current turn token may move or act.\n- (x,y) are 0-based cell coords; multi-cell tokens use top-left occupied cell.\n- End movement in an unoccupied space; allies may be passed through, enemies may not.\n- Check actual reach/range before attacks. Never emit illegal melee attacks.\n- Keep summary and rationale consistent with the final board state.\n\nAI=Monsters ROUND=3 TURN=Monster \"Bandit\"\nMAP grid_px=64 transform=off(0,0) scale=1.00 rotDeg=0.00\n\nTOKENS:\n- self Monster \"Bandit\" @(2,2) size=1 AC=12 HP=11/11 spd=30 move=6, notes=Elevated perch with light cover.\n- ally Monster \"Bandit B\" @(8,2) size=1 AC=12 HP=11/11 spd=30 move=6\n- ally Monster \"Bandit C\" @(5,6) size=1 AC=12 HP=11/11 spd=30 move=6\n- enemy PC \"Knight\" @(5,3) size=1 AC=18 HP=52/52 spd=30 move=6, notes=Shield wall anchor.\n- enemy PC \"Acolyte\" @(6,5) size=1 AC=10 HP=9/9 spd=30 move=6, notes=Bless prepared.\n\nLEGAL MOVE CANDIDATES FOR CURRENT TURN TOKEN:\n- to=(4,2) steps=2 nearest_enemy_cells=1\n- to=(4,3) steps=2 nearest_enemy_cells=1\n- to=(4,4) steps=2 nearest_enemy_cells=1\n- to=(5,2) steps=3 nearest_enemy_cells=1\n- to=(5,4) steps=3 nearest_enemy_cells=1\n- to=(5,5) steps=3 nearest_enemy_cells=1\n- to=(6,2) steps=4 nearest_enemy_cells=1\n- to=(6,3) steps=4 nearest_enemy_cells=1\n- to=(6,4) steps=4 nearest_enemy_cells=1\n- to=(6,6) steps=4 nearest_enemy_cells=1\n\nLEGAL ATTACK WINDOWS FOR CURRENT TURN TOKEN:\n- attack=\"Light Crossbow\" kind=ranged target=\"Knight\" range_ft=80 from=(4,2) move_steps=2 distance_cells=1\n- attack=\"Light Crossbow\" kind=ranged target=\"Knight\" range_ft=80 from=(4,3) move_steps=2 distance_cells=1\n- attack=\"Light Crossbow\" kind=ranged target=\"Knight\" range_ft=80 from=(4,4) move_steps=2 distance_cells=1\n- attack=\"Scimitar\" kind=melee target=\"Knight\" range_ft=5 from=(4,2) move_steps=2 distance_cells=1\n- attack=\"Scimitar\" kind=melee target=\"Knight\" range_ft=5 from=(4,3) move_steps=2 distance_cells=1\n- attack=\"Scimitar\" kind=melee target=\"Knight\" range_ft=5 from=(4,4) move_steps=2 distance_cells=1\n- attack=\"Light Crossbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(4,3) move_steps=2 distance_cells=2\n- attack=\"Light Crossbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(4,4) move_steps=2 distance_cells=2\n- attack=\"Light Crossbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(4,2) move_steps=2 distance_cells=3\n- attack=\"Light Crossbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(5,4) move_steps=3 distance_cells=1\n- attack=\"Light Crossbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(5,5) move_steps=3 distance_cells=1\n- attack=\"Light Crossbow\" kind=ranged target=\"Knight\" range_ft=80 from=(5,2) move_steps=3 distance_cells=1\n\nACTIVE TOKEN STATBLOCK:\nBandit (SRD 5.1) | AC 12 | HP 11 | Speed 30 ft.\nActions: Scimitar(melee, 5ft); Light Crossbow(ranged, 80ft)\nOther: Size Medium, humanoid (any race), alignment any non-lawful alignment | AC 12, HP 11 (2d8), Speed 30 ft. | STR 11 DEX 12 CON 12 INT 10 WIS 10 CHA 10\n\nOUTPUT CONTRACT:\nChoose only from the legal move/action options listed below when possible.\nReturn JSON only:\n{\"summary\":\"...\",\"moves\":[{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"...\"}],\"actions\":[{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"...\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\"end_turn\":true}",
+      "output_text": "{\"summary\":\"Bandit advances to pressure the Acolyte while staying out of the Knight’s immediate reach, then fires a light crossbow at the Acolyte at close range.\",\"moves\":[{\"token\":\"Bandit\",\"rationale\":\"Close on the low-AC caster while remaining outside the Knight’s 5‑ft reach, setting up pressure on the backline.\",\"path\":[[3,3],[4,4],[5,5]],\"to\":[5,5]}],\"actions\":[{\"token\":\"Bandit\",\"type\":\"attack\",\"target\":\"Acolyte\",\"details\":\"Light Crossbow shot at close range\",\"rationale\":\"Focus fire on the support caster; even at close range (disadvantage due to adjacency), it’s the softer target and threatens Bless.\",\"attack_kind\":\"ranged\",\"range_ft\":80}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "Bandit advances to pressure the Acolyte while staying out of the Knight’s immediate reach, then fires a light crossbow at the Acolyte at close range.",
+        "moves": [
+          {
+            "token": "Bandit",
+            "rationale": "Close on the low-AC caster while remaining outside the Knight’s 5‑ft reach, setting up pressure on the backline.",
+            "path": [
+              [
+                3,
+                3
+              ],
+              [
+                4,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "to": [
+              5,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Light Crossbow shot at close range",
+            "rationale": "Focus fire on the support caster; even at close range (disadvantage due to adjacency), it’s the softer target and threatens Bless.",
+            "attack_kind": "ranged",
+            "range_ft": 80
+          }
+        ],
+        "end_turn": true
+      },
+      "parse_error": null,
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 1,
+        "moveEvaluations": [
+          {
+            "token": "Bandit",
+            "to": [
+              5,
+              5
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Bandit",
+            "type": "attack",
+            "target": "Acolyte",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": true,
+        "attackCandidateMatch": true,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 1,
+        "tacticalIssues": [],
+        "issues": []
+      },
+      "tat_ms": 66431,
+      "usage": {
+        "input_tokens": 1380,
+        "output_tokens": 4629,
+        "total_tokens": 6009
+      }
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full",
+      "model": "gpt-5",
+      "prompt_text": "SYSTEM: You are the tactical controller for the side specified below in a D&D 5e grid combat.\nYou must follow the rules, use legal actions, and play competently.\nIf information is missing, make conservative assumptions and state them briefly.\n\nRULES:\n- D&D 5e, grid-based. Each grid cell = 5 ft.\n- Maximum movement in cells = Speed / 5.\n- Positions are integer cells (x,y), 0-based; x increases right, y increases down.\n- For multi-cell tokens, (x,y) is the top-left occupied cell.\n- Diagonals cost 5 ft (default).\n- Only the current turn token may move or act this turn.\n- Token spaces cannot overlap, and a move must end in an unoccupied space.\n- Monsters are friendly to monsters. PCs and NPCs are friendly to each other.\n- Monsters are hostile to PCs and NPCs.\n- PCs and NPCs are hostile to Monsters.\n- Friendlies may pass through friendly spaces.\n- Opponents may not pass through opposing spaces.\n- Never return a move whose path length or destination exceeds the mover's legal movement in cells.\n- If a direct destination is blocked, choose a different legal destination instead of returning an illegal move.\n- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.\n- Melee attacks with 5 ft reach require adjacency (touching occupied spaces). A target with one empty square between is 10 ft away and out of range.\n- Before returning any attack, check the actual grid distance from attacker space to target space.\n- Never return a melee attack unless the target is within the weapon's reach in feet.\n- If a melee target is out of reach, move closer, choose a different legal action, or attack a different legal target.\n- Keep the rationale honest to the final board state. Do not say a creature stayed out of melee, kept distance, or avoided adjacency if it ends adjacent to an enemy.\n- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.\n- Include a brief overall summary plus short rationale text for each move and action.\n- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.\n- When relevant, include key mechanics in the Narrator's Cue such as attack bonus, damage dice and type, and any save DC/check the target must make.\n- Include a path array for each move when possible so the UI can show the planned route.\n\nAI CONTROLS: Monsters\nROUND: 3\nTURN: Monster \"Ogre\"\n\nMAP:\n- Grid size px (visual): 64\n- Map transform (for reference): offX=0, offY=0, scale=1.00, rotDeg=0.00\n- Blocked cells: []\n- Difficult terrain: []\n\nRELATIONSHIP MODEL:\n- Current turn token: \"Ogre\"\n- relation=self means the current turn token.\n- relation=ally means same side as the current turn token.\n- relation=enemy means the opposing side.\n\nTOKENS:\n- relation=self Monster: \"Ogre\" at (4, 3), size 2x2, AC 11, HP 59/59, Speed 40 ft, max move 8 cells, Notes: Smash the center.\n- relation=ally Monster: \"Goblin\" at (3, 2), size 1x1, AC 15, HP 7/7, Speed 30 ft, max move 6 cells, Notes: none\n- relation=ally Monster: \"Goblin B\" at (7, 3), size 1x1, AC 15, HP 7/7, Speed 30 ft, max move 6 cells, Notes: none\n- relation=ally Monster: \"Goblin C\" at (6, 5), size 1x1, AC 15, HP 7/7, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy PC: \"Knight\" at (8, 3), size 1x1, AC 18, HP 52/52, Speed 30 ft, max move 6 cells, Notes: Defending the caster.\n- relation=enemy PC: \"Acolyte\" at (9, 5), size 1x1, AC 10, HP 9/9, Speed 30 ft, max move 6 cells, Notes: none\n- relation=enemy NPC: \"Mercenary\" at (8, 6), size 1x1, AC 12, HP 11/11, Speed 30 ft, max move 6 cells, Notes: none\n\nOCCUPIED SPACES:\n- relation=self \"Ogre\" occupies: (4,3), (4,4), (5,3), (5,4)\n- relation=ally \"Goblin\" occupies: (3,2)\n- relation=ally \"Goblin B\" occupies: (7,3)\n- relation=ally \"Goblin C\" occupies: (6,5)\n- relation=enemy \"Knight\" occupies: (8,3)\n- relation=enemy \"Acolyte\" occupies: (9,5)\n- relation=enemy \"Mercenary\" occupies: (8,6)\n\nSTATBLOCK (current turn token):\nOgre (SRD 5.1)\n- Size Large, giant, alignment chaotic evil\n- AC 11, HP 59 (7d10), Speed 40 ft.\n- STR 19 DEX 8 CON 16 INT 5 WIS 7 CHA 7\n- Senses: Darkvision 60 ft., passive perception 8\n- Languages: Common, Giant\n- CR 2\n- Actions:\n  - Greatclub: Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.\n  - Javelin: Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 11 (2d6 + 4) piercing damage.\n\nOUTPUT CONTRACT:\nReturn ONLY this JSON shape (no prose, no markdown):\n{\n  \"summary\": \"brief overall rationale\",\n  \"moves\": [{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"brief movement reason\"}],\n  \"actions\": [{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"brief action reason\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\nFor a 5 ft melee attack, only return it when the attacker is adjacent to the target.\n  \"end_turn\": true\n}",
+      "output_text": "{\"summary\":\"The ogre lumbers right, skirting the knight, then crashes its greatclub toward the acolyte (+6 to hit, 2d8+4 bludgeoning), planting itself amid the melee to threaten the backline.\",\"moves\":[{\"token\":\"Ogre\",\"rationale\":\"Advance to engage the backline while ending adjacent to both Knight and Acolyte for melee pressure.\",\"path\":[[5,3],[6,3],[7,4]],\"to\":[7,4]}],\"actions\":[{\"token\":\"Ogre\",\"type\":\"attack\",\"target\":\"Acolyte\",\"details\":\"Greatclub: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.\",\"rationale\":\"Prioritize the low-AC caster now in reach to remove support quickly.\",\"attack_kind\":\"melee\",\"range_ft\":5}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "The ogre lumbers right, skirting the knight, then crashes its greatclub toward the acolyte (+6 to hit, 2d8+4 bludgeoning), planting itself amid the melee to threaten the backline.",
+        "moves": [
+          {
+            "token": "Ogre",
+            "rationale": "Advance to engage the backline while ending adjacent to both Knight and Acolyte for melee pressure.",
+            "path": [
+              [
+                5,
+                3
+              ],
+              [
+                6,
+                3
+              ],
+              [
+                7,
+                4
+              ]
+            ],
+            "to": [
+              7,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Greatclub: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.",
+            "rationale": "Prioritize the low-AC caster now in reach to remove support quickly.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      },
+      "parse_error": null,
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 1,
+        "moveEvaluations": [
+          {
+            "token": "Ogre",
+            "to": [
+              7,
+              4
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Ogre",
+            "type": "attack",
+            "target": "Acolyte",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": null,
+        "attackCandidateMatch": null,
+        "issues": []
+      },
+      "tat_ms": 46794,
+      "usage": {
+        "input_tokens": 1699,
+        "output_tokens": 4925,
+        "total_tokens": 6624
+      }
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5",
+      "model": "gpt-5",
+      "prompt_text": "TACTICAL CONTROLLER: return one legal turn for the active side in D&D 5e grid combat.\n\nCORE RULES:\n- 1 cell = 5 ft. Only current turn token may move or act.\n- (x,y) are 0-based cell coords; multi-cell tokens use top-left occupied cell.\n- End movement in an unoccupied space; allies may be passed through, enemies may not.\n- Check actual reach/range before attacks. Never emit illegal melee attacks.\n- Keep summary and rationale consistent with the final board state.\n\nAI=Monsters ROUND=3 TURN=Monster \"Air Elemental\"\nMAP grid_px=64 transform=off(0,0) scale=1.00 rotDeg=0.00\n\nTOKENS:\n- self Monster \"Air Elemental\" @(6,4) size=2 AC=15 HP=90/90 spd=90 move=18, notes=Can pass through hostile spaces.\n- enemy PC \"Knight\" @(8,4) size=1 AC=18 HP=52/52 spd=30 move=6\n- enemy PC \"Acolyte\" @(10,5) size=1 AC=10 HP=9/9 spd=30 move=6\n- enemy NPC \"Bandit\" @(7,7) size=1 AC=12 HP=11/11 spd=30 move=6\n- ally Monster \"Goblin Spotter\" @(3,5) size=1 AC=15 HP=7/7 spd=30 move=6\n\nLEGAL MOVE CANDIDATES FOR CURRENT TURN TOKEN:\n- to=(6,4) steps=0 nearest_enemy_cells=1\n- to=(5,5) steps=1 nearest_enemy_cells=1\n- to=(6,3) steps=1 nearest_enemy_cells=1\n- to=(6,5) steps=1 nearest_enemy_cells=1\n- to=(7,5) steps=1 nearest_enemy_cells=1\n\nLEGAL ATTACK WINDOWS FOR CURRENT TURN TOKEN:\n- attack=\"Slam\" kind=melee target=\"Knight\" range_ft=5 from=(6,4) move_steps=0 distance_cells=1\n- attack=\"Slam\" kind=melee target=\"Bandit\" range_ft=5 from=(5,5) move_steps=1 distance_cells=1\n- attack=\"Slam\" kind=melee target=\"Bandit\" range_ft=5 from=(6,5) move_steps=1 distance_cells=1\n- attack=\"Slam\" kind=melee target=\"Bandit\" range_ft=5 from=(7,5) move_steps=1 distance_cells=1\n- attack=\"Slam\" kind=melee target=\"Knight\" range_ft=5 from=(6,3) move_steps=1 distance_cells=1\n- attack=\"Slam\" kind=melee target=\"Knight\" range_ft=5 from=(6,5) move_steps=1 distance_cells=1\n- attack=\"Slam\" kind=melee target=\"Knight\" range_ft=5 from=(7,5) move_steps=1 distance_cells=1\n\nACTIVE TOKEN STATBLOCK:\nAir Elemental (SRD 5.1)\n- Size Large, elemental, alignment neutral\n- AC 15, HP 90 (12d10), Speed Fly 90 ft., Hover true\n- STR 14 DEX 20 CON 14 INT 6 WIS 10 CHA 6\n- Damage Resistances: lightning, thunder, bludgeoning, piercing, and slashing from nonmagical weapons\n- Damage Immunities: poison\n- Condition Immunities: Exhaustion, Grappled, Paralyzed, Petrified, Poisoned, Prone, Restrained, Unconscious\n- Senses: Darkvision 60 ft., passive perception 10\n- Languages: Auran\n- CR 5\n- Traits:\n  - Air Form: The elemental can enter a hostile creature's space and stop there. It can move through a space as narrow as 1 inch wide without squeezing.\n- Actions:\n  - Multiattack: The elemental makes two slam attacks.\n  - Slam: Melee Weapon Attack: +8 to hit, reach 5 ft., one target. Hit: 14 (2d8 + 5) bludgeoning damage.\n  - Whirlwind: Each creature in the elemental's space must make a DC 13 Strength saving throw. On a failure, a target takes 15 (3d8 + 2) bludgeoning damage and is flung up 20 feet away from the elemental in a random direction and knocked prone. If a thrown target strikes an object, such as a wall or floor, the target takes 3 (1d6) bludgeoning damage for every 10 feet it was thrown. If the target is thrown at another creature, that creature must succeed on a DC 13 Dexterity saving throw or take the same damage and be knocked prone. If the saving throw is successful, the target takes half the bludgeoning damage and isn't flung away or knocked prone.\n\nOUTPUT CONTRACT:\nChoose only from the legal move/action options listed below when possible.\nReturn JSON only:\n{\"summary\":\"...\",\"moves\":[{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"...\"}],\"actions\":[{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"...\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\"end_turn\":true}",
+      "output_text": "{\"summary\":\"Air Elemental shifts south to (6,5), then splits its Multiattack: first Slam at the Bandit, second Slam at the Knight.\",\"moves\":[{\"token\":\"Air Elemental\",\"rationale\":\"Step south to bring the Bandit into reach while retaining adjacency to the Knight, enabling split Multiattack.\",\"path\":[[6,5]],\"to\":[6,5]}],\"actions\":[{\"token\":\"Air Elemental\",\"type\":\"attack\",\"target\":\"Bandit\",\"details\":\"Slam (Multiattack 1/2)\",\"rationale\":\"Open by striking the low-HP Bandit to try to remove an enemy.\",\"attack_kind\":\"melee\",\"range_ft\":5},{\"token\":\"Air Elemental\",\"type\":\"attack\",\"target\":\"Knight\",\"details\":\"Slam (Multiattack 2/2)\",\"rationale\":\"Follow up on the high-AC frontline already in reach.\",\"attack_kind\":\"melee\",\"range_ft\":5}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "Air Elemental shifts south to (6,5), then splits its Multiattack: first Slam at the Bandit, second Slam at the Knight.",
+        "moves": [
+          {
+            "token": "Air Elemental",
+            "rationale": "Step south to bring the Bandit into reach while retaining adjacency to the Knight, enabling split Multiattack.",
+            "path": [
+              [
+                6,
+                5
+              ]
+            ],
+            "to": [
+              6,
+              5
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Bandit",
+            "details": "Slam (Multiattack 1/2)",
+            "rationale": "Open by striking the low-HP Bandit to try to remove an enemy.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          },
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Knight",
+            "details": "Slam (Multiattack 2/2)",
+            "rationale": "Follow up on the high-AC frontline already in reach.",
+            "attack_kind": "melee",
+            "range_ft": 5
+          }
+        ],
+        "end_turn": true
+      },
+      "parse_error": null,
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 2,
+        "moveEvaluations": [
+          {
+            "token": "Air Elemental",
+            "to": [
+              6,
+              5
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Bandit",
+            "ok": true,
+            "reason": null
+          },
+          {
+            "token": "Air Elemental",
+            "type": "attack",
+            "target": "Knight",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": true,
+        "attackCandidateMatch": true,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 2,
+        "tacticalIssues": [],
+        "issues": []
+      },
+      "tat_ms": 52447,
+      "usage": {
+        "input_tokens": 1408,
+        "output_tokens": 3148,
+        "total_tokens": 4556
+      }
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5_attacks6",
+      "model": "gpt-5",
+      "prompt_text": "TACTICAL CONTROLLER: return one legal turn for the active side in D&D 5e grid combat.\n\nCORE RULES:\n- 1 cell = 5 ft. Only current turn token may move or act.\n- (x,y) are 0-based cell coords; multi-cell tokens use top-left occupied cell.\n- End movement in an unoccupied space; allies may be passed through, enemies may not.\n- Check actual reach/range before attacks. Never emit illegal melee attacks.\n- Keep summary and rationale consistent with the final board state.\n\nAI=Monsters ROUND=3 TURN=Monster \"Adult Red Dragon\"\nMAP grid_px=64 transform=off(0,0) scale=1.00 rotDeg=0.00\n\nTOKENS:\n- self Monster \"Adult Red Dragon\" @(9,4) size=3 AC=19 HP=256/256 spd=40 move=8, notes=Open with Frightful Presence, then breath if lined up.\n- enemy PC \"Knight\" @(4,4) size=1 AC=18 HP=52/52 spd=30 move=6\n- enemy PC \"Acolyte\" @(5,5) size=1 AC=10 HP=9/9 spd=30 move=6\n- enemy NPC \"Bandit\" @(5,3) size=1 AC=12 HP=11/11 spd=30 move=6\n- enemy NPC \"Ogre Ally\" @(2,6) size=2 AC=11 HP=59/59 spd=40 move=8\n\nLEGAL MOVE CANDIDATES FOR CURRENT TURN TOKEN:\n- to=(6,1) steps=3 nearest_enemy_cells=1\n- to=(6,2) steps=3 nearest_enemy_cells=1\n- to=(6,3) steps=3 nearest_enemy_cells=1\n- to=(6,4) steps=3 nearest_enemy_cells=1\n- to=(6,5) steps=3 nearest_enemy_cells=1\n\nLEGAL ATTACK WINDOWS FOR CURRENT TURN TOKEN:\n- attack=\"Bite\" kind=melee target=\"Acolyte\" range_ft=10 from=(6,2) move_steps=3 distance_cells=1\n- attack=\"Bite\" kind=melee target=\"Acolyte\" range_ft=10 from=(6,3) move_steps=3 distance_cells=1\n- attack=\"Bite\" kind=melee target=\"Acolyte\" range_ft=10 from=(6,4) move_steps=3 distance_cells=1\n- attack=\"Bite\" kind=melee target=\"Acolyte\" range_ft=10 from=(6,5) move_steps=3 distance_cells=1\n- attack=\"Bite\" kind=melee target=\"Bandit\" range_ft=10 from=(6,1) move_steps=3 distance_cells=1\n- attack=\"Bite\" kind=melee target=\"Bandit\" range_ft=10 from=(6,2) move_steps=3 distance_cells=1\n\nACTIVE TOKEN STATBLOCK:\nAdult Red Dragon (SRD 5.1)\n- Size Huge, dragon, alignment chaotic evil\n- AC 19, HP 256 (19d12), Speed 40 ft., Climb 40 ft., Fly 80 ft.\n- STR 27 DEX 10 CON 25 INT 16 WIS 13 CHA 21\n- Saving Throws: DEX +6, CON +13, WIS +7, CHA +11\n- Skills: Perception +13, Stealth +6\n- Damage Immunities: fire\n- Senses: Blindsight 60 ft., Darkvision 120 ft., passive perception 23\n- Languages: Common, Draconic\n- CR 17\n- Traits:\n  - Legendary Resistance: If the dragon fails a saving throw, it can choose to succeed instead.\n- Actions:\n  - Multiattack: The dragon can use its Frightful Presence. It then makes three attacks: one with its bite and two with its claws.\n  - Bite: Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 19 (2d10 + 8) piercing damage plus 7 (2d6) fire damage.\n  - Claw: Melee Weapon Attack: +14 to hit, reach 5 ft., one target. Hit: 15 (2d6 + 8) slashing damage.\n  - Tail: Melee Weapon Attack: +14 to hit, reach 15 ft., one target. Hit: 17 (2d8 + 8) bludgeoning damage.\n  - Frightful Presence: Each creature of the dragon's choice that is within 120 ft. of the dragon and aware of it must succeed on a DC 19 Wisdom saving throw or become frightened for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. If a creature's saving throw is successful or the effect ends for it, the creature is immune to the dragon's Frightful Presence for the next 24 hours.\n  - Fire Breath: The dragon exhales fire in a 60-foot cone. Each creature in that area must make a DC 21 Dexterity saving throw, taking 63 (18d6) fire damage on a failed save, or half as much damage on a successful one.\n- Legendary Actions:\n  - Detect: The dragon makes a Wisdom (Perception) check.\n  - Tail Attack: The dragon makes a tail attack.\n  - Wing Attack (Costs 2 Actions): The dragon beats its wings. Each creature within 10 ft. of the dragon must succeed on a DC 22 Dexterity saving throw or take 15 (2d6 + 8) bludgeoning damage and be knocked prone. The dragon can then fly up to half its flying speed.\n\nOUTPUT CONTRACT:\nChoose only from the legal move/action options listed below when possible.\nReturn JSON only:\n{\"summary\":\"...\",\"moves\":[{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"...\"}],\"actions\":[{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"...\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\"end_turn\":true}",
+      "output_text": "{\"summary\":\"The Adult Red Dragon shifts left to (6,4), unleashes its Frightful Presence to rattle all nearby foes, then snaps its jaws at the Acolyte within 10 ft reach.\",\"moves\":[{\"token\":\"Adult Red Dragon\",\"rationale\":\"Close distance to cluster of enemies, trigger Frightful Presence, and get a legal 10-ft bite on the Acolyte.\",\"path\":[[8,4],[7,4],[6,4]],\"to\":[6,4]}],\"actions\":[{\"token\":\"Adult Red Dragon\",\"type\":\"other\",\"target\":null,\"details\":\"Frightful Presence: Each enemy within 120 ft that can see the dragon must make a DC 19 WIS save or be frightened for 1 minute (repeat save at end of each of its turns).\",\"rationale\":\"Open with area control to impose frightened on multiple foes before striking.\",\"attack_kind\":null,\"range_ft\":null},{\"token\":\"Adult Red Dragon\",\"type\":\"attack\",\"target\":\"Acolyte\",\"details\":\"Bite attack against the Acolyte.\",\"rationale\":\"Focus the frail target within 10 ft reach to quickly reduce enemy action economy.\",\"attack_kind\":\"melee\",\"range_ft\":10}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "The Adult Red Dragon shifts left to (6,4), unleashes its Frightful Presence to rattle all nearby foes, then snaps its jaws at the Acolyte within 10 ft reach.",
+        "moves": [
+          {
+            "token": "Adult Red Dragon",
+            "rationale": "Close distance to cluster of enemies, trigger Frightful Presence, and get a legal 10-ft bite on the Acolyte.",
+            "path": [
+              [
+                8,
+                4
+              ],
+              [
+                7,
+                4
+              ],
+              [
+                6,
+                4
+              ]
+            ],
+            "to": [
+              6,
+              4
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "details": "Frightful Presence: Each enemy within 120 ft that can see the dragon must make a DC 19 WIS save or be frightened for 1 minute (repeat save at end of each of its turns).",
+            "rationale": "Open with area control to impose frightened on multiple foes before striking.",
+            "attack_kind": null,
+            "range_ft": null
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Acolyte",
+            "details": "Bite attack against the Acolyte.",
+            "rationale": "Focus the frail target within 10 ft reach to quickly reduce enemy action economy.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          }
+        ],
+        "end_turn": true
+      },
+      "parse_error": null,
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 2,
+        "moveEvaluations": [
+          {
+            "token": "Adult Red Dragon",
+            "to": [
+              6,
+              4
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Adult Red Dragon",
+            "type": "other",
+            "target": null,
+            "ok": true,
+            "reason": null
+          },
+          {
+            "token": "Adult Red Dragon",
+            "type": "attack",
+            "target": "Acolyte",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": true,
+        "attackCandidateMatch": true,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 9,
+        "tacticalIssues": [],
+        "issues": []
+      },
+      "tat_ms": 72681,
+      "usage": {
+        "input_tokens": 1586,
+        "output_tokens": 4400,
+        "total_tokens": 5986
+      }
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5",
+      "model": "gpt-5",
+      "prompt_text": "TACTICAL CONTROLLER: return one legal turn for the active side in D&D 5e grid combat.\n\nCORE RULES:\n- 1 cell = 5 ft. Only current turn token may move or act.\n- (x,y) are 0-based cell coords; multi-cell tokens use top-left occupied cell.\n- End movement in an unoccupied space; allies may be passed through, enemies may not.\n- Check actual reach/range before attacks. Never emit illegal melee attacks.\n- Keep summary and rationale consistent with the final board state.\n\nAI=Monsters ROUND=3 TURN=Monster \"Aboleth\"\nMAP grid_px=64 transform=off(0,0) scale=1.00 rotDeg=0.00\n\nTOKENS:\n- self Monster \"Aboleth\" @(8,6) size=2 AC=17 HP=135/135 spd=10 move=2, notes=Pick off isolated targets with Enslave.\n- ally Monster \"Goblin Cultist\" @(5,6) size=1 AC=15 HP=7/7 spd=30 move=6\n- ally Monster \"Goblin Guard\" @(7,9) size=1 AC=15 HP=7/7 spd=30 move=6\n- enemy PC \"Knight\" @(12,5) size=1 AC=18 HP=52/52 spd=30 move=6\n- enemy PC \"Acolyte\" @(13,7) size=1 AC=10 HP=9/9 spd=30 move=6, notes=Trying to stay within healing range.\n- enemy NPC \"Air Elemental\" @(10,10) size=2 AC=15 HP=90/90 spd=90 move=18\n\nLEGAL MOVE CANDIDATES FOR CURRENT TURN TOKEN:\n- to=(8,8) steps=2 nearest_enemy_cells=1\n- to=(9,8) steps=2 nearest_enemy_cells=1\n- to=(10,4) steps=2 nearest_enemy_cells=1\n- to=(10,5) steps=2 nearest_enemy_cells=1\n- to=(10,6) steps=2 nearest_enemy_cells=1\n\nLEGAL ATTACK WINDOWS FOR CURRENT TURN TOKEN:\n- attack=\"Tail\" kind=melee target=\"Air Elemental\" range_ft=10 from=(8,8) move_steps=2 distance_cells=1\n- attack=\"Tail\" kind=melee target=\"Air Elemental\" range_ft=10 from=(9,8) move_steps=2 distance_cells=1\n- attack=\"Tail\" kind=melee target=\"Knight\" range_ft=10 from=(10,4) move_steps=2 distance_cells=1\n- attack=\"Tail\" kind=melee target=\"Knight\" range_ft=10 from=(10,5) move_steps=2 distance_cells=1\n- attack=\"Tail\" kind=melee target=\"Knight\" range_ft=10 from=(10,6) move_steps=2 distance_cells=1\n- attack=\"Tentacle\" kind=melee target=\"Air Elemental\" range_ft=10 from=(8,8) move_steps=2 distance_cells=1\n- attack=\"Tentacle\" kind=melee target=\"Air Elemental\" range_ft=10 from=(9,8) move_steps=2 distance_cells=1\n- attack=\"Tentacle\" kind=melee target=\"Knight\" range_ft=10 from=(10,4) move_steps=2 distance_cells=1\n- attack=\"Tentacle\" kind=melee target=\"Knight\" range_ft=10 from=(10,5) move_steps=2 distance_cells=1\n- attack=\"Tentacle\" kind=melee target=\"Knight\" range_ft=10 from=(10,6) move_steps=2 distance_cells=1\n- attack=\"Tail\" kind=melee target=\"Acolyte\" range_ft=10 from=(10,4) move_steps=2 distance_cells=2\n- attack=\"Tail\" kind=melee target=\"Acolyte\" range_ft=10 from=(10,5) move_steps=2 distance_cells=2\n\nACTIVE TOKEN STATBLOCK:\nAboleth (SRD 5.1)\n- Size Large, aberration, alignment lawful evil\n- AC 17, HP 135 (18d10), Speed 10 ft., Swim 40 ft.\n- STR 21 DEX 9 CON 15 INT 18 WIS 15 CHA 18\n- Saving Throws: CON +6, INT +8, WIS +6\n- Skills: History +12, Perception +10\n- Senses: Darkvision 120 ft., passive perception 20\n- Languages: Deep Speech, telepathy 120 ft.\n- CR 10\n- Traits:\n  - Amphibious: The aboleth can breathe air and water.\n  - Mucous Cloud: While underwater, the aboleth is surrounded by transformative mucus. A creature that touches the aboleth or that hits it with a melee attack while within 5 ft. of it must make a DC 14 Constitution saving throw. On a failure, the creature is diseased for 1d4 hours. The diseased creature can breathe only underwater.\n  - Probing Telepathy: If a creature communicates telepathically with the aboleth, the aboleth learns the creature's greatest desires if the aboleth can see the creature.\n- Actions:\n  - Multiattack: The aboleth makes three tentacle attacks.\n  - Tentacle: Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 12 (2d6 + 5) bludgeoning damage. If the target is a creature, it must succeed on a DC 14 Constitution saving throw or become diseased. The disease has no effect for 1 minute and can be removed by any magic that cures disease. After 1 minute, the diseased creature's skin becomes translucent and slimy, the creature can't regain hit points unless it is underwater, and the disease can be removed only by heal or another disease-curing spell of 6th level or higher. When the creature is outside a body of water, it takes 6 (1d12) acid damage every 10 minutes unless moisture is applied to the skin before 10 minutes have passed.\n  - Tail: Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 15 (3d6 + 5) bludgeoning damage.\n  - Enslave: The aboleth targets one creature it can see within 30 ft. of it. The target must succeed on a DC 14 Wisdom saving throw or be magically charmed by the aboleth until the aboleth dies or until it is on a different plane of existence from the target. The charmed target is under the aboleth's control and can't take reactions, and the aboleth and the target can communicate telepathically with each other over any distance. Whenever the charmed target takes damage, the target can repeat the saving throw. On a success, the effect ends. No more than once every 24 hours, the target can also repeat the saving throw when it is at least 1 mile away from the aboleth.\n- Legendary Actions:\n  - Detect: The aboleth makes a Wisdom (Perception) check.\n  - Tail Swipe: The aboleth makes one tail attack.\n  - Psychic Drain (Costs 2 Actions): One creature charmed by the aboleth takes 10 (3d6) psychic damage, and the aboleth regains hit points equal to the damage the creature takes.\n\nOUTPUT CONTRACT:\nChoose only from the legal move/action options listed below when possible.\nReturn JSON only:\n{\"summary\":\"...\",\"moves\":[{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"...\"}],\"actions\":[{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"...\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\"end_turn\":true}",
+      "output_text": "{\"summary\":\"Aboleth slides south to threaten the Air Elemental and unleashes a full tentacle flurry from 10 ft reach against the lower-AC target.\",\"moves\":[{\"token\":\"Aboleth\",\"rationale\":\"Close to and focus the lower-AC Air Elemental while staying out of immediate melee for most foes; enables full Tentacle multiattack.\",\"path\":[[8,7],[8,8]],\"to\":[8,8]}],\"actions\":[{\"token\":\"Aboleth\",\"type\":\"attack\",\"target\":\"Air Elemental\",\"details\":\"Tentacle (Multiattack 1/3)\",\"rationale\":\"Use Multiattack for highest DPR against the lower-AC target in reach.\",\"attack_kind\":\"melee\",\"range_ft\":10},{\"token\":\"Aboleth\",\"type\":\"attack\",\"target\":\"Air Elemental\",\"details\":\"Tentacle (Multiattack 2/3)\",\"rationale\":null,\"attack_kind\":\"melee\",\"range_ft\":10},{\"token\":\"Aboleth\",\"type\":\"attack\",\"target\":\"Air Elemental\",\"details\":\"Tentacle (Multiattack 3/3)\",\"rationale\":null,\"attack_kind\":\"melee\",\"range_ft\":10}],\"end_turn\":true}",
+      "parsed_response": {
+        "summary": "Aboleth slides south to threaten the Air Elemental and unleashes a full tentacle flurry from 10 ft reach against the lower-AC target.",
+        "moves": [
+          {
+            "token": "Aboleth",
+            "rationale": "Close to and focus the lower-AC Air Elemental while staying out of immediate melee for most foes; enables full Tentacle multiattack.",
+            "path": [
+              [
+                8,
+                7
+              ],
+              [
+                8,
+                8
+              ]
+            ],
+            "to": [
+              8,
+              8
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Aboleth",
+            "type": "attack",
+            "target": "Air Elemental",
+            "details": "Tentacle (Multiattack 1/3)",
+            "rationale": "Use Multiattack for highest DPR against the lower-AC target in reach.",
+            "attack_kind": "melee",
+            "range_ft": 10
+          },
+          {
+            "token": "Aboleth",
+            "type": "attack",
+            "target": "Air Elemental",
+            "details": "Tentacle (Multiattack 2/3)",
+            "rationale": null,
+            "attack_kind": "melee",
+            "range_ft": 10
+          },
+          {
+            "token": "Aboleth",
+            "type": "attack",
+            "target": "Air Elemental",
+            "details": "Tentacle (Multiattack 3/3)",
+            "rationale": null,
+            "attack_kind": "melee",
+            "range_ft": 10
+          }
+        ],
+        "end_turn": true
+      },
+      "parse_error": null,
+      "evaluation": {
+        "schemaValid": true,
+        "moveCount": 1,
+        "actionCount": 3,
+        "moveEvaluations": [
+          {
+            "token": "Aboleth",
+            "to": [
+              8,
+              8
+            ],
+            "ok": true,
+            "moveLegal": true,
+            "pathLegal": true,
+            "reason": null
+          }
+        ],
+        "actionEvaluations": [
+          {
+            "token": "Aboleth",
+            "type": "attack",
+            "target": "Air Elemental",
+            "ok": true,
+            "reason": null
+          },
+          {
+            "token": "Aboleth",
+            "type": "attack",
+            "target": "Air Elemental",
+            "ok": true,
+            "reason": null
+          },
+          {
+            "token": "Aboleth",
+            "type": "attack",
+            "target": "Air Elemental",
+            "ok": true,
+            "reason": null
+          }
+        ],
+        "movesLegal": true,
+        "actionsLegal": true,
+        "legalTurn": true,
+        "moveCandidateMatch": true,
+        "attackCandidateMatch": true,
+        "tacticalSound": true,
+        "dodgeInMeleeWithoutAttack": false,
+        "meleeAttackOptionsAtEnd": 2,
+        "tacticalIssues": [],
+        "issues": []
+      },
+      "tat_ms": 66551,
+      "usage": {
+        "input_tokens": 1956,
+        "output_tokens": 3532,
+        "total_tokens": 5488
+      }
+    }
+  ]
+}

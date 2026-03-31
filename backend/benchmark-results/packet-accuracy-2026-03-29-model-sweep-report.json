@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-03-29T23:18:08.459Z",
+  "runs_per_variant_per_scenario": 3,
+  "variants": [
+    "compact_moves5"
+  ],
+  "scenarios": "all",
+  "ground_truth_model": "gpt-5",
+  "ground_truth_variant": "full",
+  "judge_model": "gpt-5",
+  "reasoning_judge_enabled": true,
+  "results": [
+    {
+      "model": "gpt-5",
+      "ok": true,
+      "raw_log": "benchmark-results/packet-accuracy-2026-03-29-gpt-5-runs3.raw.log",
+      "json": "benchmark-results/packet-accuracy-2026-03-29-gpt-5-runs3.json",
+      "csv": "benchmark-results/packet-accuracy-2026-03-29-gpt-5-runs3.csv",
+      "error": null
+    },
+    {
+      "model": "gpt-5-mini",
+      "ok": true,
+      "raw_log": "benchmark-results/packet-accuracy-2026-03-29-gpt-5-mini-runs3.raw.log",
+      "json": "benchmark-results/packet-accuracy-2026-03-29-gpt-5-mini-runs3.json",
+      "csv": "benchmark-results/packet-accuracy-2026-03-29-gpt-5-mini-runs3.csv",
+      "error": null
+    },
+    {
+      "model": "gpt-5.4-mini",
+      "ok": true,
+      "raw_log": "benchmark-results/packet-accuracy-2026-03-29-gpt-5-4-mini-runs3.raw.log",
+      "json": "benchmark-results/packet-accuracy-2026-03-29-gpt-5-4-mini-runs3.json",
+      "csv": "benchmark-results/packet-accuracy-2026-03-29-gpt-5-4-mini-runs3.csv",
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+[run 1/3] duel-goblin-vs-acolyte full: 28573ms
+[run 2/3] duel-goblin-vs-acolyte full: 10317ms
+[run 3/3] duel-goblin-vs-acolyte full: 17058ms
+[run 1/3] duel-goblin-vs-acolyte compact_moves5: 19479ms
+[run 2/3] duel-goblin-vs-acolyte compact_moves5: 17887ms
+[run 3/3] duel-goblin-vs-acolyte compact_moves5: 17427ms
+[run 1/3] duel-goblin-vs-acolyte compact_moves5_attacks6: 19486ms
+[run 2/3] duel-goblin-vs-acolyte compact_moves5_attacks6: 25079ms
+[run 3/3] duel-goblin-vs-acolyte compact_moves5_attacks6: 25367ms
+┌─────────┬──────────────────────────┬───────────────────────────┬───────┬───────┬────────────────┬────────────────┬──────────────────┬───────────────┐
+│ (index) │ scenario                 │ variant                   │ bytes │ msAvg │ inputTokensAvg │ totalTokensAvg │ bytesSavedVsFull │ msSavedVsFull │
+├─────────┼──────────────────────────┼───────────────────────────┼───────┼───────┼────────────────┼────────────────┼──────────────────┼───────────────┤
+│ 0       │ 'duel-goblin-vs-acolyte' │ 'full'                    │ 4349  │ 18649 │ 1406           │ 2785           │ 0                │ 0             │
+│ 1       │ 'duel-goblin-vs-acolyte' │ 'compact_moves5'          │ 2128  │ 18264 │ 908            │ 2246           │ 2221             │ 385           │
+│ 2       │ 'duel-goblin-vs-acolyte' │ 'compact_moves5_attacks6' │ 2128  │ 23311 │ 908            │ 2700           │ 2221             │ -4662         │
+└─────────┴──────────────────────────┴───────────────────────────┴───────┴───────┴────────────────┴────────────────┴──────────────────┴───────────────┘
+{"scenario":"duel-goblin-vs-acolyte","runs":3,"variants":[{"scenario":"duel-goblin-vs-acolyte","variant":"full","bytes":4349,"msAvg":18649,"inputTokensAvg":1406,"totalTokensAvg":2785,"bytesSavedVsFull":0,"msSavedVsFull":0},{"scenario":"duel-goblin-vs-acolyte","variant":"compact_moves5","bytes":2128,"msAvg":18264,"inputTokensAvg":908,"totalTokensAvg":2246,"bytesSavedVsFull":2221,"msSavedVsFull":385},{"scenario":"duel-goblin-vs-acolyte","variant":"compact_moves5_attacks6","bytes":2128,"msAvg":23311,"inputTokensAvg":908,"totalTokensAvg":2700,"bytesSavedVsFull":2221,"msSavedVsFull":-4662}]}
+[run 1/3] ranged-bandit-crossfire full: 17805ms
+[run 2/3] ranged-bandit-crossfire full: 18223ms
+[run 3/3] ranged-bandit-crossfire full: 20071ms
+[run 1/3] ranged-bandit-crossfire compact_moves5: 23355ms
+[run 2/3] ranged-bandit-crossfire compact_moves5: 23050ms
+[run 3/3] ranged-bandit-crossfire compact_moves5: 19516ms
+[run 1/3] ranged-bandit-crossfire compact_moves5_attacks6: 15496ms
+[run 2/3] ranged-bandit-crossfire compact_moves5_attacks6: 16846ms
+[run 3/3] ranged-bandit-crossfire compact_moves5_attacks6: 10275ms
+┌─────────┬───────────────────────────┬───────────────────────────┬───────┬───────┬────────────────┬────────────────┬──────────────────┬───────────────┐
+│ (index) │ scenario                  │ variant                   │ bytes │ msAvg │ inputTokensAvg │ totalTokensAvg │ bytesSavedVsFull │ msSavedVsFull │
+├─────────┼───────────────────────────┼───────────────────────────┼───────┼───────┼────────────────┼────────────────┼──────────────────┼───────────────┤
+│ 0       │ 'ranged-bandit-crossfire' │ 'full'                    │ 4733  │ 18700 │ 1558           │ 3066           │ 0                │ 0             │
+│ 1       │ 'ranged-bandit-crossfire' │ 'compact_moves5'          │ 2252  │ 21974 │ 968            │ 2204           │ 2481             │ -3274         │
+│ 2       │ 'ranged-bandit-crossfire' │ 'compact_moves5_attacks6' │ 2252  │ 14206 │ 968            │ 1953           │ 2481             │ 4494          │
+└─────────┴───────────────────────────┴───────────────────────────┴───────┴───────┴────────────────┴────────────────┴──────────────────┴───────────────┘
+{"scenario":"ranged-bandit-crossfire","runs":3,"variants":[{"scenario":"ranged-bandit-crossfire","variant":"full","bytes":4733,"msAvg":18700,"inputTokensAvg":1558,"totalTokensAvg":3066,"bytesSavedVsFull":0,"msSavedVsFull":0},{"scenario":"ranged-bandit-crossfire","variant":"compact_moves5","bytes":2252,"msAvg":21974,"inputTokensAvg":968,"totalTokensAvg":2204,"bytesSavedVsFull":2481,"msSavedVsFull":-3274},{"scenario":"ranged-bandit-crossfire","variant":"compact_moves5_attacks6","bytes":2252,"msAvg":14206,"inputTokensAvg":968,"totalTokensAvg":1953,"bytesSavedVsFull":2481,"msSavedVsFull":4494}]}
+[run 1/3] crowded-ogre-frontline full: 42265ms
+[run 2/3] crowded-ogre-frontline full: 38643ms
+[run 3/3] crowded-ogre-frontline full: 33370ms
+[run 1/3] crowded-ogre-frontline compact_moves5: 20522ms
+[run 2/3] crowded-ogre-frontline compact_moves5: 21833ms
+[run 3/3] crowded-ogre-frontline compact_moves5: 28887ms
+[run 1/3] crowded-ogre-frontline compact_moves5_attacks6: 35116ms
+[run 2/3] crowded-ogre-frontline compact_moves5_attacks6: 26051ms
+[run 3/3] crowded-ogre-frontline compact_moves5_attacks6: 37602ms
+┌─────────┬──────────────────────────┬───────────────────────────┬───────┬───────┬────────────────┬────────────────┬──────────────────┬───────────────┐
+│ (index) │ scenario                 │ variant                   │ bytes │ msAvg │ inputTokensAvg │ totalTokensAvg │ bytesSavedVsFull │ msSavedVsFull │
+├─────────┼──────────────────────────┼───────────────────────────┼───────┼───────┼────────────────┼────────────────┼──────────────────┼───────────────┤
+│ 0       │ 'crowded-ogre-frontline' │ 'full'                    │ 5013  │ 38093 │ 1699           │ 4956           │ 0                │ 0             │
+│ 1       │ 'crowded-ogre-frontline' │ 'compact_moves5'          │ 2321  │ 23747 │ 1026           │ 2991           │ 2692             │ 14346         │
+│ 2       │ 'crowded-ogre-frontline' │ 'compact_moves5_attacks6' │ 2321  │ 32923 │ 1026           │ 3465           │ 2692             │ 5170          │
+└─────────┴──────────────────────────┴───────────────────────────┴───────┴───────┴────────────────┴────────────────┴──────────────────┴───────────────┘
+{"scenario":"crowded-ogre-frontline","runs":3,"variants":[{"scenario":"crowded-ogre-frontline","variant":"full","bytes":5013,"msAvg":38093,"inputTokensAvg":1699,"totalTokensAvg":4956,"bytesSavedVsFull":0,"msSavedVsFull":0},{"scenario":"crowded-ogre-frontline","variant":"compact_moves5","bytes":2321,"msAvg":23747,"inputTokensAvg":1026,"totalTokensAvg":2991,"bytesSavedVsFull":2692,"msSavedVsFull":14346},{"scenario":"crowded-ogre-frontline","variant":"compact_moves5_attacks6","bytes":2321,"msAvg":32923,"inputTokensAvg":1026,"totalTokensAvg":3465,"bytesSavedVsFull":2692,"msSavedVsFull":5170}]}
+[run 1/3] air-elemental-flank full: 22498ms
+[run 2/3] air-elemental-flank full: 22552ms
+[run 3/3] air-elemental-flank full: 18473ms
+[run 1/3] air-elemental-flank compact_moves5: 32008ms
+[run 2/3] air-elemental-flank compact_moves5: 30611ms
+[run 3/3] air-elemental-flank compact_moves5: 24847ms
+[run 1/3] air-elemental-flank compact_moves5_attacks6: 29726ms
+[run 2/3] air-elemental-flank compact_moves5_attacks6: 30202ms
+[run 3/3] air-elemental-flank compact_moves5_attacks6: 29740ms
+┌─────────┬───────────────────────┬───────────────────────────┬───────┬───────┬────────────────┬────────────────┬──────────────────┬───────────────┐
+│ (index) │ scenario              │ variant                   │ bytes │ msAvg │ inputTokensAvg │ totalTokensAvg │ bytesSavedVsFull │ msSavedVsFull │
+├─────────┼───────────────────────┼───────────────────────────┼───────┼───────┼────────────────┼────────────────┼──────────────────┼───────────────┤
+│ 0       │ 'air-elemental-flank' │ 'full'                    │ 5737  │ 21174 │ 1797           │ 3559           │ 0                │ 0             │
+│ 1       │ 'air-elemental-flank' │ 'compact_moves5'          │ 3191  │ 29155 │ 1181           │ 3288           │ 2546             │ -7981         │
+│ 2       │ 'air-elemental-flank' │ 'compact_moves5_attacks6' │ 3191  │ 29889 │ 1181           │ 3177           │ 2546             │ -8715         │
+└─────────┴───────────────────────┴───────────────────────────┴───────┴───────┴────────────────┴────────────────┴──────────────────┴───────────────┘
+{"scenario":"air-elemental-flank","runs":3,"variants":[{"scenario":"air-elemental-flank","variant":"full","bytes":5737,"msAvg":21174,"inputTokensAvg":1797,"totalTokensAvg":3559,"bytesSavedVsFull":0,"msSavedVsFull":0},{"scenario":"air-elemental-flank","variant":"compact_moves5","bytes":3191,"msAvg":29155,"inputTokensAvg":1181,"totalTokensAvg":3288,"bytesSavedVsFull":2546,"msSavedVsFull":-7981},{"scenario":"air-elemental-flank","variant":"compact_moves5_attacks6","bytes":3191,"msAvg":29889,"inputTokensAvg":1181,"totalTokensAvg":3177,"bytesSavedVsFull":2546,"msSavedVsFull":-8715}]}
+[run 1/3] boss-dragon-vs-party full: 56806ms
+[run 2/3] boss-dragon-vs-party full: 26585ms
+[run 3/3] boss-dragon-vs-party full: 27087ms
+[run 1/3] boss-dragon-vs-party compact_moves5: 22700ms
+[run 2/3] boss-dragon-vs-party compact_moves5: 20284ms
+[run 3/3] boss-dragon-vs-party compact_moves5: 27155ms
+[run 1/3] boss-dragon-vs-party compact_moves5_attacks6: 19537ms
+[run 2/3] boss-dragon-vs-party compact_moves5_attacks6: 24924ms
+[run 3/3] boss-dragon-vs-party compact_moves5_attacks6: 30659ms
+┌─────────┬────────────────────────┬───────────────────────────┬───────┬───────┬────────────────┬────────────────┬──────────────────┬───────────────┐
+│ (index) │ scenario               │ variant                   │ bytes │ msAvg │ inputTokensAvg │ totalTokensAvg │ bytesSavedVsFull │ msSavedVsFull │
+├─────────┼────────────────────────┼───────────────────────────┼───────┼───────┼────────────────┼────────────────┼──────────────────┼───────────────┤
+│ 0       │ 'boss-dragon-vs-party' │ 'full'                    │ 6416  │ 36826 │ 2036           │ 4754           │ 0                │ 0             │
+│ 1       │ 'boss-dragon-vs-party' │ 'compact_moves5'          │ 3807  │ 23380 │ 1381           │ 3327           │ 2609             │ 13446         │
+│ 2       │ 'boss-dragon-vs-party' │ 'compact_moves5_attacks6' │ 3807  │ 25040 │ 1381           │ 3622           │ 2609             │ 11786         │
+└─────────┴────────────────────────┴───────────────────────────┴───────┴───────┴────────────────┴────────────────┴──────────────────┴───────────────┘
+{"scenario":"boss-dragon-vs-party","runs":3,"variants":[{"scenario":"boss-dragon-vs-party","variant":"full","bytes":6416,"msAvg":36826,"inputTokensAvg":2036,"totalTokensAvg":4754,"bytesSavedVsFull":0,"msSavedVsFull":0},{"scenario":"boss-dragon-vs-party","variant":"compact_moves5","bytes":3807,"msAvg":23380,"inputTokensAvg":1381,"totalTokensAvg":3327,"bytesSavedVsFull":2609,"msSavedVsFull":13446},{"scenario":"boss-dragon-vs-party","variant":"compact_moves5_attacks6","bytes":3807,"msAvg":25040,"inputTokensAvg":1381,"totalTokensAvg":3622,"bytesSavedVsFull":2609,"msSavedVsFull":11786}]}
+[run 1/3] aboleth-control-web full: 16065ms
+[run 2/3] aboleth-control-web full: 24396ms
+[run 3/3] aboleth-control-web full: 18526ms
+[run 1/3] aboleth-control-web compact_moves5: 23849ms
+[run 2/3] aboleth-control-web compact_moves5: 31680ms
+[run 3/3] aboleth-control-web compact_moves5: 21541ms
+[run 1/3] aboleth-control-web compact_moves5_attacks6: 21286ms
+[run 2/3] aboleth-control-web compact_moves5_attacks6: 24000ms
+[run 3/3] aboleth-control-web compact_moves5_attacks6: 22182ms
+┌─────────┬───────────────────────┬───────────────────────────┬───────┬───────┬────────────────┬────────────────┬──────────────────┬───────────────┐
+│ (index) │ scenario              │ variant                   │ bytes │ msAvg │ inputTokensAvg │ totalTokensAvg │ bytesSavedVsFull │ msSavedVsFull │
+├─────────┼───────────────────────┼───────────────────────────┼───────┼───────┼────────────────┼────────────────┼──────────────────┼───────────────┤
+│ 0       │ 'aboleth-control-web' │ 'full'                    │ 7276  │ 19662 │ 2221           │ 4063           │ 0                │ 0             │
+│ 1       │ 'aboleth-control-web' │ 'compact_moves5'          │ 4625  │ 25690 │ 1560           │ 3751           │ 2651             │ -6028         │
+│ 2       │ 'aboleth-control-web' │ 'compact_moves5_attacks6' │ 4625  │ 22489 │ 1560           │ 3419           │ 2651             │ -2827         │
+└─────────┴───────────────────────┴───────────────────────────┴───────┴───────┴────────────────┴────────────────┴──────────────────┴───────────────┘
+{"scenario":"aboleth-control-web","runs":3,"variants":[{"scenario":"aboleth-control-web","variant":"full","bytes":7276,"msAvg":19662,"inputTokensAvg":2221,"totalTokensAvg":4063,"bytesSavedVsFull":0,"msSavedVsFull":0},{"scenario":"aboleth-control-web","variant":"compact_moves5","bytes":4625,"msAvg":25690,"inputTokensAvg":1560,"totalTokensAvg":3751,"bytesSavedVsFull":2651,"msSavedVsFull":-6028},{"scenario":"aboleth-control-web","variant":"compact_moves5_attacks6","bytes":4625,"msAvg":22489,"inputTokensAvg":1560,"totalTokensAvg":3419,"bytesSavedVsFull":2651,"msSavedVsFull":-2827}]}
