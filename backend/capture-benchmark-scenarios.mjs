@@ -100,13 +100,12 @@ for (const scenarioId of selectedScenarioIds) {
 
   await page.waitForTimeout(300);
 
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     const aiDrawer = document.querySelector('#aiDrawer');
     if (!aiDrawer) return;
     aiDrawer.removeAttribute('open');
-    aiDrawer.style.left = '';
-    aiDrawer.style.top = '';
-    aiDrawer.style.right = '';
+    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    aiDrawer.style.display = 'none';
     aiDrawer.style.height = '';
   });
 

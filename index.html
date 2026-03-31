@@ -2931,6 +2931,19 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     }
   }
 
+  function explainPacketVariant(variantId) {
+    switch (variantId) {
+      case 'full':
+        return 'This includes the full board summary, occupied spaces, and the active creature\'s full statblock for maximum context.';
+      case 'compact_moves5':
+        return 'This trims the prompt by listing only the five strongest legal move destinations instead of every possible move, which usually improves response time without losing the main tactical options.';
+      case 'compact_moves5_attacks6':
+        return 'This trims the move list and also limits the prompt to a short list of likely attack windows, making it more aggressive about speed.';
+      default:
+        return 'This uses the currently selected packet shape for the turn request.';
+    }
+  }
+
   function syncAiStrategyUi() {
     const strategy = getSelectedAiStrategy();
     if (!strategy) return;
@@ -2938,7 +2951,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     aiStrategyBadge.textContent = strategy.label;
     aiStrategyBadge.title = `${strategy.label}: ${strategy.description}`;
     aiStrategyHint.textContent =
-      `${strategy.description} Uses ${strategy.model} with ${describePacketVariant(strategy.packetVariant)}.`;
+      `${strategy.description} Uses ${strategy.model} with ${describePacketVariant(strategy.packetVariant)}. ${explainPacketVariant(strategy.packetVariant)}`;
   }
 
   function buildAiTurnPacketFull() {
