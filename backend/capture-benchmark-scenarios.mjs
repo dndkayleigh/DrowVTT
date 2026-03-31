@@ -100,6 +100,18 @@ for (const scenarioId of selectedScenarioIds) {
 
   await page.waitForTimeout(300);
 
+  await page.evaluate(() => {
+    const aiDrawer = document.querySelector('#aiDrawer');
+    if (!aiDrawer) return;
+    aiDrawer.removeAttribute('open');
+    aiDrawer.style.left = '';
+    aiDrawer.style.top = '';
+    aiDrawer.style.right = '';
+    aiDrawer.style.height = '';
+  });
+
+  await page.waitForTimeout(150);
+
   const filename = `${scenarioId}.png`;
   const fullPath = path.join(outputDir, filename);
   await page.screenshot({ path: fullPath, fullPage: true });
