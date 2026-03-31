@@ -389,6 +389,19 @@
       border-bottom:1px solid transparent;
     }
     .drawerSummaryLabel{display:inline-flex;align-items:center;gap:8px}
+    .drawerModeBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(90,169,255,.28);
+      background:rgba(90,169,255,.12);
+      color:#d7e8ff;
+      font-size:11px;
+      font-weight:600;
+      letter-spacing:.02em;
+    }
     .aiDrawer summary::-webkit-details-marker{display:none}
     .aiDrawer summary::after{
       content:"+";
@@ -790,7 +803,10 @@
     </div>
     <details class="aiDrawer" id="aiDrawer" open>
       <summary>
-        <span class="drawerSummaryLabel">Tactics Director</span>
+        <span class="drawerSummaryLabel">
+          <span>Tactics Director</span>
+          <span class="drawerModeBadge" id="aiStrategyBadge">Balanced</span>
+        </span>
       </summary>
       <div class="drawerContent">
         <div class="drawerLead">Run Tactics Director, review its plan, adjust settings, and check the log here.</div>
@@ -829,13 +845,14 @@
             <label>Backend endpoint</label>
             <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
             <div style="margin-top:8px;">
-            <label>AI Model</label>
-            <select id="aiModel">
-              <option value="gpt-4.1-mini">gpt-4.1-mini (fast)</option>
-              <option value="gpt-4.1">gpt-4.1</option>
-              <option value="gpt-5">gpt-5 (slow)</option>
-            </select>
-          </div>
+              <label>AI Mode</label>
+              <select id="aiStrategy">
+                <option value="balanced">Balanced</option>
+                <option value="full">Full</option>
+                <option value="fast">Fast</option>
+              </select>
+              <div class="sectionNote" id="aiStrategyHint" style="margin-top:8px;"></div>
+            </div>
           </div>
         </div>
         <div class="drawerPanel" data-drawer-panel="apply" hidden>
@@ -911,7 +928,8 @@
 <script src="/data/srd-monsters.js"></script>
 <script type="module">
 import { AUTOSAVE_HISTORY_LIMIT, parseAutosaveHistory, pushAutosaveEntry, stringifyAutosaveHistory } from '/data/autosave-history-utils.mjs';
-import { buildAiTurnPacketCompactFromState, buildAiTurnPacketFromState } from '/data/ai-turn-packet-utils.mjs';
+import { buildAiTurnPacketByVariant, buildAiTurnPacketFromState } from '/data/ai-turn-packet-utils.mjs';
+import { DEFAULT_AI_TURN_STRATEGY_ID, getAiTurnStrategy } from '/data/ai-turn-strategy-utils.mjs';
 import { buildBoardSnapshotFilename, parseBoardSnapshotText } from '/data/board-state-io-utils.mjs';
 import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/data/board-state-utils.mjs';
 import { normalizeSlotName, parseSaveSlots, removeSaveSlot, stringifySaveSlots, upsertSaveSlot } from '/data/save-slots-utils.mjs';
@@ -2892,16 +2910,51 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   // ---------- AI Export ----------
   const exportBox = document.getElementById('aiExport');
+  const aiStrategySelect = document.getElementById('aiStrategy');
+  const aiStrategyHint = document.getElementById('aiStrategyHint');
+  const aiStrategyBadge = document.getElementById('aiStrategyBadge');
+
+  function getSelectedAiStrategy() {
+    return getAiTurnStrategy(aiStrategySelect.value) || getAiTurnStrategy(DEFAULT_AI_TURN_STRATEGY_ID);
+  }
+
+  function describePacketVariant(variantId) {
+    switch (variantId) {
+      case 'full':
+        return 'the full tactical packet';
+      case 'compact_moves5':
+        return 'a compact packet with the top 5 legal move options';
+      case 'compact_moves5_attacks6':
+        return 'a compact packet with the top 5 legal moves and up to 6 attack windows';
+      default:
+        return 'the selected tactical packet';
+    }
+  }
+
+  function syncAiStrategyUi() {
+    const strategy = getSelectedAiStrategy();
+    if (!strategy) return;
+    aiStrategySelect.value = strategy.id;
+    aiStrategyBadge.textContent = strategy.label;
+    aiStrategyBadge.title = `${strategy.label}: ${strategy.description}`;
+    aiStrategyHint.textContent =
+      `${strategy.description} Uses ${strategy.model} with ${describePacketVariant(strategy.packetVariant)}.`;
+  }
 
   function buildAiTurnPacketFull() {
     return buildAiTurnPacketFromState(state);
   }
 
   function buildAiTurnPacket() {
-    return buildAiTurnPacketCompactFromState(state);
+    const strategy = getSelectedAiStrategy();
+    return buildAiTurnPacketByVariant(state, strategy?.packetVariant || 'compact_moves5');
   }
 
   function refreshExport() { exportBox.value = buildAiTurnPacket(); }
+  aiStrategySelect.addEventListener('change', () => {
+    syncAiStrategyUi();
+    refreshExport();
+  });
   document.getElementById('refreshExport').addEventListener('click', refreshExport);
   document.getElementById('copyExport').addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(exportBox.value); }
@@ -3048,6 +3101,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     const url = document.getElementById('apiUrl').value.trim();
     const status = document.getElementById('sendStatus');
     const autoApply = document.getElementById('autoApplyAI').checked;
+    const strategy = getSelectedAiStrategy();
     if (!url) return;
 
     // ---- Timing markers ----
@@ -3058,7 +3112,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     // but this smaller one is faster and measures OpenAI turn latency cleanly.
     const payload = {
       aiExport: exportBox.value,
-      model: document.getElementById("aiModel").value
+      strategy: strategy?.id || DEFAULT_AI_TURN_STRATEGY_ID,
+      model: strategy?.model || 'gpt-5'
     };
 
     const t1 = nowMs(); // payload built
@@ -3127,7 +3182,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
           `Backend _timing: total=${serverTiming.total_ms}ms ` +
           `openai=${serverTiming.openai_ms}ms ` +
           `prep=${serverTiming.prep_ms ?? 0}ms parse=${serverTiming.parse_ms ?? 0}ms ` +
-          `model=${serverTiming.model ?? "?"}`
+          `model=${serverTiming.model ?? "?"}` +
+          `${serverTiming.strategy ? ` strategy=${serverTiming.strategy}` : ''}` +
+          `${serverTiming.packet_variant ? ` packet=${serverTiming.packet_variant}` : ''}`
         );
 
         if (serverTiming.tokens) {
@@ -3358,6 +3415,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   setDrawerTab(null);
   document.getElementById('gridSize').dispatchEvent(new Event('input'));
   document.getElementById('snapMode').dispatchEvent(new Event('change'));
+  aiStrategySelect.value = DEFAULT_AI_TURN_STRATEGY_ID;
+  syncAiStrategyUi();
   requestAnimationFrame(() => applyAIDrawerPosition());
 
   // Seed tokens

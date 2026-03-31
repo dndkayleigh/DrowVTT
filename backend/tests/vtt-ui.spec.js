@@ -148,12 +148,14 @@ test('AI drawer persistent controls remain usable regardless of which tab is ope
 test('AI drawer settings persist across tab changes', async ({ page }) => {
   await openDrawerTab(page, 'settings');
   await page.locator('#apiUrl').fill('http://localhost:3000/api/custom');
-  await page.locator('#aiModel').selectOption('gpt-5');
+  await page.locator('#aiStrategy').selectOption('full');
 
   await openDrawerTab(page, 'packet');
   await openDrawerTab(page, 'settings');
   await expect(page.locator('#apiUrl')).toHaveValue('http://localhost:3000/api/custom');
-  await expect(page.locator('#aiModel')).toHaveValue('gpt-5');
+  await expect(page.locator('#aiStrategy')).toHaveValue('full');
+  await expect(page.locator('#aiStrategyHint')).toContainText('gpt-5');
+  await expect(page.locator('#aiStrategyHint')).toContainText('full');
 });
 
 test('monster name autocomplete shows matching SRD suggestions and clicking one fills the input', async ({ page }) => {

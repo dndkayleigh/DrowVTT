@@ -459,3 +459,28 @@ export function buildAiTurnPacketCompactFromState(state, options = {}) {
   lines.push(...outputContractLines(true));
   return lines.join('\n');
 }
+
+export function buildAiTurnPacketByVariant(state, variantId = 'compact_moves5') {
+  switch (variantId) {
+    case 'full':
+      return buildAiTurnPacketFromState(state);
+    case 'full_moves5_attacks6':
+      return buildAiTurnPacketVerboseConstrainedFromState(state, { moveCandidateLimit: 5, attackOpportunityLimit: 6 });
+    case 'compact_base':
+      return buildAiTurnPacketCompactFromState(state);
+    case 'compact_moves5':
+      return buildAiTurnPacketCompactFromState(state, { moveCandidateLimit: 5 });
+    case 'compact_attacks6':
+      return buildAiTurnPacketCompactFromState(state, { attackOpportunityLimit: 6 });
+    case 'compact_summary':
+      return buildAiTurnPacketCompactFromState(state, { statblockMode: 'summary' });
+    case 'compact_moves5_attacks6':
+      return buildAiTurnPacketCompactFromState(state, { moveCandidateLimit: 5, attackOpportunityLimit: 6 });
+    case 'compact_moves5_summary':
+      return buildAiTurnPacketCompactFromState(state, { moveCandidateLimit: 5, statblockMode: 'summary' });
+    case 'compact_moves5_attacks6_summary':
+      return buildAiTurnPacketCompactFromState(state, { moveCandidateLimit: 5, attackOpportunityLimit: 6, statblockMode: 'summary' });
+    default:
+      return buildAiTurnPacketCompactFromState(state, { moveCandidateLimit: 5 });
+  }
+}
