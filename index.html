@@ -285,6 +285,70 @@
       flex-wrap:wrap;
       margin-top:10px;
     }
+    .brandMark{
+      position:relative;
+      display:grid;
+      gap:6px;
+      padding:14px 16px 12px;
+      margin-bottom:10px;
+      border-radius:16px;
+      border:1px solid rgba(130,176,238,.18);
+      background:
+        radial-gradient(circle at top left, rgba(90,169,255,.16), transparent 42%),
+        linear-gradient(180deg, rgba(20,31,53,.92), rgba(10,15,27,.88));
+      box-shadow:0 10px 28px rgba(0,0,0,.22);
+      overflow:hidden;
+    }
+    .brandMark::after{
+      content:"";
+      position:absolute;
+      inset:auto -18% -40% auto;
+      width:180px;
+      height:180px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(107,173,255,.14), transparent 68%);
+      pointer-events:none;
+    }
+    .brandLine{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+    .brandSigil{
+      width:40px;
+      height:40px;
+      flex:0 0 auto;
+      display:block;
+      color:#d7ebff;
+    }
+    .brandWordmark{
+      min-width:0;
+    }
+    .brandWordmark strong{
+      display:block;
+      font-size:26px;
+      line-height:1;
+      letter-spacing:.08em;
+      font-weight:700;
+      color:#f1f6ff;
+      text-transform:uppercase;
+      text-shadow:0 0 16px rgba(90,169,255,.14);
+    }
+    .brandWordmark span{
+      display:block;
+      margin-top:5px;
+      font-size:10px;
+      letter-spacing:.24em;
+      text-transform:uppercase;
+      color:rgba(188,208,238,.78);
+    }
+    .brandSigil svg{
+      display:block;
+      width:100%;
+      height:100%;
+      filter:drop-shadow(0 0 10px rgba(90,169,255,.16));
+    }
     .contextMenu{
       position:fixed;
       z-index:30;
@@ -585,51 +649,25 @@
 <body>
 <div class="app">
   <aside class="sidebar">
-    <details class="panelSection" id="saveSection">
-      <summary><h2>Save States</h2></summary>
-      <div class="card">
-        <div class="saveSlotGrid">
-          <div>
-            <label for="saveSlotName">Save slot</label>
-            <input id="saveSlotName" type="text" value="Quick Save" maxlength="48" />
-          </div>
-          <div>
-            <label for="saveSlotSelect">Saved boards</label>
-            <select id="saveSlotSelect">
-              <option value="">(no saves yet)</option>
-            </select>
-          </div>
+    <div class="brandMark" aria-label="DrowVTT logo">
+      <div class="brandLine">
+        <div class="brandSigil" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img" aria-hidden="true">
+            <polygon points="32,4 51,14 60,32 51,50 32,60 13,50 4,32 13,14" fill="rgba(90,169,255,.14)" stroke="rgba(188,225,255,.9)" stroke-width="2.5" />
+            <polyline points="32,4 32,60" fill="none" stroke="rgba(188,225,255,.7)" stroke-width="2" />
+            <polyline points="13,14 51,14 60,32 51,50 13,50 4,32 13,14" fill="none" stroke="rgba(188,225,255,.45)" stroke-width="1.7" />
+            <polyline points="13,14 32,32 51,14" fill="none" stroke="rgba(188,225,255,.55)" stroke-width="1.7" />
+            <polyline points="13,50 32,32 51,50" fill="none" stroke="rgba(188,225,255,.55)" stroke-width="1.7" />
+            <circle cx="32" cy="32" r="2.8" fill="rgba(231,244,255,.92)" />
+          </svg>
         </div>
-        <div class="saveSlotActions">
-          <button id="saveSlotBtn">Save Slot</button>
-          <button id="loadSlotBtn">Load Slot</button>
-          <button id="deleteSlotBtn" class="danger">Delete Slot</button>
-          <button id="exportBoardBtn">Export JSON</button>
-          <button id="importBoardBtn">Import JSON</button>
+        <div class="brandWordmark">
+          <strong>DrowVTT</strong>
+          <span>Tactical Encounter Table</span>
         </div>
-        <div class="checkRow" style="margin-top:10px">
-          <input id="autosaveEnabled" type="checkbox" />
-          <label for="autosaveEnabled" style="margin:0;color:var(--muted)">Autosave changes</label>
-        </div>
-        <div class="saveSlotGrid" style="margin-top:10px">
-          <div>
-            <label for="autosaveSelect">Autosave history</label>
-            <select id="autosaveSelect">
-              <option value="">(no autosaves yet)</option>
-            </select>
-          </div>
-          <div class="saveSlotActions" style="margin-top:0">
-            <button id="restoreAutosaveBtn">Restore Autosave</button>
-            <button id="clearAutosavesBtn" class="danger">Clear Autosaves</button>
-          </div>
-        </div>
-        <input id="importBoardFile" type="file" accept="application/json,.json" hidden />
-        <div class="pill saveStatus" id="saveStateStatus" style="margin-top:10px">Save slot empty</div>
-        <div class="sectionNote">Named save slots live in this browser so you can snapshot the board and restore it later. Autosave keeps a rolling local history of the last few board changes.</div>
       </div>
-    </details>
-
-    <details class="panelSection" id="mapSection">
+    </div>
+    <details class="panelSection" id="mapSection" open>
       <summary><h2>Map & Grid</h2></summary>
       <div class="card">
         <div class="row">
@@ -726,7 +764,7 @@
       </div>
     </details>
 
-    <details class="panelSection" id="tokensSection" open>
+    <details class="panelSection" id="tokensSection">
       <summary><h2>Tokens</h2></summary>
       <div class="card">
         <div class="tokenFormRow">
@@ -775,7 +813,7 @@
       </div>
     </details>
 
-    <details class="panelSection" id="turnSection" open>
+    <details class="panelSection" id="turnSection">
       <summary><h2>Turn</h2></summary>
       <div class="card">
         <div class="compactRow">
@@ -855,6 +893,50 @@
         <div class="sectionNote" id="turnRuleNote">
           These fields edit the current token. Movement obeys turn, speed, and overlap rules.
         </div>
+      </div>
+    </details>
+
+    <details class="panelSection" id="saveSection">
+      <summary><h2>Save States</h2></summary>
+      <div class="card">
+        <div class="saveSlotGrid">
+          <div>
+            <label for="saveSlotName">Save slot</label>
+            <input id="saveSlotName" type="text" value="Quick Save" maxlength="48" />
+          </div>
+          <div>
+            <label for="saveSlotSelect">Saved boards</label>
+            <select id="saveSlotSelect">
+              <option value="">(no saves yet)</option>
+            </select>
+          </div>
+        </div>
+        <div class="saveSlotActions">
+          <button id="saveSlotBtn">Save Slot</button>
+          <button id="loadSlotBtn">Load Slot</button>
+          <button id="deleteSlotBtn" class="danger">Delete Slot</button>
+          <button id="exportBoardBtn">Export JSON</button>
+          <button id="importBoardBtn">Import JSON</button>
+        </div>
+        <div class="checkRow" style="margin-top:10px">
+          <input id="autosaveEnabled" type="checkbox" />
+          <label for="autosaveEnabled" style="margin:0;color:var(--muted)">Autosave changes</label>
+        </div>
+        <div class="saveSlotGrid" style="margin-top:10px">
+          <div>
+            <label for="autosaveSelect">Autosave history</label>
+            <select id="autosaveSelect">
+              <option value="">(no autosaves yet)</option>
+            </select>
+          </div>
+          <div class="saveSlotActions" style="margin-top:0">
+            <button id="restoreAutosaveBtn">Restore Autosave</button>
+            <button id="clearAutosavesBtn" class="danger">Clear Autosaves</button>
+          </div>
+        </div>
+        <input id="importBoardFile" type="file" accept="application/json,.json" hidden />
+        <div class="pill saveStatus" id="saveStateStatus" style="margin-top:10px">Save slot empty</div>
+        <div class="sectionNote">Named save slots live in this browser so you can snapshot the board and restore it later. Autosave keeps a rolling local history of the last few board changes.</div>
       </div>
     </details>
 
