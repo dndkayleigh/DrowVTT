@@ -7,11 +7,19 @@ The app is intentionally small:
 - a Node/Express backend in [`backend/server.js`](backend/server.js)
 - Playwright UI tests in [`backend/tests/vtt-ui.spec.js`](backend/tests/vtt-ui.spec.js)
 
+## Current Release
+
+The current stable OSS checkpoint is summarized in [`CHANGELOG.md`](CHANGELOG.md).
+
+Recent highlights:
+
+- compact AI packets now preserve more legal attack windows in `balanced` and `fast`
+- save/export UX is centered on file-based saves plus autosave
+- map setup is cleaner and calibration-first
+
 ## Start Here
 
-This section is for people who do not normally code.
-
-If you just want to run the app on your own computer, follow these steps in order.
+This section is for people who do not normally code. If you just want to run the app on your own computer, follow these steps.
 
 ### What you need
 
@@ -19,31 +27,21 @@ If you just want to run the app on your own computer, follow these steps in orde
 - An OpenAI API key
 - Node.js installed
 
-If you do not already have Node.js:
+If you do not already have Node.js: go to `https://nodejs.org/`, download the current `LTS` version, install it with the default options, then restart your terminal.
 
-1. Go to `https://nodejs.org/`
-2. Download the current `LTS` version
-3. Install it with the default options
-4. Restart your terminal after installation
+### 1. Open the `backend` folder in a terminal
 
-### Step 1: Open the `backend` folder in a terminal
-
-You want your terminal to be inside:
+Your terminal should be inside:
 
 ```text
 DrowVTT/backend
 ```
 
-Easy ways to do that:
+One easy path: open the `DrowVTT` folder, open `backend`, right-click inside it, then choose `Open in Terminal`, `Open PowerShell here`, or similar.
 
-1. Open the `DrowVTT` folder on your computer
-2. Open the `backend` folder
-3. Right-click inside that folder
-4. Choose `Open in Terminal`, `Open PowerShell here`, or similar
+### 2. Install the app
 
-### Step 2: Install the app
-
-In that terminal, run:
+Run:
 
 ```bash
 npm install
@@ -51,15 +49,9 @@ npm install
 
 This only needs to be done once, unless you update dependencies later.
 
-### Step 3: Create the `.env` file
+### 3. Create the `.env` file
 
-Inside the [`backend/`](backend/) folder, create a file named:
-
-```text
-.env
-```
-
-Put this inside it:
+Inside [`backend/`](backend/), create a file named `.env` with:
 
 ```bash
 OPENAI_API_KEY=your_key_here
@@ -68,7 +60,7 @@ PORT=3000
 
 Replace `your_key_here` with your real OpenAI API key.
 
-### Step 4: Start the app
+### 4. Start the app
 
 In the same terminal, run:
 
@@ -82,7 +74,7 @@ If it works, you should see:
 VTT backend listening on http://localhost:3000
 ```
 
-### Step 5: Open the VTT
+### 5. Open the VTT
 
 Open this in your web browser:
 
@@ -90,9 +82,7 @@ Open this in your web browser:
 http://localhost:3000/
 ```
 
-### The next time you want to use it
-
-You do not need to repeat everything.
+### Next time
 
 Usually you only need to:
 
@@ -102,29 +92,13 @@ Usually you only need to:
 
 ### How to stop the app
 
-Go back to the terminal where it is running and press:
-
-```text
-Ctrl+C
-```
+Go back to the terminal where it is running and press `Ctrl+C`.
 
 ### Common problems
 
-If `npm` is not recognized:
-
-- Node.js is probably not installed correctly
-- reinstall Node.js from `https://nodejs.org/`
-
-If the page does not open in the browser:
-
-- make sure the terminal is still running
-- make sure you started the app from the `backend` folder
-- make sure you opened `http://localhost:3000/`
-
-If the VTT opens but `Run Tactics Director` fails:
-
-- check that `OPENAI_API_KEY` in `backend/.env` is correct
-- restart the server after changing `.env`
+- If `npm` is not recognized, Node.js is probably not installed correctly; reinstall it from `https://nodejs.org/`.
+- If the page does not open, make sure the terminal is still running, you started the app from `backend`, and you opened `http://localhost:3000/`.
+- If the VTT opens but `Run Tactics Director` fails, check `OPENAI_API_KEY` in `backend/.env` and restart the server after changing `.env`.
 
 ## What It Does
 
@@ -134,15 +108,9 @@ If the VTT opens but `Run Tactics Director` fails:
 - Export the current board state as an AI turn packet
 - Send that packet to an OpenAI-backed backend and auto-apply the response
 - Show AI movement paths and a `Narrator's Cue`
-- Enforce basic tactical rules:
-  - only the current turn token can move
-  - movement is limited by speed
-  - token spaces cannot overlap
-  - melee attacks must respect reach
+- Enforce basic tactical rules: only the current turn token can move, movement is limited by speed, token spaces cannot overlap, and melee attacks must respect reach
 
 ## Token Positioning Rules
-
-The VTT stores and displays token positions by occupied grid cells:
 
 - `1x1` creatures center on the middle of a tile
 - `2x2` creatures center on the intersection of four tiles
@@ -167,11 +135,7 @@ The VTT stores and displays token positions by occupied grid cells:
         └── vtt-ui.spec.js
 ```
 
-## Local Setup
-
-This is the same setup as the section above, in shorter technical form.
-
-### 1) Add backend env vars
+## Quick Technical Setup
 
 Create [`backend/.env`](backend/.env):
 
@@ -180,33 +144,15 @@ OPENAI_API_KEY=your_key_here
 PORT=3000
 ```
 
-### 2) Install dependencies
-
-If needed:
-
 ```bash
 cd backend
 npm install
-```
-
-### 3) Start the app
-
-```bash
-cd backend
 npm start
 ```
 
-Then open:
+Then open `http://localhost:3000/`.
 
-```text
-http://localhost:3000/
-```
-
-The backend API is served at:
-
-```text
-http://localhost:3000/api/vtt
-```
+The backend API is served at `http://localhost:3000/api/vtt`.
 
 ## Testing
 
@@ -216,10 +162,7 @@ Run the tests from [`backend/`](backend/):
 npm test
 ```
 
-This runs:
-
-- a schema/unit test for the backend response contract
-- the Playwright UI suite
+This runs the schema/unit tests plus the Playwright UI suite.
 
 Current coverage includes:
 - page load
