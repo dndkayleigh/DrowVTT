@@ -39,7 +39,7 @@ In practice:
 | Model | `gpt-5` |
 | Metric | Turn-around time (`TAT`) in milliseconds, measured around the `responses.create()` API call |
 | Test matrix | 6 combat scenarios, 8 packet variants, 3 runs per scenario/variant pair, 144 API calls total |
-| Data artifacts | [packet-latency-2026-03-28-runs3.summary.json](backend/benchmark-results/packet-latency-2026-03-28-runs3.summary.json)<br>[packet-latency-2026-03-28-runs3.overall.csv](backend/benchmark-results/packet-latency-2026-03-28-runs3.overall.csv)<br>[packet-latency-2026-03-28-runs3.runs.csv](backend/benchmark-results/packet-latency-2026-03-28-runs3.runs.csv)<br>[packet-latency-2026-03-28-runs3.raw.log](backend/benchmark-results/packet-latency-2026-03-28-runs3.raw.log) |
+| Data artifacts | [packet-latency-2026-03-28-runs3.summary.json](packet-latency-2026-03-28-runs3.summary.json)<br>[packet-latency-2026-03-28-runs3.overall.csv](packet-latency-2026-03-28-runs3.overall.csv)<br>[packet-latency-2026-03-28-runs3.runs.csv](packet-latency-2026-03-28-runs3.runs.csv)<br>[packet-latency-2026-03-28-runs3.raw.log](packet-latency-2026-03-28-runs3.raw.log) |
 
 ## Which Combat Scenarios Were Included
 
@@ -252,8 +252,8 @@ A legality-focused and reasoning-backed accuracy harness was added after the lat
 
 Files:
 
-- [measure-packet-accuracy.mjs](backend/measure-packet-accuracy.mjs)
-- [ai-turn-eval-utils.mjs](backend/ai-turn-eval-utils.mjs)
+- [measure-packet-accuracy.mjs](../measure-packet-accuracy.mjs)
+- [ai-turn-eval-utils.mjs](../ai-turn-eval-utils.mjs)
 
 The follow-up accuracy work is now complete enough to compare legality and tactical fidelity against a `gpt-5 + full` reference turn.
 
