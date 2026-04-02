@@ -420,6 +420,10 @@ test('named save slots restore a saved board and can be managed from the toolbar
   await selectHiddenOptionByLabel(page, '#saveSlotSelect', 'Round 3 Start');
   await clickHiddenElement(page, '#loadSlotBtn');
 
+  await expect.poll(async () => (
+    await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot().state.tokens.map((token) => token.name))
+  )).toContain('Hero');
+  await expect(page.locator('#saveStateStatus')).toContainText('Round 3 Start');
   await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Hero' })).toHaveCount(1);
   await expectTokenCell(page, 'Hero', 4, 2);
   await expect(page.locator('#roundNum')).toHaveValue('3');
