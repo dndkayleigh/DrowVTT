@@ -173,6 +173,28 @@ export function parseAttackProfiles(statblockText) {
         rangeFt: Number(rangedMatch[3]),
         raw: line
       });
+      continue;
+    }
+
+    const shorthandRangedMatch = line.match(/^- ([^:]+): .*?\+\d+\s+to\s+hit,\s*range\s+(\d+)(?:\/\d+)?/i);
+    if (shorthandRangedMatch) {
+      profiles.push({
+        name: shorthandRangedMatch[1],
+        attackKind: 'ranged',
+        rangeFt: Number(shorthandRangedMatch[2]),
+        raw: line
+      });
+      continue;
+    }
+
+    const shorthandMeleeMatch = line.match(/^- ([^:]+): .*?\+\d+\s+to\s+hit,\s*(?:reach\s+)?(\d+)\s*ft\b/i);
+    if (shorthandMeleeMatch && !/\brange\b/i.test(line)) {
+      profiles.push({
+        name: shorthandMeleeMatch[1],
+        attackKind: 'melee',
+        rangeFt: Number(shorthandMeleeMatch[2]),
+        raw: line
+      });
     }
   }
   return profiles;
@@ -187,9 +209,55 @@ function bestEnemyDistance(state, token, cell, enemies) {
   return best;
 }
 
+function buildMoveAttackSummary(state, token, cell, enemies, attackProfiles) {
+  if (!attackProfiles.length || !enemies.length) {
+    return {
+      attackOpportunityCount: 0,
+      attackTargets: [],
+      bestAttackDistance: Infinity,
+      attackTargetDistances: new Map()
+    };
+  }
+
+  const attackTargetDistances = new Map();
+  let attackOpportunityCount = 0;
+  let bestAttackDistance = Infinity;
+
+  for (const enemy of enemies) {
+    for (const profile of attackProfiles) {
+      const requiredCells = attackRangeCells(profile.rangeFt);
+      const actualCells = minTokenDistanceCells(state, token, enemy, cell);
+      if (actualCells > requiredCells) continue;
+      attackOpportunityCount += 1;
+      bestAttackDistance = Math.min(bestAttackDistance, actualCells);
+      const currentBest = attackTargetDistances.get(enemy.name);
+      if (currentBest == null || actualCells < currentBest) {
+        attackTargetDistances.set(enemy.name, actualCells);
+      }
+    }
+  }
+
+  return {
+    attackOpportunityCount,
+    attackTargets: [...attackTargetDistances.keys()].sort(),
+    bestAttackDistance,
+    attackTargetDistances
+  };
+}
+
 export function chooseMoveCandidates(state, token, enemies, limit = 10) {
   const start = gridCoordsFromToken(state, token);
-  return legalMoveDestinations(state, token)
+  const attackProfiles = parseAttackProfiles(token?.statblock);
+  const rankedMoves = legalMoveDestinations(state, token)
+    .map((cell) => {
+      const attackSummary = buildMoveAttackSummary(state, token, cell, enemies, attackProfiles);
+      return {
+        ...cell,
+        fromStart: chebyshevDistanceCells(start, cell),
+        nearestEnemyCells: bestEnemyDistance(state, token, cell, enemies),
+        ...attackSummary
+      };
+    })
     .sort((left, right) => {
       const distanceDelta =
         bestEnemyDistance(state, token, left, enemies) -
@@ -201,13 +269,43 @@ export function chooseMoveCandidates(state, token, enemies, limit = 10) {
       if (xDelta !== 0) return xDelta;
       return left.y - right.y;
     })
-    .filter((cell, index, cells) => index === cells.findIndex((entry) => entry.x === cell.x && entry.y === cell.y))
-    .slice(0, limit)
-    .map((cell) => ({
-      ...cell,
-      fromStart: chebyshevDistanceCells(start, cell),
-      nearestEnemyCells: bestEnemyDistance(state, token, cell, enemies)
-    }));
+    .filter((cell, index, cells) => index === cells.findIndex((entry) => entry.x === cell.x && entry.y === cell.y));
+
+  const selectedMoves = [];
+  const selectedKeys = new Set();
+  const addMove = (move) => {
+    const key = serializeCell(move);
+    if (selectedKeys.has(key) || selectedMoves.length >= limit) return;
+    selectedKeys.add(key);
+    selectedMoves.push(move);
+  };
+
+  const attackTargetNames = [...new Set(rankedMoves.flatMap((move) => move.attackTargets))];
+  for (const targetName of attackTargetNames) {
+    const bestTargetMove = rankedMoves
+      .filter((move) => move.attackTargetDistances.has(targetName))
+      .sort((left, right) => {
+        const targetDistanceDelta =
+          left.attackTargetDistances.get(targetName) - right.attackTargetDistances.get(targetName);
+        if (targetDistanceDelta !== 0) return targetDistanceDelta;
+        const stepDelta = left.steps - right.steps;
+        if (stepDelta !== 0) return stepDelta;
+        const nearestEnemyDelta = left.nearestEnemyCells - right.nearestEnemyCells;
+        if (nearestEnemyDelta !== 0) return nearestEnemyDelta;
+        const xDelta = left.x - right.x;
+        if (xDelta !== 0) return xDelta;
+        return left.y - right.y;
+      })[0];
+    if (bestTargetMove) addMove(bestTargetMove);
+    if (selectedMoves.length >= limit) break;
+  }
+
+  for (const move of rankedMoves) addMove(move);
+
+  return selectedMoves.map((move) => ({
+    ...move,
+    attackTargetDistances: new Map(move.attackTargetDistances)
+  }));
 }
 
 export function computeAttackOpportunities(state, token, moveCandidates, enemies, limit = 12) {
@@ -377,7 +475,7 @@ export function buildAiTurnPacketVerboseConstrainedFromState(state, options = {}
   lines.push("- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.");
   lines.push('- Include a brief overall summary plus short rationale text for each move and action.');
   lines.push("- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.");
-  lines.push("- When relevant, include key mechanics in the Narrator's Cue such as attack bonus, damage dice and type, and any save DC/check the target must make.");
+  lines.push("- For every attack in the Narrator's Cue, always include a super-abbreviated mechanics stub with to-hit and damage in this style: '+4, 1d6+2 slashing' or 'DC 13 Dex, 2d6 fire'. Include both dice and fixed modifier when present.");
   lines.push('- Include a path array for each move when possible so the UI can show the planned route.');
   lines.push('');
   lines.push(`AI CONTROLS: ${state.aiControls}`);
@@ -437,6 +535,7 @@ export function buildAiTurnPacketCompactFromState(state, options = {}) {
   lines.push('- End movement in an unoccupied space; allies may be passed through, enemies may not.');
   lines.push('- Check actual reach/range before attacks. Never emit illegal melee attacks.');
   lines.push('- Keep summary and rationale consistent with the final board state.');
+  lines.push("- In summary, always cite attack mechanics in compact form: '+to hit, XdY+Z type' or 'DC N save, XdY type'.");
   lines.push('');
   lines.push(`AI=${state.aiControls} ROUND=${state.round} TURN=${turnTok ? `${turnTok.type} "${turnTok.name}"` : '(none)'}`);
   lines.push(`MAP grid_px=${state.gridSize} transform=off(${Math.round(state.map.offX)},${Math.round(state.map.offY)}) scale=${state.map.scale.toFixed(2)} rotDeg=${((state.map.rot * 180) / Math.PI).toFixed(2)}`);
