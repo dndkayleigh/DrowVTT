@@ -279,6 +279,21 @@
       gap:8px;
       align-items:end;
     }
+    .legacySaveSlotsUi{display:none !important}
+    .autosaveRow{
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) auto;
+      gap:8px;
+      align-items:end;
+      margin-top:10px;
+    }
+    .autosaveRow .saveSlotActions{
+      margin-top:0;
+      flex-wrap:nowrap;
+    }
+    .autosaveRow select{
+      max-width:220px;
+    }
     .saveSlotActions{
       display:flex;
       gap:8px;
@@ -899,7 +914,7 @@
     <details class="panelSection" id="saveSection">
       <summary><h2>Save States</h2></summary>
       <div class="card">
-        <div class="saveSlotGrid">
+        <div class="saveSlotGrid legacySaveSlotsUi" aria-hidden="true">
           <div>
             <label for="saveSlotName">Save slot</label>
             <input id="saveSlotName" type="text" value="Quick Save" maxlength="48" />
@@ -911,32 +926,34 @@
             </select>
           </div>
         </div>
-        <div class="saveSlotActions">
+        <div class="saveSlotActions legacySaveSlotsUi" aria-hidden="true">
           <button id="saveSlotBtn">Save Slot</button>
           <button id="loadSlotBtn">Load Slot</button>
           <button id="deleteSlotBtn" class="danger">Delete Slot</button>
-          <button id="exportBoardBtn">Export JSON</button>
-          <button id="importBoardBtn">Import JSON</button>
         </div>
-        <div class="checkRow" style="margin-top:10px">
+        <div class="saveSlotActions">
+          <button id="exportBoardBtn">Download Save</button>
+          <button id="importBoardBtn">Open Save</button>
+        </div>
+        <div class="checkRow legacySaveSlotsUi" style="margin-top:10px" aria-hidden="true">
           <input id="autosaveEnabled" type="checkbox" />
           <label for="autosaveEnabled" style="margin:0;color:var(--muted)">Autosave changes</label>
         </div>
-        <div class="saveSlotGrid" style="margin-top:10px">
+        <div class="autosaveRow">
           <div>
             <label for="autosaveSelect">Autosave history</label>
             <select id="autosaveSelect">
               <option value="">(no autosaves yet)</option>
             </select>
           </div>
-          <div class="saveSlotActions" style="margin-top:0">
-            <button id="restoreAutosaveBtn">Restore Autosave</button>
-            <button id="clearAutosavesBtn" class="danger">Clear Autosaves</button>
+          <div class="saveSlotActions">
+            <button id="restoreAutosaveBtn">Recover</button>
+            <button id="clearAutosavesBtn" class="danger">Clear</button>
           </div>
         </div>
         <input id="importBoardFile" type="file" accept="application/json,.json" hidden />
         <div class="pill saveStatus" id="saveStateStatus" style="margin-top:10px">Save slot empty</div>
-        <div class="sectionNote">Named save slots live in this browser so you can snapshot the board and restore it later. Autosave keeps a rolling local history of the last few board changes.</div>
+        <div class="sectionNote">Download Save is the primary way to keep a board. Autosave quietly keeps a rolling local history of recent changes in this browser.</div>
       </div>
     </details>
 
@@ -1666,9 +1683,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     return createBoardSnapshot(state);
   }
 
-  function saveBoardToSlot(slotName, slotId = '') {
+  async function saveBoardToSlot(slotName, slotId = '') {
     const snapshot = buildSerializableBoardSnapshot();
-    const { slot, slots } = boardPersistence.saveSlot({
+    const { slot, slots } = await boardPersistence.saveSlot({
       id: slotId,
       name: slotName,
       snapshot
@@ -1676,24 +1693,26 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     saveSlotNameInput.value = slot.name;
     updateSaveControls(slots, slot.id);
     updateSaveStatusFromSlot(slot);
-    return slot;
+    return { ...slot, snapshot };
   }
 
   async function loadBoardFromSelectedSlot() {
     const slots = loadSaveSlotsFromStorage();
     const slot = slots.find((entry) => entry.id === saveSlotSelect.value);
     if (!slot) throw new Error('No saved board selected.');
+    const snapshot = await boardPersistence.loadSaveSlotSnapshot(slot.id);
+    if (!snapshot) throw new Error('Saved board snapshot is unavailable.');
     saveSlotNameInput.value = slot.name;
-    await hydrateBoardState(slot.snapshot);
+    await hydrateBoardState(snapshot);
     updateSaveControls(slots, slot.id);
     updateSaveStatusFromSlot(slot);
     return slot;
   }
 
-  function deleteSelectedSlot() {
+  async function deleteSelectedSlot() {
     const slotId = saveSlotSelect.value;
     if (!slotId) throw new Error('No save slot selected.');
-    const { slot, slots } = boardPersistence.deleteSaveSlot(slotId);
+    const { slot, slots } = await boardPersistence.deleteSaveSlot(slotId);
     updateSaveControls(slots, slots[0]?.id || '');
     updateSaveStatusFromSlot(slots.find((entry) => entry.id === saveSlotSelect.value) || null);
     return slot;
@@ -1708,8 +1727,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     boardPersistence.setAutosaveEnabled(enabled);
   }
 
-  function pushAutosaveSnapshot(snapshot) {
-    const { entry, entries } = boardPersistence.appendAutosave(snapshot);
+  async function pushAutosaveSnapshot(snapshot) {
+    const { entry, entries } = await boardPersistence.appendAutosave(snapshot);
     updateAutosaveControls(entries, entry.id);
     return entry;
   }
@@ -1717,13 +1736,18 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   function scheduleAutosave() {
     if (autosaveSuppressed || !autosaveEnabled()) return;
     if (autosaveTimer) window.clearTimeout(autosaveTimer);
-    autosaveTimer = window.setTimeout(() => {
+    autosaveTimer = window.setTimeout(async () => {
       const snapshot = buildSerializableBoardSnapshot();
       const signature = JSON.stringify(snapshot.state);
       if (signature === lastAutosaveSignature) return;
       lastAutosaveSignature = signature;
-      const entry = pushAutosaveSnapshot(snapshot);
-      setSaveStatus(`Autosaved ${new Date(entry.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}`);
+      try {
+        const entry = await pushAutosaveSnapshot(snapshot);
+        setSaveStatus(`Autosaved ${new Date(entry.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}`);
+      } catch (err) {
+        setSaveStatus('Autosave failed', true);
+        pushLog(`Autosave failed: ${err.message || err}`);
+      }
     }, 450);
   }
 
@@ -1731,14 +1755,16 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     const entries = loadAutosaveHistoryFromStorage();
     const entry = entries.find((current) => current.id === autosaveSelect.value);
     if (!entry) throw new Error('No autosave selected.');
-    await hydrateBoardState(entry.snapshot);
+    const snapshot = await boardPersistence.loadAutosaveSnapshot(entry.id);
+    if (!snapshot) throw new Error('Autosave snapshot is unavailable.');
+    await hydrateBoardState(snapshot);
     updateAutosaveControls(entries, entry.id);
     setSaveStatus(`Restored autosave from ${new Date(entry.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}`);
     return entry;
   }
 
-  function clearAutosaveHistory() {
-    boardPersistence.clearAutosaveHistory();
+  async function clearAutosaveHistory() {
+    await boardPersistence.clearAutosaveHistory();
     updateAutosaveControls([], '');
     setSaveStatus('Autosave history cleared');
   }
@@ -2486,10 +2512,14 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   }
 
   document.getElementById('fitMap').addEventListener('click', fitMapToCanvas);
-  saveSlotBtn.addEventListener('click', () => {
+  saveSlotBtn.addEventListener('click', async () => {
     try {
-      const existingId = loadSaveSlotsFromStorage().find((slot) => slot.name === normalizeSlotName(saveSlotNameInput.value))?.id || '';
-      const slot = saveBoardToSlot(saveSlotNameInput.value, existingId);
+      const normalizedName = normalizeSlotName(saveSlotNameInput.value);
+      const slots = loadSaveSlotsFromStorage();
+      const selectedSlot = slots.find((slot) => slot.id === saveSlotSelect.value) || null;
+      const matchingSlot = slots.find((slot) => slot.name === normalizedName) || null;
+      const slotId = matchingSlot?.id || (selectedSlot && selectedSlot.name === normalizedName ? selectedSlot.id : '');
+      const slot = await saveBoardToSlot(normalizedName, slotId);
       pushLog(`Saved board to slot "${slot.name}" (v${slot.snapshot.version}).`);
     } catch (err) {
       setSaveStatus('Save failed', true);
@@ -2505,9 +2535,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       pushLog(`Load slot failed: ${err.message || err}`);
     }
   });
-  deleteSlotBtn.addEventListener('click', () => {
+  deleteSlotBtn.addEventListener('click', async () => {
     try {
-      const slot = deleteSelectedSlot();
+      const slot = await deleteSelectedSlot();
       pushLog(`Deleted slot "${slot?.name || 'unknown'}".`);
     } catch (err) {
       setSaveStatus('Delete failed', true);
@@ -2527,9 +2557,14 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       pushLog(`Restore autosave failed: ${err.message || err}`);
     }
   });
-  clearAutosavesBtn.addEventListener('click', () => {
-    clearAutosaveHistory();
-    pushLog('Cleared autosave history.');
+  clearAutosavesBtn.addEventListener('click', async () => {
+    try {
+      await clearAutosaveHistory();
+      pushLog('Cleared autosave history.');
+    } catch (err) {
+      setSaveStatus('Clear failed', true);
+      pushLog(`Clear autosaves failed: ${err.message || err}`);
+    }
   });
   autosaveSelect.addEventListener('change', () => {
     const entries = loadAutosaveHistoryFromStorage();
@@ -3724,7 +3759,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     importBoardSnapshotText: async (text) => await hydrateBoardState(parseBoardSnapshotText(text)),
     getAuthContext: () => authAdapter.getCurrentUserContext(),
     getAutosaves: () => loadAutosaveHistoryFromStorage().map((entry) => ({ id: entry.id, savedAt: entry.savedAt })),
+    getAutosaveSnapshot: async (entryId) => await boardPersistence.loadAutosaveSnapshot(entryId),
     getSaveSlots: () => loadSaveSlotsFromStorage().map((slot) => ({ id: slot.id, name: slot.name, savedAt: slot.savedAt })),
+    getSaveSlotSnapshot: async (slotId) => await boardPersistence.loadSaveSlotSnapshot(slotId),
     getSessionEvents: () => sessionSync.getPublishedEvents(),
     getUsageEvents: () => usageTracking.getUsageEvents(),
     getTokens: () => state.tokens.map((token) => ({

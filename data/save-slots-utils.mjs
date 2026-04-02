@@ -14,7 +14,12 @@ function normalizeSlotRecord(slot = {}) {
 
 export function parseSaveSlots(raw) {
   if (!raw) return [];
-  const parsed = JSON.parse(raw);
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
   if (!Array.isArray(parsed)) return [];
   return parsed
     .map(normalizeSlotRecord)

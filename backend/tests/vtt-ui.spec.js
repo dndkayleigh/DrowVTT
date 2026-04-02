@@ -66,6 +66,35 @@ async function uploadTestMap(page, { width = 256, height = 256 } = {}) {
   });
 }
 
+async function setHiddenInputValue(page, selector, value) {
+  await page.evaluate(({ selector, value }) => {
+    const element = document.querySelector(selector);
+    if (!element) throw new Error(`Missing element: ${selector}`);
+    element.value = value;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { selector, value });
+}
+
+async function clickHiddenElement(page, selector) {
+  await page.evaluate((selector) => {
+    const element = document.querySelector(selector);
+    if (!element) throw new Error(`Missing element: ${selector}`);
+    element.click();
+  }, selector);
+}
+
+async function selectHiddenOptionByLabel(page, selector, label) {
+  await page.evaluate(({ selector, label }) => {
+    const select = document.querySelector(selector);
+    if (!select) throw new Error(`Missing element: ${selector}`);
+    const option = Array.from(select.options).find((entry) => entry.label === label || entry.textContent === label);
+    if (!option) throw new Error(`Missing option: ${label}`);
+    select.value = option.value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { selector, label });
+}
+
 async function clickStageWorld(page, worldX, worldY) {
   const canvas = page.locator('#stage');
   const box = await canvas.boundingBox();
@@ -92,6 +121,13 @@ test('loads the VTT UI', async ({ page }) => {
   await openDrawerTab(page, 'settings');
   await expect(page.locator('#apiUrl')).toHaveValue(/http:\/\/localhost:3000\/api\/vtt/);
   await expect(page.locator('#stage')).toBeVisible();
+  await openDetails(page, '#saveSection');
+  await expect(page.locator('.legacySaveSlotsUi')).toHaveCount(3);
+  await expect(page.locator('.legacySaveSlotsUi').first()).toBeHidden();
+  await expect(page.locator('#exportBoardBtn')).toContainText('Download Save');
+  await expect(page.locator('#importBoardBtn')).toContainText('Open Save');
+  await expect(page.locator('#restoreAutosaveBtn')).toContainText('Recover');
+  await expect(page.locator('#clearAutosavesBtn')).toContainText('Clear');
 });
 
 test('AI drawer defaults to compact controls with autopilot on and no tab expanded', async ({ page }) => {
@@ -366,30 +402,34 @@ test('named save slots restore a saved board and can be managed from the toolbar
   await page.locator('#roundNum').fill('3');
   await page.locator('#aiControls').selectOption('PCs');
   await openDetails(page, '#saveSection');
-  await page.locator('#saveSlotName').fill('Round 3 Start');
+  await setHiddenInputValue(page, '#saveSlotName', 'Round 3 Start');
 
-  await page.getByRole('button', { name: 'Save Slot' }).click();
+  await clickHiddenElement(page, '#saveSlotBtn');
   await expect(page.locator('#saveStateStatus')).toContainText('Round 3 Start');
-  await expect(page.locator('#saveSlotSelect')).toHaveValue(/.+/);
+  await expect.poll(async () => (
+    await page.evaluate(() => document.querySelector('#saveSlotSelect')?.value || '')
+  )).toMatch(/.+/);
 
   await page.getByRole('button', { name: 'Clear all' }).click();
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
   await page.locator('#roundNum').fill('1');
   await page.locator('#aiControls').selectOption('Monsters');
-  await page.locator('#saveSlotName').fill('Empty Board');
-  await page.getByRole('button', { name: 'Save Slot' }).click();
+  await setHiddenInputValue(page, '#saveSlotName', 'Empty Board');
+  await clickHiddenElement(page, '#saveSlotBtn');
 
-  await page.locator('#saveSlotSelect').selectOption({ label: 'Round 3 Start' });
-  await page.getByRole('button', { name: 'Load Slot' }).click();
+  await selectHiddenOptionByLabel(page, '#saveSlotSelect', 'Round 3 Start');
+  await clickHiddenElement(page, '#loadSlotBtn');
 
   await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Hero' })).toHaveCount(1);
   await expectTokenCell(page, 'Hero', 4, 2);
   await expect(page.locator('#roundNum')).toHaveValue('3');
   await expect(page.locator('#aiControls')).toHaveValue('PCs');
-  await expect(page.locator('#saveSlotName')).toHaveValue('Round 3 Start');
+  await expect.poll(async () => (
+    await page.evaluate(() => document.querySelector('#saveSlotName')?.value || '')
+  )).toBe('Round 3 Start');
 
-  await page.locator('#saveSlotSelect').selectOption({ label: 'Empty Board' });
-  await page.getByRole('button', { name: 'Delete Slot' }).click();
+  await selectHiddenOptionByLabel(page, '#saveSlotSelect', 'Empty Board');
+  await clickHiddenElement(page, '#deleteSlotBtn');
 
   const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
   const slots = await page.evaluate(() => window.__VTT_DEBUG__.getSaveSlots());
@@ -397,6 +437,98 @@ test('named save slots restore a saved board and can be managed from the toolbar
   expect(snapshot.state.tokens).toHaveLength(1);
   expect(snapshot.state.tokens[0].name).toBe('Hero');
   expect(slots.map((slot) => slot.name)).toEqual(['Round 3 Start']);
+});
+
+test('saving with a new slot name creates a new slot instead of overwriting another selected slot', async ({ page }) => {
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await openDetails(page, '#saveSection');
+
+  await setHiddenInputValue(page, '#saveSlotName', 'Round 1');
+  await clickHiddenElement(page, '#saveSlotBtn');
+
+  await openDetails(page, '#turnSection');
+  await page.locator('#roundNum').fill('2');
+  await openDetails(page, '#saveSection');
+  await setHiddenInputValue(page, '#saveSlotName', 'Round 2');
+  await clickHiddenElement(page, '#saveSlotBtn');
+
+  await expect.poll(async () => (
+    await page.evaluate(() => window.__VTT_DEBUG__.getSaveSlots().map((slot) => slot.name))
+  )).toEqual(['Round 2', 'Round 1']);
+
+  await selectHiddenOptionByLabel(page, '#saveSlotSelect', 'Round 1');
+  await expect.poll(async () => (
+    await page.evaluate(() => document.querySelector('#saveSlotName')?.value || '')
+  )).toBe('Round 1');
+
+  await openDetails(page, '#turnSection');
+  await page.locator('#roundNum').fill('3');
+  await openDetails(page, '#saveSection');
+  await setHiddenInputValue(page, '#saveSlotName', 'Round 3');
+  await clickHiddenElement(page, '#saveSlotBtn');
+
+  await expect.poll(async () => (
+    await page.evaluate(() => window.__VTT_DEBUG__.getSaveSlots().map((slot) => slot.name))
+  )).toEqual(['Round 3', 'Round 2', 'Round 1']);
+});
+
+test('saving with another slot name reuses that named slot instead of failing', async ({ page }) => {
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await openDetails(page, '#saveSection');
+
+  await setHiddenInputValue(page, '#saveSlotName', 'Round 1');
+  await clickHiddenElement(page, '#saveSlotBtn');
+
+  await setHiddenInputValue(page, '#saveSlotName', 'Round 2');
+  await clickHiddenElement(page, '#saveSlotBtn');
+
+  await selectHiddenOptionByLabel(page, '#saveSlotSelect', 'Round 1');
+  await expect.poll(async () => (
+    await page.evaluate(() => document.querySelector('#saveSlotName')?.value || '')
+  )).toBe('Round 1');
+
+  await setHiddenInputValue(page, '#saveSlotName', 'Round 2');
+  await clickHiddenElement(page, '#saveSlotBtn');
+
+  await expect(page.locator('#saveStateStatus')).toContainText('Round 2');
+  await expect.poll(async () => (
+    await page.evaluate(() => document.querySelector('#saveSlotSelect')?.value || '')
+  )).toMatch(/.+/);
+  await expect.poll(async () => (
+    await page.evaluate(() => document.querySelector('#saveSlotName')?.value || '')
+  )).toBe('Round 2');
+
+  const slots = await page.evaluate(() => window.__VTT_DEBUG__.getSaveSlots());
+  expect(slots.map((slot) => slot.name)).toEqual(['Round 2', 'Round 1']);
+});
+
+test('map-backed named saves can be created repeatedly and restored', async ({ page }) => {
+  await uploadTestMap(page, { width: 1024, height: 1024 });
+  await addToken(page, { name: 'Ranger', size: 1, type: 'PC' });
+  await openDetails(page, '#saveSection');
+  await openDetails(page, '#turnSection');
+
+  for (const [name, round] of [['Quick Save', '1'], ['Quick Save 3', '3'], ['Quick Save 10', '10']]) {
+    await page.locator('#roundNum').fill(round);
+    await openDetails(page, '#saveSection');
+    await setHiddenInputValue(page, '#saveSlotName', name);
+    await clickHiddenElement(page, '#saveSlotBtn');
+    await expect(page.locator('#saveStateStatus')).toContainText(name);
+  }
+
+  await expect.poll(async () => (
+    await page.evaluate(() => window.__VTT_DEBUG__.getSaveSlots().map((slot) => slot.name))
+  )).toEqual(['Quick Save 10', 'Quick Save 3', 'Quick Save']);
+
+  await page.getByRole('button', { name: 'Clear all' }).click();
+  await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
+
+  await selectHiddenOptionByLabel(page, '#saveSlotSelect', 'Quick Save 3');
+  await clickHiddenElement(page, '#loadSlotBtn');
+
+  await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Ranger' })).toHaveCount(1);
+  await expect(page.locator('#roundNum')).toHaveValue('3');
+  await expect(page.locator('#saveStateStatus')).toContainText('Quick Save 3');
 });
 
 test('board snapshots can be exported and imported as json files', async ({ page }) => {
@@ -408,7 +540,7 @@ test('board snapshots can be exported and imported as json files', async ({ page
 
   const exported = await page.evaluate(() => JSON.stringify(window.__VTT_DEBUG__.getBoardSnapshot()));
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export JSON' }).click();
+  await page.getByRole('button', { name: 'Download Save' }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/^drowvtt-board-save-\d{8}-\d{4}\.json$/);
 
@@ -427,7 +559,7 @@ test('board snapshots can be exported and imported as json files', async ({ page
 
 test('autosave history can restore a recent board snapshot', async ({ page }) => {
   await openDetails(page, '#saveSection');
-  await page.locator('#autosaveEnabled').check();
+  await expect(page.locator('#autosaveEnabled')).toBeChecked();
 
   await addToken(page, { name: 'Scout', size: 1, type: 'PC' });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 2, cellY: 5 });
@@ -438,7 +570,7 @@ test('autosave history can restore a recent board snapshot', async ({ page }) =>
   await page.getByRole('button', { name: 'Clear all' }).click();
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Restore Autosave' }).click();
+  await page.getByRole('button', { name: 'Recover' }).click();
 
   await expectTokenCell(page, 'Scout', 2, 5);
   await expect(page.locator('#saveStateStatus')).toContainText('Restored autosave');

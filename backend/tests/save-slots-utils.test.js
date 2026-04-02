@@ -33,3 +33,7 @@ test('parseSaveSlots and removeSaveSlot round-trip stored slot collections', () 
   assert.deepEqual(parsed.map((slot) => slot.id), ['beta', 'alpha']);
   assert.deepEqual(removeSaveSlot(parsed, 'beta').map((slot) => slot.id), ['alpha']);
 });
+
+test('parseSaveSlots tolerates malformed stored json', () => {
+  assert.deepEqual(parseSaveSlots('{not valid json'), []);
+});
