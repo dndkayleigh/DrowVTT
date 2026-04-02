@@ -638,20 +638,37 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
 
 test('map controls update the map pill and drag mode label', async ({ page }) => {
   await openDetails(page, '#mapSection');
-  await page.locator('#mapScale').fill('1.25');
-  await page.locator('#mapRotDeg').fill('1.5');
-  await page.locator('#mapOpacity').fill('0.6');
-  await page.locator('#nudgeCells').fill('1');
+  await page.locator('#showBoardStatus').check();
+  await page.locator('#calibrationGridSize').fill('72');
+  await page.locator('#horizontalNudgePx').fill('48');
+  await page.locator('#verticalNudgePx').fill('24');
 
   await page.getByRole('button', { name: 'Drag: Tokens' }).click();
   await expect(page.getByRole('button', { name: 'Drag: Map' })).toBeVisible();
+  await expect(page.locator('#gridPill')).toContainText('72px');
+  await expect(page.locator('#mapPill')).toContainText('off(48,24)');
+});
 
-  await page.locator('#nudgeRight').click();
-  await page.locator('#nudgeDown').click();
+test('calibration offset fields directly update map offsets and survive redraw', async ({ page }) => {
+  await uploadTestMap(page);
+  await openDetails(page, '#mapSection');
+  await page.locator('#showBoardStatus').check();
 
-  await expect(page.locator('#mapPill')).toContainText('off(64,64)');
-  await expect(page.locator('#mapPill')).toContainText('scale 1.25');
-  await expect(page.locator('#mapPill')).toContainText('rot 1.50°');
+  await page.locator('#horizontalNudgePx').fill('36');
+  await page.locator('#verticalNudgePx').fill('-18');
+  await expect(page.locator('#mapPill')).toContainText('off(36,-18)');
+
+  await page.getByRole('button', { name: 'Fit map' }).click();
+  await expect(page.locator('#horizontalNudgePx')).not.toHaveValue('36');
+  await expect(page.locator('#verticalNudgePx')).not.toHaveValue('-18');
+
+  await page.locator('#horizontalNudgePx').fill('12');
+  await page.locator('#verticalNudgePx').fill('8');
+  await expect(page.locator('#mapPill')).toContainText('off(12,8)');
+
+  await page.getByRole('button', { name: 'Drag: Tokens' }).click();
+  await expect(page.getByRole('button', { name: 'Drag: Map' })).toBeVisible();
+  await expect(page.locator('#mapPill')).toContainText('off(12,8)');
 });
 
 test('manual calibration measures one cell and then shifts the map alignment', async ({ page }) => {
@@ -667,12 +684,15 @@ test('manual calibration measures one cell and then shifts the map alignment', a
 
   await clickStageWorld(page, 84, 20);
   await expect(page.locator('#gridSize')).toHaveValue('64');
+  await expect(page.locator('#calibrationGridSize')).toHaveValue('64');
   await expect(page.locator('#saveStateStatus')).toContainText('Grid size set to 64px');
   await expect(page.locator('#gridCalibrationNote')).toContainText('step 2 of 2');
 
   await clickStageWorld(page, 20, 20);
   await expect(page.locator('#saveStateStatus')).toContainText('Calibration applied');
   await expect(page.locator('#gridCalibrationNote')).toContainText('Current grid: 64px');
+  await expect(page.locator('#horizontalNudgePx')).toHaveValue('-20');
+  await expect(page.locator('#verticalNudgePx')).toHaveValue('-20');
   await expect(page.locator('#mapPill')).toContainText('off(-20,-20)');
 });
 
