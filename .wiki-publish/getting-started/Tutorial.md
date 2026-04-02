@@ -14,7 +14,7 @@ If you understand those five ideas, you can run most encounters in the app.
 
 Your map image is just the visual layer under the combat grid. The grid itself is the real game board, so the first goal is simply to load an image that you can line up to that grid.
 
-![Choose map image](tutorial-screenshots/tutorial-1-map-upload.png)
+![Choose map image](../assets/tutorial-screenshots/tutorial-1-map-upload.png)
 
 What to do:
 
@@ -31,7 +31,7 @@ What matters:
 
 Calibration teaches DrowVTT how your map image lines up with the gameplay grid. Think of it as matching one map cell to one VTT cell, then shifting the image into place.
 
-![Start calibration](tutorial-screenshots/tutorial-2-calibration.png)
+![Start calibration](../assets/tutorial-screenshots/tutorial-2-calibration.png)
 
 What to do:
 
@@ -56,7 +56,7 @@ First principle:
 
 Tokens are the pieces that actually participate in combat. Add the creatures you need after the map is lined up.
 
-![Add token](tutorial-screenshots/tutorial-3-add-token.png)
+![Add token](../assets/tutorial-screenshots/tutorial-3-add-token.png)
 
 What to do:
 
@@ -75,7 +75,7 @@ Good to know:
 
 Once the board is set and the current turn belongs to the creature you want to automate, you can ask the AI to act.
 
-![Run AI](tutorial-screenshots/tutorial-4-run-ai.png)
+![Run AI](../assets/tutorial-screenshots/tutorial-4-run-ai.png)
 
 What to do:
 
@@ -94,7 +94,7 @@ How to think about it:
 
 AI Mode changes how much information and reasoning the backend uses for a turn.
 
-![Change AI mode](tutorial-screenshots/tutorial-5-ai-mode.png)
+![Change AI mode](../assets/tutorial-screenshots/tutorial-5-ai-mode.png)
 
 What to do:
 
