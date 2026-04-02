@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "bench:packet-latency": "node measure-packet-latency.mjs",
+    "bench:packet-latency-models": "node sweep-packet-latency-models.mjs",
+    "bench:packet-accuracy": "node measure-packet-accuracy.mjs",
+    "bench:packet-accuracy-models": "node sweep-packet-accuracy-models.mjs",
     "test": "npm run test:unit && npm run test:ui",
+    "test:packet": "node --test tests/ai-turn-packet-scenarios.test.js",
     "test:unit": "node --test tests/*.test.js",
     "test:ui": "playwright test",
     "start": "node server.js"

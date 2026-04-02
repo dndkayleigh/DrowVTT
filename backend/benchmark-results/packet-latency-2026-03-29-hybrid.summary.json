@@ -1,0 +1,927 @@
+{
+  "benchmark_name": "gpt-5_packet_latency_hybrid_full_moves5_attacks6",
+  "generated_at_local": "2026-03-29T15:46:01.604Z",
+  "source_log": "benchmark-results/packet-latency-2026-03-29-hybrid.raw.log",
+  "model": "gpt-5",
+  "total_api_calls": 54,
+  "scenario_count": 6,
+  "variant_count": 3,
+  "runs_per_variant_per_scenario": 3,
+  "fields": {
+    "tat_ms": "Turn-around time in milliseconds measured around client.responses.create()"
+  },
+  "overall_variants": [
+    {
+      "variant": "compact_moves5_attacks6",
+      "count": 18,
+      "mean_ms": 42121.72,
+      "median_ms": 35743,
+      "min_ms": 18018,
+      "max_ms": 82877,
+      "stddev_ms": 19886.37,
+      "mean_saved_vs_full_ms": 5876.83,
+      "mean_pct_faster_vs_full": 12.24
+    },
+    {
+      "variant": "full",
+      "count": 18,
+      "mean_ms": 47998.56,
+      "median_ms": 49337,
+      "min_ms": 12497,
+      "max_ms": 109618,
+      "stddev_ms": 20980.4,
+      "mean_saved_vs_full_ms": 0,
+      "mean_pct_faster_vs_full": 0
+    },
+    {
+      "variant": "full_moves5_attacks6",
+      "count": 18,
+      "mean_ms": 59162.22,
+      "median_ms": 61268.5,
+      "min_ms": 23922,
+      "max_ms": 116714,
+      "stddev_ms": 26524.96,
+      "mean_saved_vs_full_ms": -11163.67,
+      "mean_pct_faster_vs_full": -23.26
+    }
+  ],
+  "variant_win_counts": {
+    "full": 3,
+    "full_moves5_attacks6": 0,
+    "compact_moves5_attacks6": 3
+  },
+  "per_scenario": [
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "runs": 3,
+      "best_variant": "compact_moves5_attacks6",
+      "best_variant_mean_ms": 23827.67,
+      "full_mean_ms": 48351,
+      "saved_vs_full_ms": 24523.33,
+      "variants": [
+        {
+          "scenario": "duel-goblin-vs-acolyte",
+          "variant": "compact_moves5_attacks6",
+          "bytes": 2128,
+          "msAvg": 23828,
+          "inputTokensAvg": 908,
+          "totalTokensAvg": 3893,
+          "bytesSavedVsFull": 2221,
+          "msSavedVsFull": 24523,
+          "run_tat_ms": [
+            18018,
+            20394,
+            33071
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 23827.67,
+            "median_ms": 20394,
+            "min_ms": 18018,
+            "max_ms": 33071,
+            "stddev_ms": 6607.61
+          },
+          "mean_pct_faster_vs_full": 50.72
+        },
+        {
+          "scenario": "duel-goblin-vs-acolyte",
+          "variant": "full_moves5_attacks6",
+          "bytes": 4682,
+          "msAvg": 28214,
+          "inputTokensAvg": 1513,
+          "totalTokensAvg": 4941,
+          "bytesSavedVsFull": -333,
+          "msSavedVsFull": 20137,
+          "run_tat_ms": [
+            30669,
+            25439,
+            28534
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 28214,
+            "median_ms": 28534,
+            "min_ms": 25439,
+            "max_ms": 30669,
+            "stddev_ms": 2147.09
+          },
+          "mean_pct_faster_vs_full": 41.65
+        },
+        {
+          "scenario": "duel-goblin-vs-acolyte",
+          "variant": "full",
+          "bytes": 4349,
+          "msAvg": 48351,
+          "inputTokensAvg": 1406,
+          "totalTokensAvg": 6250,
+          "bytesSavedVsFull": 0,
+          "msSavedVsFull": 0,
+          "run_tat_ms": [
+            46538,
+            46242,
+            52273
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 48351,
+            "median_ms": 46538,
+            "min_ms": 46242,
+            "max_ms": 52273,
+            "stddev_ms": 2775.9
+          },
+          "mean_pct_faster_vs_full": 0
+        }
+      ]
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "runs": 3,
+      "best_variant": "full",
+      "best_variant_mean_ms": 18711,
+      "full_mean_ms": 18711,
+      "saved_vs_full_ms": 0,
+      "variants": [
+        {
+          "scenario": "ranged-bandit-crossfire",
+          "variant": "full",
+          "bytes": 4733,
+          "msAvg": 18711,
+          "inputTokensAvg": 1558,
+          "totalTokensAvg": 3586,
+          "bytesSavedVsFull": 0,
+          "msSavedVsFull": 0,
+          "run_tat_ms": [
+            12497,
+            19658,
+            23978
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 18711,
+            "median_ms": 19658,
+            "min_ms": 12497,
+            "max_ms": 23978,
+            "stddev_ms": 4734.69
+          },
+          "mean_pct_faster_vs_full": 0
+        },
+        {
+          "scenario": "ranged-bandit-crossfire",
+          "variant": "compact_moves5_attacks6",
+          "bytes": 2252,
+          "msAvg": 28077,
+          "inputTokensAvg": 968,
+          "totalTokensAvg": 3923,
+          "bytesSavedVsFull": 2481,
+          "msSavedVsFull": -9366,
+          "run_tat_ms": [
+            26597,
+            29922,
+            27711
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 28076.67,
+            "median_ms": 27711,
+            "min_ms": 26597,
+            "max_ms": 29922,
+            "stddev_ms": 1381.83
+          },
+          "mean_pct_faster_vs_full": -50.05
+        },
+        {
+          "scenario": "ranged-bandit-crossfire",
+          "variant": "full_moves5_attacks6",
+          "bytes": 5066,
+          "msAvg": 28893,
+          "inputTokensAvg": 1665,
+          "totalTokensAvg": 4253,
+          "bytesSavedVsFull": -333,
+          "msSavedVsFull": -10182,
+          "run_tat_ms": [
+            23922,
+            37114,
+            25642
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 28892.67,
+            "median_ms": 25642,
+            "min_ms": 23922,
+            "max_ms": 37114,
+            "stddev_ms": 5855.62
+          },
+          "mean_pct_faster_vs_full": -54.42
+        }
+      ]
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "runs": 3,
+      "best_variant": "full",
+      "best_variant_mean_ms": 54693,
+      "full_mean_ms": 54693,
+      "saved_vs_full_ms": 0,
+      "variants": [
+        {
+          "scenario": "crowded-ogre-frontline",
+          "variant": "full",
+          "bytes": 5013,
+          "msAvg": 54693,
+          "inputTokensAvg": 1699,
+          "totalTokensAvg": 6895,
+          "bytesSavedVsFull": 0,
+          "msSavedVsFull": 0,
+          "run_tat_ms": [
+            50493,
+            54387,
+            59199
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 54693,
+            "median_ms": 54387,
+            "min_ms": 50493,
+            "max_ms": 59199,
+            "stddev_ms": 3560.79
+          },
+          "mean_pct_faster_vs_full": 0
+        },
+        {
+          "scenario": "crowded-ogre-frontline",
+          "variant": "compact_moves5_attacks6",
+          "bytes": 2321,
+          "msAvg": 56846,
+          "inputTokensAvg": 1026,
+          "totalTokensAvg": 6214,
+          "bytesSavedVsFull": 2692,
+          "msSavedVsFull": -2153,
+          "run_tat_ms": [
+            32228,
+            60518,
+            77791
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 56845.67,
+            "median_ms": 60518,
+            "min_ms": 32228,
+            "max_ms": 77791,
+            "stddev_ms": 18781.4
+          },
+          "mean_pct_faster_vs_full": -3.94
+        },
+        {
+          "scenario": "crowded-ogre-frontline",
+          "variant": "full_moves5_attacks6",
+          "bytes": 5346,
+          "msAvg": 66308,
+          "inputTokensAvg": 1806,
+          "totalTokensAvg": 7818,
+          "bytesSavedVsFull": -333,
+          "msSavedVsFull": -11615,
+          "run_tat_ms": [
+            66432,
+            81794,
+            50697
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 66307.67,
+            "median_ms": 66432,
+            "min_ms": 50697,
+            "max_ms": 81794,
+            "stddev_ms": 12695.6
+          },
+          "mean_pct_faster_vs_full": -21.24
+        }
+      ]
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "runs": 3,
+      "best_variant": "compact_moves5_attacks6",
+      "best_variant_mean_ms": 37513.67,
+      "full_mean_ms": 43296.67,
+      "saved_vs_full_ms": 5783,
+      "variants": [
+        {
+          "scenario": "air-elemental-flank",
+          "variant": "compact_moves5_attacks6",
+          "bytes": 3191,
+          "msAvg": 37514,
+          "inputTokensAvg": 1181,
+          "totalTokensAvg": 4494,
+          "bytesSavedVsFull": 2546,
+          "msSavedVsFull": 5783,
+          "run_tat_ms": [
+            38984,
+            36877,
+            36680
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 37513.67,
+            "median_ms": 36877,
+            "min_ms": 36680,
+            "max_ms": 38984,
+            "stddev_ms": 1042.79
+          },
+          "mean_pct_faster_vs_full": 13.36
+        },
+        {
+          "scenario": "air-elemental-flank",
+          "variant": "full",
+          "bytes": 5737,
+          "msAvg": 43297,
+          "inputTokensAvg": 1797,
+          "totalTokensAvg": 6011,
+          "bytesSavedVsFull": 0,
+          "msSavedVsFull": 0,
+          "run_tat_ms": [
+            48181,
+            43532,
+            38177
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 43296.67,
+            "median_ms": 43532,
+            "min_ms": 38177,
+            "max_ms": 48181,
+            "stddev_ms": 4087.5
+          },
+          "mean_pct_faster_vs_full": 0
+        },
+        {
+          "scenario": "air-elemental-flank",
+          "variant": "full_moves5_attacks6",
+          "bytes": 6070,
+          "msAvg": 68091,
+          "inputTokensAvg": 1904,
+          "totalTokensAvg": 8087,
+          "bytesSavedVsFull": -333,
+          "msSavedVsFull": -24794,
+          "run_tat_ms": [
+            62458,
+            76928,
+            64886
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 68090.67,
+            "median_ms": 64886,
+            "min_ms": 62458,
+            "max_ms": 76928,
+            "stddev_ms": 6327.07
+          },
+          "mean_pct_faster_vs_full": -57.26
+        }
+      ]
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "runs": 3,
+      "best_variant": "full",
+      "best_variant_mean_ms": 44587.33,
+      "full_mean_ms": 44587.33,
+      "saved_vs_full_ms": 0,
+      "variants": [
+        {
+          "scenario": "boss-dragon-vs-party",
+          "variant": "full",
+          "bytes": 6416,
+          "msAvg": 44587,
+          "inputTokensAvg": 2036,
+          "totalTokensAvg": 6374,
+          "bytesSavedVsFull": 0,
+          "msSavedVsFull": 0,
+          "run_tat_ms": [
+            54262,
+            52058,
+            27442
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 44587.33,
+            "median_ms": 52058,
+            "min_ms": 27442,
+            "max_ms": 54262,
+            "stddev_ms": 12156.93
+          },
+          "mean_pct_faster_vs_full": 0
+        },
+        {
+          "scenario": "boss-dragon-vs-party",
+          "variant": "compact_moves5_attacks6",
+          "bytes": 3807,
+          "msAvg": 71895,
+          "inputTokensAvg": 1381,
+          "totalTokensAvg": 6553,
+          "bytesSavedVsFull": 2609,
+          "msSavedVsFull": -27308,
+          "run_tat_ms": [
+            51270,
+            82877,
+            81539
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 71895.33,
+            "median_ms": 81539,
+            "min_ms": 51270,
+            "max_ms": 82877,
+            "stddev_ms": 14594.54
+          },
+          "mean_pct_faster_vs_full": -61.25
+        },
+        {
+          "scenario": "boss-dragon-vs-party",
+          "variant": "full_moves5_attacks6",
+          "bytes": 6749,
+          "msAvg": 87704,
+          "inputTokensAvg": 2143,
+          "totalTokensAvg": 8500,
+          "bytesSavedVsFull": -333,
+          "msSavedVsFull": -43117,
+          "run_tat_ms": [
+            60079,
+            116714,
+            86319
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 87704,
+            "median_ms": 86319,
+            "min_ms": 60079,
+            "max_ms": 116714,
+            "stddev_ms": 23141.87
+          },
+          "mean_pct_faster_vs_full": -96.7
+        }
+      ]
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "runs": 3,
+      "best_variant": "compact_moves5_attacks6",
+      "best_variant_mean_ms": 34571.33,
+      "full_mean_ms": 78352.33,
+      "saved_vs_full_ms": 43781,
+      "variants": [
+        {
+          "scenario": "aboleth-control-web",
+          "variant": "compact_moves5_attacks6",
+          "bytes": 4625,
+          "msAvg": 34571,
+          "inputTokensAvg": 1560,
+          "totalTokensAvg": 5009,
+          "bytesSavedVsFull": 2651,
+          "msSavedVsFull": 43781,
+          "run_tat_ms": [
+            34806,
+            26063,
+            42845
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 34571.33,
+            "median_ms": 34806,
+            "min_ms": 26063,
+            "max_ms": 42845,
+            "stddev_ms": 6853.23
+          },
+          "mean_pct_faster_vs_full": 55.88
+        },
+        {
+          "scenario": "aboleth-control-web",
+          "variant": "full_moves5_attacks6",
+          "bytes": 7612,
+          "msAvg": 75764,
+          "inputTokensAvg": 2328,
+          "totalTokensAvg": 7731,
+          "bytesSavedVsFull": -336,
+          "msSavedVsFull": 2588,
+          "run_tat_ms": [
+            53998,
+            73581,
+            99714
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 75764.33,
+            "median_ms": 73581,
+            "min_ms": 53998,
+            "max_ms": 99714,
+            "stddev_ms": 18727.22
+          },
+          "mean_pct_faster_vs_full": 3.3
+        },
+        {
+          "scenario": "aboleth-control-web",
+          "variant": "full",
+          "bytes": 7276,
+          "msAvg": 78352,
+          "inputTokensAvg": 2221,
+          "totalTokensAvg": 6867,
+          "bytesSavedVsFull": 0,
+          "msSavedVsFull": 0,
+          "run_tat_ms": [
+            109618,
+            51283,
+            74156
+          ],
+          "tat_stats": {
+            "count": 3,
+            "mean_ms": 78352.33,
+            "median_ms": 74156,
+            "min_ms": 51283,
+            "max_ms": 109618,
+            "stddev_ms": 23999.31
+          },
+          "mean_pct_faster_vs_full": 0
+        }
+      ]
+    }
+  ],
+  "raw_runs": [
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 46538
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 46242
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 52273
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 30669
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 25439
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 28534
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 18018
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 20394
+    },
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 33071
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 12497
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 19658
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 23978
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 23922
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 37114
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 25642
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 26597
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 29922
+    },
+    {
+      "scenario": "ranged-bandit-crossfire",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 27711
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 50493
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 54387
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 59199
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 66432
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 81794
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 50697
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 32228
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 60518
+    },
+    {
+      "scenario": "crowded-ogre-frontline",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 77791
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 48181
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 43532
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 38177
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 62458
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 76928
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 64886
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 38984
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 36877
+    },
+    {
+      "scenario": "air-elemental-flank",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 36680
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 54262
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 52058
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 27442
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 60079
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 116714
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 86319
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 51270
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 82877
+    },
+    {
+      "scenario": "boss-dragon-vs-party",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 81539
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 109618
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 51283
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 74156
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 53998
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 73581
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "full_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 99714
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 1,
+      "total_runs": 3,
+      "tat_ms": 34806
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 2,
+      "total_runs": 3,
+      "tat_ms": 26063
+    },
+    {
+      "scenario": "aboleth-control-web",
+      "variant": "compact_moves5_attacks6",
+      "run_index": 3,
+      "total_runs": 3,
+      "tat_ms": 42845
+    }
+  ]
+}

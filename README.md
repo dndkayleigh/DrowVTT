@@ -53,7 +53,7 @@ This only needs to be done once, unless you update dependencies later.
 
 ### Step 3: Create the `.env` file
 
-Inside the [`backend/`](backend) folder, create a file named:
+Inside the [`backend/`](backend/) folder, create a file named:
 
 ```text
 .env
@@ -210,7 +210,7 @@ http://localhost:3000/api/vtt
 
 ## Testing
 
-Run the tests from [`backend/`](backend):
+Run the tests from [`backend/`](backend/):
 
 ```bash
 npm test
@@ -231,6 +231,44 @@ Current coverage includes:
 - melee reach validation
 - map control updates
 
+Packet-specific checks are also available:
+
+```bash
+npm run test:packet
+```
+
+This runs the benchmark scenario packet suite without starting Playwright.
+
+## AI Modes
+
+The `Tactics Director` settings panel now exposes three AI modes:
+
+- `Balanced`: `gpt-5` with the `compact_moves5` packet. This is the default and the best overall tactical benchmark option.
+- `Full`: `gpt-5` with the `full` packet. Use this as the highest-context fallback.
+- `Fast`: `gpt-5.4-mini` with the `compact_moves5` packet. Use this when responsiveness matters more than matching the strongest tactical baseline.
+
+The backend resolves these modes server-side, and the response timing block includes the selected strategy and packet variant.
+
+## Benchmarking
+
+Benchmark commands live in [`backend/package.json`](backend/package.json) and should be run from [`backend/`](backend/):
+
+```bash
+npm run bench:packet-latency
+npm run bench:packet-latency-models
+npm run bench:packet-accuracy
+npm run bench:packet-accuracy-models
+```
+
+All benchmark scripts require `OPENAI_API_KEY` in [`backend/.env`](backend/.env).
+
+Benchmark artifacts and summaries are stored in [`backend/benchmark-results/`](backend/benchmark-results/), including:
+
+- latency sweep summaries
+- accuracy sweep summaries
+- scenario screenshots and gallery markdown
+- consolidated benchmark recommendations
+
 ## Roadmap
 
 - Prompt caching for GPT-5 latency reduction. Split the AI turn packet into stable and volatile sections so repeated battlefield context, rules text, and static token data can be cached instead of re-sent every turn. The goal is to cut perceived turn time and reduce token usage when using slower but smarter GPT-5-class models.
@@ -250,9 +288,14 @@ The frontend posts a small payload to the backend:
 ```json
 {
   "aiExport": "SYSTEM: You are the tactical controller ...",
-  "model": "gpt-4.1-mini"
+  "strategy": "balanced",
+  "model": "gpt-5"
 }
 ```
+
+Notes:
+- `strategy` is the preferred control and maps to a server-side model plus packet variant.
+- `model` is still sent by the frontend for transparency and logging, but strategy selection now drives the intended mode.
 
 ### Response
 

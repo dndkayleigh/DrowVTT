@@ -389,6 +389,19 @@
       border-bottom:1px solid transparent;
     }
     .drawerSummaryLabel{display:inline-flex;align-items:center;gap:8px}
+    .drawerModeBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(90,169,255,.28);
+      background:rgba(90,169,255,.12);
+      color:#d7e8ff;
+      font-size:11px;
+      font-weight:600;
+      letter-spacing:.02em;
+    }
     .aiDrawer summary::-webkit-details-marker{display:none}
     .aiDrawer summary::after{
       content:"+";
@@ -790,7 +803,10 @@
     </div>
     <details class="aiDrawer" id="aiDrawer" open>
       <summary>
-        <span class="drawerSummaryLabel">Tactics Director</span>
+        <span class="drawerSummaryLabel">
+          <span>Tactics Director</span>
+          <span class="drawerModeBadge" id="aiStrategyBadge">Balanced</span>
+        </span>
       </summary>
       <div class="drawerContent">
         <div class="drawerLead">Run Tactics Director, review its plan, adjust settings, and check the log here.</div>
@@ -829,13 +845,14 @@
             <label>Backend endpoint</label>
             <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
             <div style="margin-top:8px;">
-            <label>AI Model</label>
-            <select id="aiModel">
-              <option value="gpt-4.1-mini">gpt-4.1-mini (fast)</option>
-              <option value="gpt-4.1">gpt-4.1</option>
-              <option value="gpt-5">gpt-5 (slow)</option>
-            </select>
-          </div>
+              <label>AI Mode</label>
+              <select id="aiStrategy">
+                <option value="balanced">Balanced</option>
+                <option value="full">Full</option>
+                <option value="fast">Fast</option>
+              </select>
+              <div class="sectionNote" id="aiStrategyHint" style="margin-top:8px;"></div>
+            </div>
           </div>
         </div>
         <div class="drawerPanel" data-drawer-panel="apply" hidden>
@@ -911,6 +928,8 @@
 <script src="/data/srd-monsters.js"></script>
 <script type="module">
 import { AUTOSAVE_HISTORY_LIMIT, parseAutosaveHistory, pushAutosaveEntry, stringifyAutosaveHistory } from '/data/autosave-history-utils.mjs';
+import { buildAiTurnPacketByVariant, buildAiTurnPacketFromState } from '/data/ai-turn-packet-utils.mjs';
+import { DEFAULT_AI_TURN_STRATEGY_ID, getAiTurnStrategy } from '/data/ai-turn-strategy-utils.mjs';
 import { buildBoardSnapshotFilename, parseBoardSnapshotText } from '/data/board-state-io-utils.mjs';
 import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/data/board-state-utils.mjs';
 import { normalizeSlotName, parseSaveSlots, removeSaveSlot, stringifySaveSlots, upsertSaveSlot } from '/data/save-slots-utils.mjs';
@@ -2891,103 +2910,64 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   // ---------- AI Export ----------
   const exportBox = document.getElementById('aiExport');
+  const aiStrategySelect = document.getElementById('aiStrategy');
+  const aiStrategyHint = document.getElementById('aiStrategyHint');
+  const aiStrategyBadge = document.getElementById('aiStrategyBadge');
+
+  function getSelectedAiStrategy() {
+    return getAiTurnStrategy(aiStrategySelect.value) || getAiTurnStrategy(DEFAULT_AI_TURN_STRATEGY_ID);
+  }
+
+  function describePacketVariant(variantId) {
+    switch (variantId) {
+      case 'full':
+        return 'the full tactical packet';
+      case 'compact_moves5':
+        return 'a compact packet with the top 5 legal move options';
+      case 'compact_moves5_attacks6':
+        return 'a compact packet with the top 5 legal moves and up to 6 attack windows';
+      default:
+        return 'the selected tactical packet';
+    }
+  }
+
+  function explainPacketVariant(variantId) {
+    switch (variantId) {
+      case 'full':
+        return 'This includes the full board summary, occupied spaces, and the active creature\'s full statblock for maximum context.';
+      case 'compact_moves5':
+        return 'This trims the prompt by listing only the five strongest legal move destinations instead of every possible move, which usually improves response time without losing the main tactical options.';
+      case 'compact_moves5_attacks6':
+        return 'This trims the move list and also limits the prompt to a short list of likely attack windows, making it more aggressive about speed.';
+      default:
+        return 'This uses the currently selected packet shape for the turn request.';
+    }
+  }
+
+  function syncAiStrategyUi() {
+    const strategy = getSelectedAiStrategy();
+    if (!strategy) return;
+    aiStrategySelect.value = strategy.id;
+    aiStrategyBadge.textContent = strategy.label;
+    aiStrategyBadge.title = `${strategy.label}: ${strategy.description}`;
+    aiStrategyHint.textContent =
+      `${strategy.description} Uses ${strategy.model} with ${describePacketVariant(strategy.packetVariant)}. ${explainPacketVariant(strategy.packetVariant)}`;
+  }
+
+  function buildAiTurnPacketFull() {
+    return buildAiTurnPacketFromState(state);
+  }
 
   function buildAiTurnPacket() {
-    const turnTok = getCurrentTurnToken();
-    const relationToTurn = (token) => {
-      if (!turnTok) return 'unknown';
-      if (token.id === turnTok.id) return 'self';
-      return areFriendlyTokens(token, turnTok) ? 'ally' : 'enemy';
-    };
-
-    const lines = [];
-    lines.push("SYSTEM: You are the tactical controller for the side specified below in a D&D 5e grid combat.");
-    lines.push("You must follow the rules, use legal actions, and play competently.");
-    lines.push("If information is missing, make conservative assumptions and state them briefly.");
-    lines.push("");
-    lines.push("RULES:");
-    lines.push("- D&D 5e, grid-based. Each grid cell = 5 ft.");
-    lines.push("- Maximum movement in cells = Speed / 5.");
-    lines.push("- Positions are integer cells (x,y), 0-based; x increases right, y increases down.");
-    lines.push("- For multi-cell tokens, (x,y) is the top-left occupied cell.");
-    lines.push("- Diagonals cost 5 ft (default).");
-    lines.push("- Only the current turn token may move or act this turn.");
-    lines.push("- Token spaces cannot overlap, and a move must end in an unoccupied space.");
-    lines.push("- Monsters are friendly to monsters. PCs and NPCs are friendly to each other.");
-    lines.push("- Monsters are hostile to PCs and NPCs.");
-    lines.push("- PCs and NPCs are hostile to Monsters.");
-    lines.push("- Friendlies may pass through friendly spaces.");
-    lines.push("- Opponents may not pass through opposing spaces.");
-    lines.push("- Never return a move whose path length or destination exceeds the mover's legal movement in cells.");
-    lines.push("- If a direct destination is blocked, choose a different legal destination instead of returning an illegal move.");
-    lines.push("- No walls/cover unless specified; do not assume you can Hide unless cover/concealment exists.");
-    lines.push("- Melee attacks with 5 ft reach require adjacency (touching occupied spaces). A target with one empty square between is 10 ft away and out of range.");
-    lines.push("- Before returning any attack, check the actual grid distance from attacker space to target space.");
-    lines.push("- Never return a melee attack unless the target is within the weapon's reach in feet.");
-    lines.push("- If a melee target is out of reach, move closer, choose a different legal action, or attack a different legal target.");
-    lines.push("- Keep the rationale honest to the final board state. Do not say a creature stayed out of melee, kept distance, or avoided adjacency if it ends adjacent to an enemy.");
-    lines.push("- For attack actions, include attack_kind ('melee' or 'ranged') and range_ft. Use actual reach/range from the statblock.");
-    lines.push("- Include a brief overall summary plus short rationale text for each move and action.");
-    lines.push("- Write the summary as a flavorful DM-facing Narrator's Cue: 1-2 vivid sentences, concise, table-ready, and grounded in the actual move/action.");
-    lines.push("- When relevant, include key mechanics in the Narrator's Cue such as attack bonus, damage dice and type, and any save DC/check the target must make.");
-    lines.push("- Include a path array for each move when possible so the UI can show the planned route.");
-    lines.push("");
-    lines.push(`AI CONTROLS: ${state.aiControls}`);
-    lines.push(`ROUND: ${state.round}`);
-    lines.push(`TURN: ${turnTok ? `${turnTok.type} "${turnTok.name}"` : "(none)"}`);
-    lines.push("");
-    lines.push("MAP:");
-    lines.push(`- Grid size px (visual): ${state.gridSize}`);
-    lines.push(`- Map transform (for reference): offX=${Math.round(state.map.offX)}, offY=${Math.round(state.map.offY)}, scale=${state.map.scale.toFixed(2)}, rotDeg=${(state.map.rot*180/Math.PI).toFixed(2)}`);
-    lines.push("- Blocked cells: []");
-    lines.push("- Difficult terrain: []");
-    lines.push("");
-    lines.push("RELATIONSHIP MODEL:");
-    lines.push(`- Current turn token: ${turnTok ? `"${turnTok.name}"` : "(none)"}`);
-    lines.push("- relation=self means the current turn token.");
-    lines.push("- relation=ally means same side as the current turn token.");
-    lines.push("- relation=enemy means the opposing side.");
-    lines.push("");
-    lines.push("TOKENS:");
-    if (state.tokens.length === 0) {
-      lines.push("- (none)");
-    } else {
-      for (const t of state.tokens) {
-        const c = gridCoords(t);
-        const maxMoveCells = Math.floor((Number(t.speed) || 0) / 5);
-        lines.push(`- relation=${relationToTurn(t)} ${t.type}: "${t.name}" at (${c.x}, ${c.y}), size ${t.sizeCells}x${t.sizeCells}, AC ${t.ac}, HP ${t.hp}, Speed ${t.speed} ft, max move ${maxMoveCells} cells, Notes: ${t.notes || "none"}`);
-      }
-    }
-    lines.push("");
-    lines.push("OCCUPIED SPACES:");
-    if (state.tokens.length === 0) {
-      lines.push("- (none)");
-    } else {
-      for (const t of state.tokens) {
-        const c = gridCoords(t);
-        const cells = cellsOccupiedAt(c.x, c.y, t.sizeCells)
-          .map((cell) => `(${cell.x},${cell.y})`)
-          .join(", ");
-        lines.push(`- relation=${relationToTurn(t)} "${t.name}" occupies: ${cells}`);
-      }
-    }
-    lines.push("");
-    lines.push("STATBLOCK (current turn token):");
-    lines.push(turnTok?.statblock ? turnTok.statblock : "(not provided)");
-    lines.push("");
-    lines.push("OUTPUT CONTRACT:");
-    lines.push("Return ONLY this JSON shape (no prose, no markdown):");
-    lines.push("{");
-    lines.push('  "summary": "brief overall rationale",');
-    lines.push('  "moves": [{"token":"Name","to":[x,y],"path":[[x1,y1],[x2,y2]],"rationale":"brief movement reason"}],');
-    lines.push('  "actions": [{"token":"Name","type":"attack|dash|dodge|hide|disengage|other","target":"Name|null","details":"...","rationale":"brief action reason","attack_kind":"melee|ranged|null","range_ft":5}],');
-    lines.push('For a 5 ft melee attack, only return it when the attacker is adjacent to the target.');
-    lines.push('  "end_turn": true');
-    lines.push("}");
-    return lines.join("\n");
+    const strategy = getSelectedAiStrategy();
+    return buildAiTurnPacketByVariant(state, strategy?.packetVariant || 'compact_moves5');
   }
 
   function refreshExport() { exportBox.value = buildAiTurnPacket(); }
+  aiStrategySelect.addEventListener('change', () => {
+    syncAiStrategyUi();
+    refreshExport();
+  });
   document.getElementById('refreshExport').addEventListener('click', refreshExport);
   document.getElementById('copyExport').addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(exportBox.value); }
@@ -3134,6 +3114,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     const url = document.getElementById('apiUrl').value.trim();
     const status = document.getElementById('sendStatus');
     const autoApply = document.getElementById('autoApplyAI').checked;
+    const strategy = getSelectedAiStrategy();
     if (!url) return;
 
     // ---- Timing markers ----
@@ -3144,7 +3125,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     // but this smaller one is faster and measures OpenAI turn latency cleanly.
     const payload = {
       aiExport: exportBox.value,
-      model: document.getElementById("aiModel").value
+      strategy: strategy?.id || DEFAULT_AI_TURN_STRATEGY_ID,
+      model: strategy?.model || 'gpt-5'
     };
 
     const t1 = nowMs(); // payload built
@@ -3213,7 +3195,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
           `Backend _timing: total=${serverTiming.total_ms}ms ` +
           `openai=${serverTiming.openai_ms}ms ` +
           `prep=${serverTiming.prep_ms ?? 0}ms parse=${serverTiming.parse_ms ?? 0}ms ` +
-          `model=${serverTiming.model ?? "?"}`
+          `model=${serverTiming.model ?? "?"}` +
+          `${serverTiming.strategy ? ` strategy=${serverTiming.strategy}` : ''}` +
+          `${serverTiming.packet_variant ? ` packet=${serverTiming.packet_variant}` : ''}`
         );
 
         if (serverTiming.tokens) {
@@ -3444,6 +3428,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   setDrawerTab(null);
   document.getElementById('gridSize').dispatchEvent(new Event('input'));
   document.getElementById('snapMode').dispatchEvent(new Event('change'));
+  aiStrategySelect.value = DEFAULT_AI_TURN_STRATEGY_ID;
+  syncAiStrategyUi();
   requestAnimationFrame(() => applyAIDrawerPosition());
 
   // Seed tokens
@@ -3472,6 +3458,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   window.__VTT_DEBUG__ = {
     getAiOverlay: () => JSON.parse(JSON.stringify(state.aiOverlay)),
+    getAiTurnPacket: () => buildAiTurnPacket(),
+    getAiTurnPacketFull: () => buildAiTurnPacketFull(),
     getBoardSnapshot: () => buildSerializableBoardSnapshot(),
     importBoardSnapshotText: async (text) => await hydrateBoardState(parseBoardSnapshotText(text)),
     getAutosaves: () => loadAutosaveHistoryFromStorage().map((entry) => ({ id: entry.id, savedAt: entry.savedAt })),

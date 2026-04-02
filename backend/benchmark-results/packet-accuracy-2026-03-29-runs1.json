@@ -1,0 +1,83 @@
+{
+  "benchmark_name": "gpt-5_packet_accuracy",
+  "generated_at": "2026-03-29T04:02:49.913Z",
+  "model": "gpt-5",
+  "runs_per_variant_per_scenario": 1,
+  "scenario_count": 1,
+  "variant_count": 1,
+  "summary": [
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5",
+      "packet_bytes": 2128,
+      "count": 1,
+      "avg_tat_ms": 37317,
+      "avg_input_tokens": 908,
+      "avg_total_tokens": 3478,
+      "valid_json_rate": 1,
+      "schema_valid_rate": 1,
+      "legal_turn_rate": 1,
+      "moves_legal_rate": 1,
+      "actions_legal_rate": 1,
+      "move_candidate_match_rate": 1,
+      "attack_candidate_match_rate": 1
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "duel-goblin-vs-acolyte",
+      "variant": "compact_moves5",
+      "run_index": 1,
+      "packet_bytes": 2128,
+      "tat_ms": 37317,
+      "input_tokens": 908,
+      "output_tokens": 2570,
+      "total_tokens": 3478,
+      "valid_json": true,
+      "schema_valid": true,
+      "moves_legal": true,
+      "actions_legal": true,
+      "legal_turn": true,
+      "move_candidate_match": true,
+      "attack_candidate_match": true,
+      "move_count": 1,
+      "action_count": 1,
+      "issues": [],
+      "response": {
+        "summary": "Goblin sidesteps north to stay adjacent to the Acolyte, then Dodges to make incoming attacks harder to land.",
+        "moves": [
+          {
+            "token": "Goblin",
+            "rationale": "No legal attack windows available; reposition slightly while remaining adjacent to threaten next round.",
+            "path": [
+              [
+                4,
+                4
+              ],
+              [
+                4,
+                3
+              ]
+            ],
+            "to": [
+              4,
+              3
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "token": "Goblin",
+            "type": "dodge",
+            "target": null,
+            "details": "Takes the Dodge action, imposing disadvantage on attacks against it until the start of its next turn.",
+            "rationale": "With no legal attacks this turn, Dodging maximizes survivability.",
+            "attack_kind": null,
+            "range_ft": null
+          }
+        ],
+        "end_turn": true
+      }
+    }
+  ]
+}

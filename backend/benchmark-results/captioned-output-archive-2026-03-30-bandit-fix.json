@@ -1,0 +1,90 @@
+{
+  "scenario": "ranged-bandit-crossfire",
+  "variant": "compact_summary",
+  "model": "gpt-5",
+  "prompt_text": "TACTICAL CONTROLLER: return one legal turn for the active side in D&D 5e grid combat.\n\nCORE RULES:\n- 1 cell = 5 ft. Only current turn token may move or act.\n- (x,y) are 0-based cell coords; multi-cell tokens use top-left occupied cell.\n- End movement in an unoccupied space; allies may be passed through, enemies may not.\n- Check actual reach/range before attacks. Never emit illegal melee attacks.\n- Keep summary and rationale consistent with the final board state.\n\nAI=Monsters ROUND=3 TURN=Monster \"Bandit\"\nMAP grid_px=64 transform=off(0,0) scale=1.00 rotDeg=0.00\n\nTOKENS:\n- self Monster \"Bandit\" @(2,2) size=1 AC=12 HP=11/11 spd=30 move=6, notes=Elevated perch with light cover.\n- ally Monster \"Bandit B\" @(8,2) size=1 AC=12 HP=11/11 spd=30 move=6\n- ally Monster \"Bandit C\" @(5,6) size=1 AC=12 HP=11/11 spd=30 move=6\n- enemy PC \"Knight\" @(5,3) size=1 AC=18 HP=52/52 spd=30 move=6, notes=Shield wall anchor.\n- enemy PC \"Acolyte\" @(6,5) size=1 AC=10 HP=9/9 spd=30 move=6, notes=Bless prepared.\n\nLEGAL MOVE CANDIDATES FOR CURRENT TURN TOKEN:\n- to=(4,2) steps=2 nearest_enemy_cells=1\n- to=(4,3) steps=2 nearest_enemy_cells=1\n- to=(4,4) steps=2 nearest_enemy_cells=1\n- to=(5,2) steps=3 nearest_enemy_cells=1\n- to=(5,4) steps=3 nearest_enemy_cells=1\n- to=(5,5) steps=3 nearest_enemy_cells=1\n- to=(6,2) steps=4 nearest_enemy_cells=1\n- to=(6,3) steps=4 nearest_enemy_cells=1\n- to=(6,4) steps=4 nearest_enemy_cells=1\n- to=(6,6) steps=4 nearest_enemy_cells=1\n\nLEGAL ATTACK WINDOWS FOR CURRENT TURN TOKEN:\n- attack=\"Light Crossbow\" kind=ranged target=\"Knight\" range_ft=80 from=(4,2) move_steps=2 distance_cells=1\n- attack=\"Light Crossbow\" kind=ranged target=\"Knight\" range_ft=80 from=(4,3) move_steps=2 distance_cells=1\n- attack=\"Light Crossbow\" kind=ranged target=\"Knight\" range_ft=80 from=(4,4) move_steps=2 distance_cells=1\n- attack=\"Scimitar\" kind=melee target=\"Knight\" range_ft=5 from=(4,2) move_steps=2 distance_cells=1\n- attack=\"Scimitar\" kind=melee target=\"Knight\" range_ft=5 from=(4,3) move_steps=2 distance_cells=1\n- attack=\"Scimitar\" kind=melee target=\"Knight\" range_ft=5 from=(4,4) move_steps=2 distance_cells=1\n- attack=\"Light Crossbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(4,3) move_steps=2 distance_cells=2\n- attack=\"Light Crossbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(4,4) move_steps=2 distance_cells=2\n- attack=\"Light Crossbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(4,2) move_steps=2 distance_cells=3\n- attack=\"Light Crossbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(5,4) move_steps=3 distance_cells=1\n- attack=\"Light Crossbow\" kind=ranged target=\"Acolyte\" range_ft=80 from=(5,5) move_steps=3 distance_cells=1\n- attack=\"Light Crossbow\" kind=ranged target=\"Knight\" range_ft=80 from=(5,2) move_steps=3 distance_cells=1\n\nACTIVE TOKEN STATBLOCK:\nBandit (SRD 5.1) | AC 12 | HP 11 | Speed 30 ft.\nActions: Scimitar(melee, 5ft); Light Crossbow(ranged, 80ft)\nOther: Size Medium, humanoid (any race), alignment any non-lawful alignment | AC 12, HP 11 (2d8), Speed 30 ft. | STR 11 DEX 12 CON 12 INT 10 WIS 10 CHA 10\n\nOUTPUT CONTRACT:\nChoose only from the legal move/action options listed below when possible.\nReturn JSON only:\n{\"summary\":\"...\",\"moves\":[{\"token\":\"Name\",\"to\":[x,y],\"path\":[[x1,y1],[x2,y2]],\"rationale\":\"...\"}],\"actions\":[{\"token\":\"Name\",\"type\":\"attack|dash|dodge|hide|disengage|other\",\"target\":\"Name|null\",\"details\":\"...\",\"rationale\":\"...\",\"attack_kind\":\"melee|ranged|null\",\"range_ft\":5}],\"end_turn\":true}",
+  "output_text": "{\"summary\":\"Bandit advances to pressure the Acolyte while staying out of the Knight’s immediate reach, then fires a light crossbow at the Acolyte at close range.\",\"moves\":[{\"token\":\"Bandit\",\"rationale\":\"Close on the low-AC caster while remaining outside the Knight’s 5‑ft reach, setting up pressure on the backline.\",\"path\":[[3,3],[4,4],[5,5]],\"to\":[5,5]}],\"actions\":[{\"token\":\"Bandit\",\"type\":\"attack\",\"target\":\"Acolyte\",\"details\":\"Light Crossbow shot at close range\",\"rationale\":\"Focus fire on the support caster; even at close range (disadvantage due to adjacency), it’s the softer target and threatens Bless.\",\"attack_kind\":\"ranged\",\"range_ft\":80}],\"end_turn\":true}",
+  "parsed_response": {
+    "summary": "Bandit advances to pressure the Acolyte while staying out of the Knight’s immediate reach, then fires a light crossbow at the Acolyte at close range.",
+    "moves": [
+      {
+        "token": "Bandit",
+        "rationale": "Close on the low-AC caster while remaining outside the Knight’s 5‑ft reach, setting up pressure on the backline.",
+        "path": [
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            5
+          ]
+        ],
+        "to": [
+          5,
+          5
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "token": "Bandit",
+        "type": "attack",
+        "target": "Acolyte",
+        "details": "Light Crossbow shot at close range",
+        "rationale": "Focus fire on the support caster; even at close range (disadvantage due to adjacency), it’s the softer target and threatens Bless.",
+        "attack_kind": "ranged",
+        "range_ft": 80
+      }
+    ],
+    "end_turn": true
+  },
+  "parse_error": null,
+  "evaluation": {
+    "schemaValid": true,
+    "moveCount": 1,
+    "actionCount": 1,
+    "moveEvaluations": [
+      {
+        "token": "Bandit",
+        "to": [
+          5,
+          5
+        ],
+        "ok": true,
+        "moveLegal": true,
+        "pathLegal": true,
+        "reason": null
+      }
+    ],
+    "actionEvaluations": [
+      {
+        "token": "Bandit",
+        "type": "attack",
+        "target": "Acolyte",
+        "ok": true,
+        "reason": null
+      }
+    ],
+    "movesLegal": true,
+    "actionsLegal": true,
+    "legalTurn": true,
+    "moveCandidateMatch": true,
+    "attackCandidateMatch": true,
+    "tacticalSound": true,
+    "dodgeInMeleeWithoutAttack": false,
+    "meleeAttackOptionsAtEnd": 1,
+    "tacticalIssues": [],
+    "issues": []
+  },
+  "tat_ms": 66431,
+  "usage": {
+    "input_tokens": 1380,
+    "output_tokens": 4629,
+    "total_tokens": 6009
+  }
+}

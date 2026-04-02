@@ -5,6 +5,7 @@ import OpenAI from 'openai';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { vttResponseSchema } from './vtt-response-schema.js';
+import { resolveAiTurnRequest } from '../data/ai-turn-strategy-utils.mjs';
 
 const app = express();
 app.use(cors());              // dev only; lock down origins in production
@@ -21,12 +22,6 @@ app.get('/', (_req, res) => {
 });
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const ALLOWED_MODELS = new Set([
-  "gpt-4.1-mini",
-  "gpt-4.1",
-  "gpt-5"
-]);
 
 /**
  * POST /api/vtt
@@ -46,11 +41,11 @@ app.post('/api/vtt', async (req, res) => {
     console.log(`[vtt] ${reqId} start payloadBytes=${Buffer.byteLength(turnPacket, 'utf8')}`);
 
     const tOpen0 = Date.now();
-    const requestedModel = req.body?.model || "gpt-4.1-mini";
-
-    const model = ALLOWED_MODELS.has(requestedModel)
-      ? requestedModel
-      : "gpt-4.1-mini";
+    const requestConfig = resolveAiTurnRequest({
+      strategy: req.body?.strategy,
+      model: req.body?.model
+    });
+    const model = requestConfig.model;
 
     const response = await client.responses.create({
       model,
@@ -88,7 +83,9 @@ app.post('/api/vtt', async (req, res) => {
       total_ms: t1 - t0,
       prep_ms: tPrep - t0,
       openai_ms: tOpen1 - tOpen0,
-      parse_ms: tParse1 - tParse0
+      parse_ms: tParse1 - tParse0,
+      strategy: requestConfig.strategyId,
+      packet_variant: requestConfig.packetVariant
     };
 
     parsed._timing.model = model;
