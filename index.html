@@ -1075,12 +1075,16 @@
 
 <script src="/data/srd-monsters.js"></script>
 <script type="module">
-import { AUTOSAVE_HISTORY_LIMIT, parseAutosaveHistory, pushAutosaveEntry, stringifyAutosaveHistory } from '/data/autosave-history-utils.mjs';
 import { buildAiTurnPacketByVariant, buildAiTurnPacketFromState } from '/data/ai-turn-packet-utils.mjs';
 import { DEFAULT_AI_TURN_STRATEGY_ID, getAiTurnStrategy } from '/data/ai-turn-strategy-utils.mjs';
 import { buildBoardSnapshotFilename, parseBoardSnapshotText } from '/data/board-state-io-utils.mjs';
+import { createLocalAssetStorageAdapter } from '/data/local-asset-storage-adapter.mjs';
+import { createLocalAuthAdapter } from '/data/local-auth-adapter.mjs';
+import { createLocalBoardPersistenceAdapter } from '/data/board-persistence-adapter.mjs';
+import { createLocalSessionSyncAdapter } from '/data/local-session-sync-adapter.mjs';
+import { createLocalUsageTrackingAdapter } from '/data/local-usage-tracking-adapter.mjs';
 import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/data/board-state-utils.mjs';
-import { normalizeSlotName, parseSaveSlots, removeSaveSlot, stringifySaveSlots, upsertSaveSlot } from '/data/save-slots-utils.mjs';
+import { normalizeSlotName } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
 
 (() => {
@@ -1183,11 +1187,20 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   const SRD_MONSTERS = Array.isArray(window.SRD_MONSTERS) ? window.SRD_MONSTERS : [];
   const SRD_MONSTERS_BY_NAME = new Map(SRD_MONSTERS.map((monster) => [monster.name.toLowerCase(), monster]));
-  const SAVE_SLOTS_STORAGE_KEY = 'drowvtt.saveSlots.v1';
-  const AUTOSAVE_HISTORY_STORAGE_KEY = 'drowvtt.autosaveHistory.v1';
-  const AUTOSAVE_ENABLED_STORAGE_KEY = 'drowvtt.autosaveEnabled.v1';
   let autosaveTimer = null;
   let autosaveSuppressed = false;
+  const assetStorage = createLocalAssetStorageAdapter();
+  const authAdapter = createLocalAuthAdapter();
+  const boardPersistence = createLocalBoardPersistenceAdapter({
+    storage: window.localStorage,
+    createId: () => uid()
+  });
+  const sessionSync = createLocalSessionSyncAdapter({
+    createId: () => uid()
+  });
+  const usageTracking = createLocalUsageTrackingAdapter({
+    createId: () => uid()
+  });
   let lastAutosaveSignature = '';
   let calibrationCursor = null;
   const calibrationState = {
@@ -1198,6 +1211,14 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   function syncBoardStatusVisibility() {
     boardStatusBar.hidden = !showBoardStatusCheckbox.checked;
+  }
+
+  function publishBoardEvent(type, payload = {}) {
+    try {
+      return sessionSync.publishBoardEvent({ type, payload });
+    } catch {
+      return null;
+    }
   }
 
   function getTokenById(id) {
@@ -1268,19 +1289,11 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   }
 
   function loadSaveSlotsFromStorage() {
-    return parseSaveSlots(window.localStorage.getItem(SAVE_SLOTS_STORAGE_KEY));
-  }
-
-  function persistSaveSlots(slots) {
-    window.localStorage.setItem(SAVE_SLOTS_STORAGE_KEY, stringifySaveSlots(slots));
+    return boardPersistence.loadSaveSlots();
   }
 
   function loadAutosaveHistoryFromStorage() {
-    return parseAutosaveHistory(window.localStorage.getItem(AUTOSAVE_HISTORY_STORAGE_KEY));
-  }
-
-  function persistAutosaveHistory(entries) {
-    window.localStorage.setItem(AUTOSAVE_HISTORY_STORAGE_KEY, stringifyAutosaveHistory(entries));
+    return boardPersistence.loadAutosaveHistory();
   }
 
   function updateSaveControls(slots, selectedId = saveSlotSelect.value) {
@@ -1493,6 +1506,11 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       const targetY = Math.round(world.y / g) * g;
       state.map.offX += targetX - world.x;
       state.map.offY += targetY - world.y;
+      publishBoardEvent('calibration.updated', {
+        gridSize: state.gridSize,
+        offX: Math.round(state.map.offX),
+        offY: Math.round(state.map.offY)
+      });
       syncCalibrationControls();
       pushLog(`Map aligned to grid at (${Math.round(targetX / g)},${Math.round(targetY / g)}).`);
       setSaveStatus('Calibration applied');
@@ -1650,19 +1668,15 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   function saveBoardToSlot(slotName, slotId = '') {
     const snapshot = buildSerializableBoardSnapshot();
-    const normalizedName = normalizeSlotName(slotName);
-    const nextSlot = {
-      id: slotId || uid(),
-      name: normalizedName,
-      savedAt: snapshot.savedAt,
+    const { slot, slots } = boardPersistence.saveSlot({
+      id: slotId,
+      name: slotName,
       snapshot
-    };
-    const slots = upsertSaveSlot(loadSaveSlotsFromStorage(), nextSlot);
-    persistSaveSlots(slots);
-    saveSlotNameInput.value = normalizedName;
-    updateSaveControls(slots, nextSlot.id);
-    updateSaveStatusFromSlot(nextSlot);
-    return nextSlot;
+    });
+    saveSlotNameInput.value = slot.name;
+    updateSaveControls(slots, slot.id);
+    updateSaveStatusFromSlot(slot);
+    return slot;
   }
 
   async function loadBoardFromSelectedSlot() {
@@ -1679,12 +1693,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   function deleteSelectedSlot() {
     const slotId = saveSlotSelect.value;
     if (!slotId) throw new Error('No save slot selected.');
-    const currentSlots = loadSaveSlotsFromStorage();
-    const slot = currentSlots.find((entry) => entry.id === slotId);
-    const remaining = removeSaveSlot(currentSlots, slotId);
-    persistSaveSlots(remaining);
-    updateSaveControls(remaining, remaining[0]?.id || '');
-    updateSaveStatusFromSlot(remaining.find((entry) => entry.id === saveSlotSelect.value) || null);
+    const { slot, slots } = boardPersistence.deleteSaveSlot(slotId);
+    updateSaveControls(slots, slots[0]?.id || '');
+    updateSaveStatusFromSlot(slots.find((entry) => entry.id === saveSlotSelect.value) || null);
     return slot;
   }
 
@@ -1694,18 +1705,12 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   function setAutosaveEnabled(enabled) {
     autosaveEnabledCheckbox.checked = !!enabled;
-    window.localStorage.setItem(AUTOSAVE_ENABLED_STORAGE_KEY, enabled ? '1' : '0');
+    boardPersistence.setAutosaveEnabled(enabled);
   }
 
   function pushAutosaveSnapshot(snapshot) {
-    const entry = {
-      id: uid(),
-      savedAt: snapshot.savedAt,
-      snapshot
-    };
-    const next = pushAutosaveEntry(loadAutosaveHistoryFromStorage(), entry);
-    persistAutosaveHistory(next);
-    updateAutosaveControls(next, entry.id);
+    const { entry, entries } = boardPersistence.appendAutosave(snapshot);
+    updateAutosaveControls(entries, entry.id);
     return entry;
   }
 
@@ -1733,7 +1738,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   }
 
   function clearAutosaveHistory() {
-    window.localStorage.removeItem(AUTOSAVE_HISTORY_STORAGE_KEY);
+    boardPersistence.clearAutosaveHistory();
     updateAutosaveControls([], '');
     setSaveStatus('Autosave history cleared');
   }
@@ -1921,6 +1926,12 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     const snapped = centerFromGridCell(cell.x, cell.y, token.sizeCells);
     token.x = snapped.x;
     token.y = snapped.y;
+    publishBoardEvent('token.moved', {
+      tokenId: token.id,
+      name: token.name,
+      toCell: { x: cell.x, y: cell.y },
+      source: options.source || 'move'
+    });
     return result;
   }
 
@@ -2416,6 +2427,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       state.currentTurnTokenId = id;
     }
     state.selectedTokenId = state.currentTurnTokenId;
+    publishBoardEvent('turn.changed', {
+      currentTurnTokenId: state.currentTurnTokenId
+    });
 
     syncTurnDropdown();
     loadCurrentTurnTokenToEditor();
@@ -2430,9 +2444,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     if (!file) return;
     mapFileMeta.textContent = `Loading ${file.name}...`;
     try {
-      const src = await readImageFileAsDataUrl(file);
-      const img = await createMapImageFromSrc(src);
-      state.map.src = src;
+      const asset = await assetStorage.importMapFile(file);
+      const img = await createMapImageFromSrc(asset.src);
+      state.map.src = asset.src;
       state.map.img = img;
       state.map.w = img?.naturalWidth || 0;
       state.map.h = img?.naturalHeight || 0;
@@ -2660,6 +2674,13 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       art: normalizeTokenArt(art)
     };
     state.tokens.push(t);
+    publishBoardEvent('token.created', {
+      tokenId: t.id,
+      name: t.name,
+      type: t.type,
+      sizeCells: t.sizeCells,
+      cell: gridCoords(t)
+    });
     setCurrentTurnTokenId(t.id);
   }
 
@@ -2706,6 +2727,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     state.tokens = [];
     state.selectedTokenId = null;
     state.currentTurnTokenId = null;
+    publishBoardEvent('board.cleared', {});
     syncTurnDropdown();
     loadCurrentTurnTokenToEditor();
     draw(); refreshExport(); renderTokenList();
@@ -2899,15 +2921,6 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     renderArtEditorPreview();
   }
 
-  async function readImageFileAsDataUrl(file) {
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error || new Error('Failed to read image.'));
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function readTextFile(file) {
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -3083,8 +3096,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     const draft = state.tokenArtEditor?.draft;
     if (!file || !draft) return;
     try {
-      draft.src = await readImageFileAsDataUrl(file);
-      draft.fileName = file.name;
+      const asset = await assetStorage.importTokenArtFile(file);
+      draft.src = asset.src;
+      draft.fileName = asset.fileName;
       draft.scale = 1;
       draft.panX = 0;
       draft.panY = 0;
@@ -3319,6 +3333,11 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     const status = document.getElementById('sendStatus');
     const autoApply = document.getElementById('autoApplyAI').checked;
     const strategy = getSelectedAiStrategy();
+    const userContext = authAdapter.requireAuthenticatedUser();
+    if (!authAdapter.canPerform('run_ai', { userContext })) {
+      status.textContent = 'Run AI is not permitted for this user.';
+      return;
+    }
     if (!url) return;
 
     // ---- Timing markers ----
@@ -3351,6 +3370,15 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
     // Correlate logs between browser + server
     const reqId = (crypto.randomUUID?.() || String(Date.now()));
+    const usageEvent = usageTracking.recordTacticsInvocationStart({
+      requestId: reqId,
+      userId: userContext.userId,
+      accountId: userContext.accountId,
+      sessionId: null,
+      strategyId: strategy?.id || DEFAULT_AI_TURN_STRATEGY_ID,
+      model: strategy?.model || 'gpt-5',
+      payloadBytes: body.length
+    });
 
     try {
       const res = await fetch(url, {
@@ -3417,9 +3445,34 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
         ? `AI response ✓ (auto) total ${Math.round(t6 - t0)}ms`
         : `AI response ✓ total ${Math.round(t6 - t0)}ms`;
 
+      usageTracking.recordTacticsInvocationResult({
+        id: usageEvent.id,
+        requestId: reqId,
+        status: 'succeeded',
+        userId: userContext.userId,
+        accountId: userContext.accountId,
+        sessionId: null,
+        strategyId: strategy?.id || DEFAULT_AI_TURN_STRATEGY_ID,
+        model: serverTiming?.model ?? strategy?.model ?? 'gpt-5',
+        latencyMs: t6 - t0,
+        tokens: serverTiming?.tokens || null
+      });
+
     } catch (err) {
       status.textContent = `Send failed: ${err.message || err}`;
       pushLog(`Req ${reqId} failed: ${err.message || err}`);
+      usageTracking.recordTacticsInvocationResult({
+        id: usageEvent.id,
+        requestId: reqId,
+        status: 'failed',
+        userId: userContext.userId,
+        accountId: userContext.accountId,
+        sessionId: null,
+        strategyId: strategy?.id || DEFAULT_AI_TURN_STRATEGY_ID,
+        model: strategy?.model || 'gpt-5',
+        latencyMs: nowMs() - t0,
+        error: err.message || err
+      });
     }
   }
   document.getElementById('sendState').addEventListener('click', sendStateToBackend);
@@ -3637,6 +3690,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   aiStrategySelect.value = DEFAULT_AI_TURN_STRATEGY_ID;
   syncAiStrategyUi();
   requestAnimationFrame(() => applyAIDrawerPosition());
+  sessionSync.connect('local-session', authAdapter.getCurrentUserContext());
 
   // Seed tokens
   function seed() {
@@ -3656,7 +3710,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   renderTokenList();
   loadCurrentTurnTokenToEditor();
   syncSaveSlotsUiFromStorage();
-  setAutosaveEnabled(window.localStorage.getItem(AUTOSAVE_ENABLED_STORAGE_KEY) === '1');
+  setAutosaveEnabled(boardPersistence.getAutosaveEnabled());
   syncAutosaveUiFromStorage();
   updateCalibrationNote();
 
@@ -3668,8 +3722,11 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     getAiTurnPacketFull: () => buildAiTurnPacketFull(),
     getBoardSnapshot: () => buildSerializableBoardSnapshot(),
     importBoardSnapshotText: async (text) => await hydrateBoardState(parseBoardSnapshotText(text)),
+    getAuthContext: () => authAdapter.getCurrentUserContext(),
     getAutosaves: () => loadAutosaveHistoryFromStorage().map((entry) => ({ id: entry.id, savedAt: entry.savedAt })),
     getSaveSlots: () => loadSaveSlotsFromStorage().map((slot) => ({ id: slot.id, name: slot.name, savedAt: slot.savedAt })),
+    getSessionEvents: () => sessionSync.getPublishedEvents(),
+    getUsageEvents: () => usageTracking.getUsageEvents(),
     getTokens: () => state.tokens.map((token) => ({
       id: token.id,
       name: token.name,

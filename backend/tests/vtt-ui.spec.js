@@ -265,6 +265,10 @@ test('left-click dragging a non-current token moves it in one gesture', async ({
 
   await expectTokenCell(page, 'Goblin A', 5, 1);
   await expect(page.locator('#turnToken option:checked')).toContainText('Goblin A');
+  const sessionEvents = await page.evaluate(() => window.__VTT_DEBUG__.getSessionEvents());
+  expect(sessionEvents.some((event) => event.type === 'token.created')).toBe(true);
+  expect(sessionEvents.some((event) => event.type === 'token.moved')).toBe(true);
+  expect(sessionEvents.some((event) => event.type === 'turn.changed')).toBe(true);
 });
 
 test('new duplicate creature names auto-increment by letter', async ({ page }) => {
@@ -530,8 +534,43 @@ test('backend auto-apply fills the response box and moves the current token', as
   await openDrawerTab(page, 'apply');
   await expect(page.locator('#applyJson')).toHaveValue(/"Cleric"/);
   await expectTokenCell(page, 'Cleric', 7, 6);
+  const authContext = await page.evaluate(() => window.__VTT_DEBUG__.getAuthContext());
+  expect(authContext.isAuthenticated).toBe(true);
+  expect(authContext.userId).toBe('local-user');
+  expect(authContext.accountId).toBe('local-account');
+  const usageEvents = await page.evaluate(() => window.__VTT_DEBUG__.getUsageEvents());
+  expect(usageEvents).toHaveLength(1);
+  expect(usageEvents[0].status).toBe('succeeded');
+  expect(usageEvents[0].model).toBe('gpt-4.1-mini');
+  expect(usageEvents[0].userId).toBe('local-user');
+  expect(usageEvents[0].accountId).toBe('local-account');
+  expect(usageEvents[0].requestId).toBeTruthy();
   await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('Moved Cleric -> (7,6)');
+});
+
+test('backend failures are recorded in local usage tracking', async ({ page }) => {
+  await page.route('http://localhost:3000/api/vtt', async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: 'Backend failed',
+        details: 'Synthetic failure for test'
+      })
+    });
+  });
+
+  await addToken(page, { name: 'Cleric', size: 1 });
+  await openDetails(page, '#aiDrawer');
+  await page.getByRole('button', { name: 'Run AI' }).click();
+
+  await expect(page.locator('#sendStatus')).toContainText('Send failed');
+  const usageEvents = await page.evaluate(() => window.__VTT_DEBUG__.getUsageEvents());
+  expect(usageEvents).toHaveLength(1);
+  expect(usageEvents[0].status).toBe('failed');
+  expect(usageEvents[0].requestId).toBeTruthy();
+  expect(usageEvents[0].error).toContain('HTTP 500');
 });
 
 test('movement rules reject wrong-turn, out-of-range, and overlapping AI moves', async ({ page }) => {
@@ -694,6 +733,8 @@ test('manual calibration measures one cell and then shifts the map alignment', a
   await expect(page.locator('#horizontalNudgePx')).toHaveValue('-20');
   await expect(page.locator('#verticalNudgePx')).toHaveValue('-20');
   await expect(page.locator('#mapPill')).toContainText('off(-20,-20)');
+  const sessionEvents = await page.evaluate(() => window.__VTT_DEBUG__.getSessionEvents());
+  expect(sessionEvents.some((event) => event.type === 'calibration.updated')).toBe(true);
 });
 
 test('manual calibration can be cancelled with escape before changing the map', async ({ page }) => {
