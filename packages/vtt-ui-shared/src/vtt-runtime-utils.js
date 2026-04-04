@@ -419,13 +419,16 @@ export function validateTokenMove(
   },
   options = {}
 ) {
-  const { ignoreSpeed = false, source = 'move' } = options;
+  const { ignoreSpeed = false, source = 'move', manualOverride = false } = options;
   if (!token) return { ok: false, reason: 'Unknown token.' };
+  const fromCell = options.fromCell || gridCoords(token);
+  if (manualOverride) {
+    return { ok: true, fromCell, toCell, distanceCells: chebyshevDistanceCells(fromCell, toCell), source, manualOverride: true };
+  }
   if (!isTokenControlledThisTurn(token)) {
     return { ok: false, reason: `${token.name} cannot move because it is not the current turn token.` };
   }
 
-  const fromCell = options.fromCell || gridCoords(token);
   const maxCells = Math.floor((Number(token.speed) || 0) / 5);
   const distanceCells = chebyshevDistanceCells(fromCell, toCell);
   if (!ignoreSpeed && distanceCells > maxCells) {

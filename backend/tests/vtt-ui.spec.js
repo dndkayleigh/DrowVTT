@@ -460,7 +460,7 @@ test('left-click dragging a non-current token moves it in one gesture', async ({
   expect(sessionEvents.some((event) => event.type === 'turn.changed')).toBe(true);
 });
 
-test('dragging a token into an occupied space snaps it back and records the failure', async ({ page }) => {
+test('manual dragging can place a token into an occupied space without AI movement constraints', async ({ page }) => {
   await addToken(page, { name: 'Guard', size: 1 });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 6, cellY: 1 });
 
@@ -470,10 +470,18 @@ test('dragging a token into an occupied space snaps it back and records the fail
 
   await dragNamedTokenToTopLeftCell(page, { name: 'Guard', cellX: 0, cellY: 0 });
 
-  await expectTokenCell(page, 'Guard', 6, 1);
+  await expectTokenCell(page, 'Guard', 0, 0);
   await openDrawerTab(page, 'log');
-  await expect(page.locator('#logBox')).toContainText('Move cancelled');
-  await expect(page.locator('#logBox')).toContainText('space is occupied by Ogre');
+  await expect(page.locator('#logBox')).toContainText('Moved Guard -> (0,0)');
+});
+
+test('manual dragging can move farther than the token speed would normally allow', async ({ page }) => {
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Goblin A', cellX: 8, cellY: 0 });
+
+  await expectTokenCell(page, 'Goblin A', 8, 0);
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('Moved Goblin A -> (8,0)');
 });
 
 test('stage right-click on a real token center opens the token context menu', async ({ page }) => {

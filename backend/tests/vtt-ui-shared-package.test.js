@@ -176,6 +176,22 @@ test('shared VTT runtime helpers validate and apply token movement', () => {
   });
   assert.equal(dragBlocked.ok, false);
   assert.match(dragBlocked.reason, /space is occupied by Lyra/);
+
+  const manualDragAllowed = validateTokenMove({
+    token: tokens[0],
+    toCell: { x: 1, y: 0 },
+    tokens,
+    isTokenControlledThisTurn: () => false,
+    gridCoords,
+    chebyshevDistanceCells,
+    cellsOccupiedAt
+  }, {
+    fromCell: { x: 0, y: 0 },
+    source: 'Drag',
+    manualOverride: true
+  });
+  assert.equal(manualDragAllowed.ok, true);
+  assert.equal(manualDragAllowed.manualOverride, true);
 });
 
 test('shared VTT runtime helpers expose token-row, turn-dropdown, and editor state', () => {
