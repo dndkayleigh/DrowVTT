@@ -25,6 +25,10 @@ async function addToken(page, { name, size, type = 'Monster' }) {
   await page.getByRole('button', { name: 'Add token' }).click();
 }
 
+function tokenRow(page, name) {
+  return page.locator('#tokenList .tokRow').filter({ hasText: name });
+}
+
 async function dragTokenToTopLeftCell(page, { size, cellX, cellY }) {
   const canvas = page.locator('#stage');
   const box = await canvas.boundingBox();
@@ -41,6 +45,29 @@ async function dragTokenToTopLeftCell(page, { size, cellX, cellY }) {
   await page.mouse.up();
 }
 
+async function dragNamedTokenToTopLeftCell(page, { name, cellX, cellY }) {
+  const canvas = page.locator('#stage');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box unavailable');
+
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  const token = snapshot.state.tokens.find((entry) => entry.name === name);
+  if (!token) throw new Error(`Missing token: ${name}`);
+  const { zoom, panX, panY } = snapshot.state.view;
+
+  const startX = box.x + (token.x * zoom) + panX;
+  const startY = box.y + (token.y * zoom) + panY;
+  const endWorldX = 64 * (cellX + (token.sizeCells / 2));
+  const endWorldY = 64 * (cellY + (token.sizeCells / 2));
+  const endX = box.x + (endWorldX * zoom) + panX;
+  const endY = box.y + (endWorldY * zoom) + panY;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(endX, endY, { steps: 12 });
+  await page.mouse.up();
+}
+
 async function expectTokenCell(page, name, x, y) {
   await expect(page.locator('#tokenList .tokRow').filter({ hasText: name })).toContainText(`(${x},${y})`);
 }
@@ -49,6 +76,11 @@ async function setCurrentTurnToken(page, name) {
   await openDetails(page, '#turnSection');
   const option = page.locator('#turnToken option').filter({ hasText: name }).first();
   await page.locator('#turnToken').selectOption(await option.getAttribute('value'));
+}
+
+async function setAiControls(page, value) {
+  await openDetails(page, '#turnSection');
+  await page.locator('#aiControls').selectOption(value);
 }
 
 async function uploadTestMap(page, { width = 256, height = 256 } = {}) {
@@ -105,6 +137,16 @@ async function clickStageWorld(page, worldX, worldY) {
   const clientX = box.x + (worldX * zoom) + panX;
   const clientY = box.y + (worldY * zoom) + panY;
   await page.mouse.click(clientX, clientY);
+}
+
+async function clickTokenOnStage(page, name, modifiers = []) {
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  const token = snapshot.state.tokens.find((entry) => entry.name === name);
+  if (!token) throw new Error(`Missing token: ${name}`);
+  const keys = Array.isArray(modifiers) ? modifiers : [modifiers];
+  for (const key of keys) await page.keyboard.down(key);
+  await clickStageWorld(page, token.x, token.y);
+  for (const key of [...keys].reverse()) await page.keyboard.up(key);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -184,12 +226,12 @@ test('AI drawer persistent controls remain usable regardless of which tab is ope
 test('AI drawer settings persist across tab changes', async ({ page }) => {
   await openDrawerTab(page, 'settings');
   await page.locator('#apiUrl').fill('http://localhost:3000/api/custom');
-  await page.locator('#aiStrategy').selectOption('full');
+  await page.locator('#aiStrategy').selectOption('single_tactical');
 
   await openDrawerTab(page, 'packet');
   await openDrawerTab(page, 'settings');
   await expect(page.locator('#apiUrl')).toHaveValue('http://localhost:3000/api/custom');
-  await expect(page.locator('#aiStrategy')).toHaveValue('full');
+  await expect(page.locator('#aiStrategy')).toHaveValue('single_tactical');
   await expect(page.locator('#aiStrategyHint')).toContainText('gpt-5');
   await expect(page.locator('#aiStrategyHint')).toContainText('full');
 });
@@ -276,9 +318,10 @@ test('left-click dragging a non-current token moves it in one gesture', async ({
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
 
   await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
-  await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Goblin A', cellX: 3, cellY: 1 });
   await expectTokenCell(page, 'Goblin A', 3, 1);
 
+  await setAiControls(page, 'Both');
   await setCurrentTurnToken(page, 'Hero');
   await expect(page.locator('#turnToken option:checked')).toContainText('Hero');
 
@@ -305,6 +348,34 @@ test('left-click dragging a non-current token moves it in one gesture', async ({
   expect(sessionEvents.some((event) => event.type === 'token.created')).toBe(true);
   expect(sessionEvents.some((event) => event.type === 'token.moved')).toBe(true);
   expect(sessionEvents.some((event) => event.type === 'turn.changed')).toBe(true);
+});
+
+test('ctrl-clicking a monster after selecting a PC drops the PC instead of forming a mixed group', async ({ page }) => {
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+
+  await tokenRow(page, 'Hero').click();
+  await expect(tokenRow(page, 'Hero')).toHaveClass(/selected/);
+
+  await tokenRow(page, 'Goblin A').click({ modifiers: ['Control'] });
+
+  await expect(tokenRow(page, 'Hero')).not.toHaveClass(/selected/);
+  await expect(tokenRow(page, 'Hero')).not.toContainText('Grouped');
+  await expect(tokenRow(page, 'Goblin A')).toHaveClass(/selected/);
+  await expect(page.locator('#aiStrategy')).toHaveValue('single_tactical');
+});
+
+test('multi-selecting monsters auto-switches tactics director to group tactical', async ({ page }) => {
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await addToken(page, { name: 'Goblin B', size: 1, type: 'Monster' });
+
+  await clickTokenOnStage(page, 'Goblin A');
+  await clickTokenOnStage(page, 'Goblin B', ['Control']);
+
+  await expect(page.locator('#aiStrategy')).toHaveValue('group_tactical');
+  await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
+  await expect(tokenRow(page, 'Goblin B')).toContainText('Grouped');
+  await expect(page.locator('#tokenSelectionNote')).toContainText('2 grouped AI-controlled tokens');
 });
 
 test('new duplicate creature names auto-increment by letter', async ({ page }) => {
@@ -633,6 +704,35 @@ test('manual AI JSON application draws a move path, shows a short summary, and w
   await expect(page.locator('#logBox')).toContainText('End turn');
 });
 
+test('group tactical application moves multiple grouped monsters and keeps a trace for each', async ({ page }) => {
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
+  await addToken(page, { name: 'Goblin B', size: 1, type: 'Monster' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Goblin B', cellX: 3, cellY: 1 });
+
+  await clickTokenOnStage(page, 'Goblin A');
+  await clickTokenOnStage(page, 'Goblin B', ['Control']);
+  await expect(page.locator('#aiStrategy')).toHaveValue('group_tactical');
+
+  await openDrawerTab(page, 'apply');
+  await page.locator('#applyJson').fill(JSON.stringify({
+    summary: 'The goblins advance together.',
+    moves: [
+      { token: 'Goblin A', to: [2, 2], rationale: 'Close distance from the left flank.' },
+      { token: 'Goblin B', to: [4, 2], rationale: 'Mirror the push from the right flank.' }
+    ],
+    actions: [],
+    end_turn: false
+  }));
+  await page.locator('#applyBtn').click();
+
+  await expectTokenCell(page, 'Goblin A', 2, 2);
+  await expectTokenCell(page, 'Goblin B', 4, 2);
+  const overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
+  expect(overlay.paths).toHaveLength(2);
+  expect(overlay.paths.map((entry) => entry.name).sort()).toEqual(['Goblin A', 'Goblin B']);
+});
+
 test('backend auto-apply fills the response box and moves the current token', async ({ page }) => {
   await page.route('http://localhost:3000/api/vtt', async (route) => {
     await route.fulfill({
@@ -752,7 +852,7 @@ test('melee attacks are rejected when the target is beyond reach', async ({ page
   await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
   await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
-  await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Hero', cellX: 3, cellY: 1 });
   await setCurrentTurnToken(page, 'Goblin A');
 
   await openDrawerTab(page, 'apply');
@@ -780,7 +880,8 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
   await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
   await addToken(page, { name: 'Guide', size: 1, type: 'NPC' });
-  await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Guide', cellX: 3, cellY: 1 });
+  await setAiControls(page, 'Both');
   await setCurrentTurnToken(page, 'Hero');
 
   await openDrawerTab(page, 'apply');
@@ -797,7 +898,8 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
   await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
   await addToken(page, { name: 'Ogre', size: 1, type: 'Monster' });
-  await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Ogre', cellX: 3, cellY: 1 });
+  await setAiControls(page, 'Both');
   await setCurrentTurnToken(page, 'Hero');
 
   await page.locator('#applyJson').fill(JSON.stringify({
