@@ -142,6 +142,93 @@ export function applyTurnEditorToToken(
   return token;
 }
 
+export function computeCurrentTurnSelectionState(
+  tokens,
+  {
+    requestedTokenId,
+    aiControls,
+    currentTurnTokenId,
+    selectedTokenIds,
+    aiGroupTokenIds,
+    strategyId,
+    isAiControllableToken,
+    resolveAiCurrentTurnTokenId,
+    setSingleSelection,
+    setSelectedTokenIds
+  }
+) {
+  const requestedId = !requestedTokenId || !tokens.some((token) => token.id === requestedTokenId)
+    ? null
+    : requestedTokenId;
+  const requestedToken = requestedId ? tokens.find((token) => token.id === requestedId) : null;
+
+  if (requestedToken && !isAiControllableToken(requestedToken, aiControls)) {
+    return {
+      currentTurnTokenId: requestedId,
+      aiGroupTokenIds: [],
+      ...setSingleSelection(tokens, requestedId)
+    };
+  }
+
+  const nextCurrentTurnTokenId = resolveAiCurrentTurnTokenId(tokens, {
+    aiControls,
+    currentTurnTokenId,
+    preferredTokenIds: requestedId ? [requestedId] : selectedTokenIds
+  });
+
+  if (strategyId === 'group_tactical' && nextCurrentTurnTokenId) {
+    return {
+      currentTurnTokenId: nextCurrentTurnTokenId,
+      aiGroupTokenIds: [],
+      ...setSingleSelection(tokens, nextCurrentTurnTokenId)
+    };
+  }
+
+  return {
+    currentTurnTokenId: nextCurrentTurnTokenId,
+    aiGroupTokenIds,
+    ...setSingleSelection(tokens, nextCurrentTurnTokenId)
+  };
+}
+
+export function computeAiControlsState(
+  tokens,
+  {
+    nextAiControls,
+    strategyId,
+    currentTurnTokenId,
+    selectedTokenIds,
+    aiGroupTokenIds,
+    getAiGroupTokenIds,
+    getSelectedAiControlledIds,
+    resolveAiCurrentTurnTokenId,
+    setSelectedTokenIds
+  }
+) {
+  const nextAiGroupTokenIds = getAiGroupTokenIds(tokens, aiGroupTokenIds, nextAiControls);
+  const nextSelected = setSelectedTokenIds(
+    tokens,
+    strategyId === 'group_tactical'
+      ? getSelectedAiControlledIds(tokens, selectedTokenIds, nextAiControls)
+      : selectedTokenIds
+  );
+  const preferredTokenIds = [
+    ...nextAiGroupTokenIds,
+    ...getSelectedAiControlledIds(tokens, nextSelected.selectedTokenIds, nextAiControls),
+    ...nextSelected.selectedTokenIds
+  ];
+  return {
+    aiControls: nextAiControls,
+    aiGroupTokenIds: nextAiGroupTokenIds,
+    ...nextSelected,
+    currentTurnTokenId: resolveAiCurrentTurnTokenId(tokens, {
+      aiControls: nextAiControls,
+      currentTurnTokenId,
+      preferredTokenIds
+    })
+  };
+}
+
 export function buildTokenContextMenuState(
   token,
   {

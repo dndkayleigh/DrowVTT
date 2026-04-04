@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  computeAiControlsState,
+  computeCurrentTurnSelectionState,
   applyTurnEditorToToken,
   buildTokenRowState,
   buildTokenContextMenuState,
@@ -16,6 +18,14 @@ import {
   resolveAiStrategyIdForSelection,
   validateTokenMove
 } from '../../packages/vtt-ui-shared/src/index.js';
+import {
+  getAiGroupTokenIds,
+  getSelectedAiControlledIds,
+  isAiControllableToken,
+  resolveAiCurrentTurnTokenId,
+  setSelectedTokenIds,
+  setSingleSelection
+} from '../../packages/vtt-ui-shared/src/ai-selection-utils.js';
 
 test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.deepEqual(getVttUiSharedStatus(), {
@@ -215,4 +225,75 @@ test('shared VTT runtime helpers expose token-row, turn-dropdown, and editor sta
   assert.equal(edited.speed, 40);
   assert.equal(edited.notes, 'Repositioned');
   assert.equal(edited.statblock, 'Updated statblock');
+});
+
+test('shared VTT runtime helpers orchestrate current-turn and AI-controls state changes', () => {
+  const tokens = [
+    { id: 'm1', type: 'Monster', name: 'Ghoul' },
+    { id: 'm2', type: 'Monster', name: 'Ghast' },
+    { id: 'p1', type: 'PC', name: 'Lyra' }
+  ];
+
+  assert.deepEqual(
+    computeCurrentTurnSelectionState(tokens, {
+      requestedTokenId: 'm2',
+      aiControls: 'Monsters',
+      currentTurnTokenId: 'm1',
+      selectedTokenIds: ['m1', 'm2'],
+      aiGroupTokenIds: ['m1', 'm2'],
+      strategyId: 'group_tactical',
+      isAiControllableToken,
+      resolveAiCurrentTurnTokenId,
+      setSingleSelection,
+      setSelectedTokenIds
+    }),
+    {
+      currentTurnTokenId: 'm2',
+      aiGroupTokenIds: [],
+      selectedTokenIds: ['m2'],
+      selectedTokenId: 'm2'
+    }
+  );
+
+  assert.deepEqual(
+    computeCurrentTurnSelectionState(tokens, {
+      requestedTokenId: 'p1',
+      aiControls: 'Monsters',
+      currentTurnTokenId: 'm1',
+      selectedTokenIds: ['m1'],
+      aiGroupTokenIds: [],
+      strategyId: 'single_tactical',
+      isAiControllableToken,
+      resolveAiCurrentTurnTokenId,
+      setSingleSelection,
+      setSelectedTokenIds
+    }),
+    {
+      currentTurnTokenId: 'p1',
+      aiGroupTokenIds: [],
+      selectedTokenIds: ['p1'],
+      selectedTokenId: 'p1'
+    }
+  );
+
+  assert.deepEqual(
+    computeAiControlsState(tokens, {
+      nextAiControls: 'PCs',
+      strategyId: 'group_tactical',
+      currentTurnTokenId: 'm1',
+      selectedTokenIds: ['m1', 'p1'],
+      aiGroupTokenIds: ['m1', 'm2'],
+      getAiGroupTokenIds,
+      getSelectedAiControlledIds,
+      resolveAiCurrentTurnTokenId,
+      setSelectedTokenIds
+    }),
+    {
+      aiControls: 'PCs',
+      aiGroupTokenIds: [],
+      selectedTokenIds: ['p1'],
+      selectedTokenId: 'p1',
+      currentTurnTokenId: 'p1'
+    }
+  );
 });

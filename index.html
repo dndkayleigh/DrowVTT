@@ -587,6 +587,8 @@ import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/d
 import { normalizeSlotName } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
 import {
+  computeAiControlsState,
+  computeCurrentTurnSelectionState,
   applyTurnEditorToToken,
   buildTokenRowState,
   buildTokenContextMenuState,
@@ -2051,30 +2053,22 @@ import {
 
   // ---------- Selection/Turn Sync ----------
   function setCurrentTurnTokenId(id) {
-    const requestedId = !id || !state.tokens.some((t) => t.id === id)
-      ? null
-      : id;
-    const requestedToken = requestedId ? getTokenById(requestedId) : null;
-    if (requestedToken && !isAiControllableToken(requestedToken, state.aiControls)) {
-      state.currentTurnTokenId = requestedId;
-      state.aiGroupTokenIds = [];
-      setSingleSelection(requestedId);
-    } else {
-      state.currentTurnTokenId = resolveAiCurrentTurnTokenId(requestedId ? [requestedId] : state.selectedTokenIds);
-      if (getSelectedAiStrategyId() === 'group_tactical' && state.currentTurnTokenId) {
-        state.aiGroupTokenIds = [];
-        setSingleSelection(state.currentTurnTokenId);
-      }
-    }
-    if (getSelectedAiStrategyId() === 'group_tactical') {
-      if (requestedToken && !isAiControllableToken(requestedToken, state.aiControls)) {
-        syncSelectedTokenPointers();
-      } else {
-        syncSelectedTokenPointers();
-      }
-    } else {
-      setSingleSelection(state.currentTurnTokenId);
-    }
+    const next = computeCurrentTurnSelectionState(state.tokens, {
+      requestedTokenId: id,
+      aiControls: state.aiControls,
+      currentTurnTokenId: state.currentTurnTokenId,
+      selectedTokenIds: state.selectedTokenIds,
+      aiGroupTokenIds: state.aiGroupTokenIds,
+      strategyId: getSelectedAiStrategyId(),
+      isAiControllableToken,
+      resolveAiCurrentTurnTokenId: resolveAiCurrentTurnTokenIdState,
+      setSingleSelection: setSingleSelectionState,
+      setSelectedTokenIds: setSelectedTokenIdsState
+    });
+    state.currentTurnTokenId = next.currentTurnTokenId;
+    state.aiGroupTokenIds = next.aiGroupTokenIds;
+    state.selectedTokenIds = next.selectedTokenIds;
+    state.selectedTokenId = next.selectedTokenId;
     publishBoardEvent('turn.changed', {
       currentTurnTokenId: state.currentTurnTokenId
     });
@@ -2520,16 +2514,22 @@ import {
 
   // ---------- Turn controls ----------
   document.getElementById('aiControls').addEventListener('change', () => {
-    state.aiControls = document.getElementById('aiControls').value;
-    state.aiGroupTokenIds = getAiGroupTokenIds();
-    setSelectedTokenIds(getSelectedAiStrategyId() === 'group_tactical'
-      ? getSelectedAiControlledIds()
-      : state.selectedTokenIds);
-    state.currentTurnTokenId = resolveAiCurrentTurnTokenId([
-      ...getAiGroupTokenIds(),
-      ...getSelectedAiControlledIds(),
-      ...state.selectedTokenIds
-    ]);
+    const next = computeAiControlsState(state.tokens, {
+      nextAiControls: document.getElementById('aiControls').value,
+      strategyId: getSelectedAiStrategyId(),
+      currentTurnTokenId: state.currentTurnTokenId,
+      selectedTokenIds: state.selectedTokenIds,
+      aiGroupTokenIds: state.aiGroupTokenIds,
+      getAiGroupTokenIds: getAiGroupTokenIdsState,
+      getSelectedAiControlledIds: getSelectedAiControlledIdsState,
+      resolveAiCurrentTurnTokenId: resolveAiCurrentTurnTokenIdState,
+      setSelectedTokenIds: setSelectedTokenIdsState
+    });
+    state.aiControls = next.aiControls;
+    state.aiGroupTokenIds = next.aiGroupTokenIds;
+    state.selectedTokenIds = next.selectedTokenIds;
+    state.selectedTokenId = next.selectedTokenId;
+    state.currentTurnTokenId = next.currentTurnTokenId;
     syncTokenSelectionUi();
     renderTokenList();
     refreshExport();
