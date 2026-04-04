@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildAiTurnPacketForStrategy,
   buildAiTurnPacketCompactFromState,
   parseAttackProfiles
 } from '../../data/ai-turn-packet-utils.mjs';
@@ -85,4 +86,75 @@ test('compact move5 packet still includes legal attacks for the seeded goblin de
   assert.match(packet, /LEGAL ATTACK WINDOWS FOR CURRENT TURN TOKEN:/);
   assert.doesNotMatch(packet, /LEGAL ATTACK WINDOWS FOR CURRENT TURN TOKEN:\n- none from listed move candidates/);
   assert.match(packet, /attack="Shortbow" kind=ranged target="Aria"/);
+});
+
+test('group tactical packet includes explicit grouped-monster context', () => {
+  const state = {
+    gridSize: 64,
+    snapMode: 'center',
+    view: { zoom: 1, panX: 0, panY: 0 },
+    map: { src: '', w: 2048, h: 1536, offX: 0, offY: 0, scale: 1, rot: 0, opacity: 1 },
+    aiControls: 'Monsters',
+    round: 1,
+    currentTurnTokenId: 'goblin-a',
+    aiGroupTokenIds: ['goblin-a', 'goblin-b'],
+    tokens: [
+      {
+        id: 'goblin-a',
+        name: 'Goblin A',
+        type: 'Monster',
+        sizeCells: 1,
+        color: '#ff5a7a',
+        x: 64 * 4.5,
+        y: 64 * 4.5,
+        ac: 15,
+        hp: '7/7',
+        speed: 30,
+        notes: '',
+        statblock: 'Goblin A statblock',
+        art: null
+      },
+      {
+        id: 'goblin-b',
+        name: 'Goblin B',
+        type: 'Monster',
+        sizeCells: 1,
+        color: '#ff5a7a',
+        x: 64 * 5.5,
+        y: 64 * 4.5,
+        ac: 15,
+        hp: '7/7',
+        speed: 30,
+        notes: '',
+        statblock: 'Goblin B statblock',
+        art: null
+      },
+      {
+        id: 'aria',
+        name: 'Aria',
+        type: 'PC',
+        sizeCells: 1,
+        color: '#5aa9ff',
+        x: 64 * 8.5,
+        y: 64 * 4.5,
+        ac: 15,
+        hp: '18/18',
+        speed: 30,
+        notes: '',
+        statblock: '',
+        art: null
+      }
+    ]
+  };
+
+  const packet = buildAiTurnPacketForStrategy(state, {
+    id: 'group_tactical',
+    packetVariant: 'full'
+  });
+
+  assert.match(packet, /ACTIVE TACTICAL GROUP:/);
+  assert.match(packet, /"Goblin A", "Goblin B"/);
+  assert.match(packet, /GROUP MEMBER STATBLOCKS:/);
+  assert.match(packet, /Goblin A statblock/);
+  assert.match(packet, /Goblin B statblock/);
 });

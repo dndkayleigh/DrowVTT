@@ -261,9 +261,16 @@
     }
     .list{display:grid;gap:6px;margin-top:8px}
     .tokRow{
-      display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;
+      display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px;align-items:center;
       padding:7px 8px;border-radius:12px;background:var(--surface-soft);
       border:1px solid var(--line);
+    }
+    .tokRow.selected{
+      border-color:rgba(90,169,255,.42);
+      box-shadow:inset 0 0 0 1px rgba(90,169,255,.2);
+    }
+    .tokRow.grouped{
+      background:rgba(90,169,255,.08);
     }
     .tokRow b{font-size:12px}
     .tokRow .meta{font-size:11px;color:var(--muted)}
@@ -822,9 +829,13 @@
           <button id="addToken" class="primary">Add token</button>
           <button id="clearTokens" class="danger">Clear all</button>
         </div>
+        <div class="btnbar" style="margin-top:8px;">
+          <button id="setAiGroup">Set Group From Selection</button>
+          <button id="clearAiGroup">Clear Group</button>
+        </div>
 
         <div class="list" id="tokenList"></div>
-        <div class="footerNote">Selection and current turn stay in sync.</div>
+        <div class="footerNote" id="tokenSelectionNote">Single modes use one selected monster. Group mode uses an explicit monster group.</div>
       </div>
     </details>
 
@@ -1092,7 +1103,15 @@
 
 <script src="/data/srd-monsters.js"></script>
 <script type="module">
-import { buildAiTurnPacketByVariant, buildAiTurnPacketFromState } from '/data/ai-turn-packet-utils.mjs';
+import { buildAiTurnPacketForStrategy, buildAiTurnPacketFromState } from '/data/ai-turn-packet-utils.mjs';
+import {
+  enforceAiSelectionForStrategy as enforceAiSelectionForStrategyState,
+  getAiGroupTokenIds as getAiGroupTokenIdsState,
+  getSelectedMonsterIds as getSelectedMonsterIdsState,
+  setSelectedTokenIds as setSelectedTokenIdsState,
+  setSingleSelection as setSingleSelectionState,
+  toggleTokenSelection as toggleTokenSelectionState
+} from '/data/ai-selection-utils.mjs';
 import { DEFAULT_AI_TURN_STRATEGY_ID, getAiTurnStrategy } from '/data/ai-turn-strategy-utils.mjs';
 import { buildBoardSnapshotFilename, parseBoardSnapshotText } from '/data/board-state-io-utils.mjs';
 import { createLocalAssetStorageAdapter } from '/data/local-asset-storage-adapter.mjs';
@@ -1126,7 +1145,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
     tokens: [],
     selectedTokenId: null,
+    selectedTokenIds: [],
     currentTurnTokenId: null,
+    aiGroupTokenIds: [],
 
     draggingToken: null,
     draggingPan: false,
@@ -1201,6 +1222,9 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   const tokSizeSelect = document.getElementById('tokSize');
   const tokColorSelect = document.getElementById('tokColor');
   const monsterAutocomplete = document.getElementById('monsterAutocomplete');
+  const setAiGroupBtn = document.getElementById('setAiGroup');
+  const clearAiGroupBtn = document.getElementById('clearAiGroup');
+  const tokenSelectionNote = document.getElementById('tokenSelectionNote');
 
   const SRD_MONSTERS = Array.isArray(window.SRD_MONSTERS) ? window.SRD_MONSTERS : [];
   const SRD_MONSTERS_BY_NAME = new Map(SRD_MONSTERS.map((monster) => [monster.name.toLowerCase(), monster]));
@@ -1240,6 +1264,67 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   function getTokenById(id) {
     return state.tokens.find((token) => token.id === id) || null;
+  }
+
+  function getSelectedAiStrategyId() {
+    return getSelectedAiStrategy()?.id || DEFAULT_AI_TURN_STRATEGY_ID;
+  }
+
+  function syncSelectedTokenPointers() {
+    const next = setSelectedTokenIdsState(state.tokens, state.selectedTokenIds);
+    state.selectedTokenIds = next.selectedTokenIds;
+    state.selectedTokenId = next.selectedTokenId;
+  }
+
+  function setSelectedTokenIds(ids = []) {
+    const next = setSelectedTokenIdsState(state.tokens, ids);
+    state.selectedTokenIds = next.selectedTokenIds;
+    state.selectedTokenId = next.selectedTokenId;
+  }
+
+  function setSingleSelection(id) {
+    const next = setSingleSelectionState(state.tokens, id);
+    state.selectedTokenIds = next.selectedTokenIds;
+    state.selectedTokenId = next.selectedTokenId;
+  }
+
+  function toggleTokenSelection(id) {
+    const next = toggleTokenSelectionState(state.tokens, state.selectedTokenIds, id);
+    state.selectedTokenIds = next.selectedTokenIds;
+    state.selectedTokenId = next.selectedTokenId;
+  }
+
+  function getSelectedMonsterIds() {
+    return getSelectedMonsterIdsState(state.tokens, state.selectedTokenIds);
+  }
+
+  function getAiGroupTokenIds() {
+    return getAiGroupTokenIdsState(state.tokens, state.aiGroupTokenIds);
+  }
+
+  function enforceAiSelectionForStrategy(strategyId = getSelectedAiStrategyId()) {
+    const next = enforceAiSelectionForStrategyState(state.tokens, {
+      strategyId,
+      currentTurnTokenId: state.currentTurnTokenId,
+      selectedTokenIds: state.selectedTokenIds
+    });
+    state.selectedTokenIds = next.selectedTokenIds;
+    state.selectedTokenId = next.selectedTokenId;
+  }
+
+  function syncTokenSelectionUi() {
+    const selectedCount = state.selectedTokenIds.length;
+    const groupIds = getAiGroupTokenIds();
+    const groupCount = groupIds.length;
+    const strategyId = getSelectedAiStrategyId();
+    const strategyLabel = getSelectedAiStrategy()?.label || 'Single (Tactical)';
+    if (strategyId === 'group_tactical') {
+      tokenSelectionNote.textContent = groupCount
+        ? `${strategyLabel} will use ${groupCount} grouped monster${groupCount === 1 ? '' : 's'}. Select monsters, then click Set Group From Selection.`
+        : `${strategyLabel} needs an explicit monster group. Select monster rows with Pick, then click Set Group From Selection.`;
+    } else {
+      tokenSelectionNote.textContent = `${strategyLabel} uses exactly one selected monster. Current selection: ${selectedCount || 0}.`;
+    }
   }
 
   function normalizeTokenArt(art = {}) {
@@ -1282,6 +1367,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   function resetTransientState() {
     state.selectedTokenId = null;
+    state.selectedTokenIds = [];
+    state.aiGroupTokenIds = [];
     state.draggingToken = null;
     state.draggingPan = false;
     state.draggingMap = false;
@@ -1643,7 +1730,10 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     state.aiControls = next.aiControls;
     state.round = next.round;
     state.currentTurnTokenId = next.currentTurnTokenId;
-    state.selectedTokenId = next.selectedTokenId || next.currentTurnTokenId;
+    state.selectedTokenIds = Array.isArray(next.selectedTokenIds)
+      ? next.selectedTokenIds
+      : [next.selectedTokenId || next.currentTurnTokenId].filter(Boolean);
+    state.aiGroupTokenIds = Array.isArray(next.aiGroupTokenIds) ? next.aiGroupTokenIds : [];
     state.log = [];
     logBox.textContent = '';
     setDecisionSummary('');
@@ -1662,9 +1752,11 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     if (!state.currentTurnTokenId || !state.tokens.some((token) => token.id === state.currentTurnTokenId)) {
       state.currentTurnTokenId = state.tokens[0]?.id ?? null;
     }
-    if (!state.selectedTokenId || !state.tokens.some((token) => token.id === state.selectedTokenId)) {
-      state.selectedTokenId = state.currentTurnTokenId;
+    syncSelectedTokenPointers();
+    if (!state.selectedTokenIds.length && state.currentTurnTokenId) {
+      setSingleSelection(state.currentTurnTokenId);
     }
+    state.aiGroupTokenIds = getAiGroupTokenIds();
 
     draw();
     renderTokenList();
@@ -1674,6 +1766,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     updateSaveStatusFromSlot({ name: saveSlotNameInput.value || 'Save slot', savedAt: snapshot.savedAt });
     syncSaveSlotsUiFromStorage(saveSlotSelect.value);
     syncAutosaveUiFromStorage(autosaveSelect.value);
+    syncTokenSelectionUi();
     lastAutosaveSignature = JSON.stringify(snapshot.state);
     autosaveSuppressed = false;
     return snapshot;
@@ -2282,11 +2375,14 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   function drawTokens() {
     const { zoom } = state.view;
+    const selectedIds = new Set(state.selectedTokenIds);
+    const groupIds = new Set(getAiGroupTokenIds());
     for (const t of state.tokens) {
       const s = worldToScreen(t.x, t.y);
       const r = tokenRadiusPx(t) * zoom;
       const b = getTokenBounds(t);
-      const isSelected = t.id === state.selectedTokenId;
+      const isSelected = selectedIds.has(t.id);
+      const isGrouped = groupIds.has(t.id);
 
       ctx.save();
       ctx.beginPath();
@@ -2320,6 +2416,17 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       ctx.lineWidth = isSelected ? 4 : 2;
       ctx.strokeStyle = isSelected ? '#ffffff' : 'rgba(255,255,255,0.75)';
       ctx.stroke();
+
+      if (isGrouped) {
+        ctx.globalAlpha = 0.9;
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(90,169,255,0.95)';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r + 8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
 
       if (b.size > 1) {
         ctx.globalAlpha = 0.35;
@@ -2452,7 +2559,15 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     } else {
       state.currentTurnTokenId = id;
     }
-    state.selectedTokenId = state.currentTurnTokenId;
+    if (getSelectedAiStrategyId() === 'group_tactical') {
+      if (state.currentTurnTokenId && !state.selectedTokenIds.includes(state.currentTurnTokenId)) {
+        setSelectedTokenIds([...state.selectedTokenIds, state.currentTurnTokenId]);
+      } else {
+        syncSelectedTokenPointers();
+      }
+    } else {
+      setSingleSelection(state.currentTurnTokenId);
+    }
     publishBoardEvent('turn.changed', {
       currentTurnTokenId: state.currentTurnTokenId
     });
@@ -2461,6 +2576,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     loadCurrentTurnTokenToEditor();
     draw();
     renderTokenList();
+    syncTokenSelectionUi();
     refreshExport();
   }
 
@@ -2761,11 +2877,38 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   document.getElementById('clearTokens').addEventListener('click', () => {
     state.tokens = [];
     state.selectedTokenId = null;
+    state.selectedTokenIds = [];
     state.currentTurnTokenId = null;
+    state.aiGroupTokenIds = [];
     publishBoardEvent('board.cleared', {});
     syncTurnDropdown();
     loadCurrentTurnTokenToEditor();
     draw(); refreshExport(); renderTokenList();
+    syncTokenSelectionUi();
+  });
+
+  setAiGroupBtn.addEventListener('click', () => {
+    const monsterIds = getSelectedMonsterIds();
+    if (!monsterIds.length) {
+      tokenSelectionNote.textContent = 'Select one or more monster rows with Pick before creating a tactical group.';
+      return;
+    }
+    state.aiGroupTokenIds = monsterIds;
+    if (!state.currentTurnTokenId || !monsterIds.includes(state.currentTurnTokenId)) {
+      state.currentTurnTokenId = monsterIds[0];
+    }
+    draw();
+    renderTokenList();
+    syncTokenSelectionUi();
+    refreshExport();
+  });
+
+  clearAiGroupBtn.addEventListener('click', () => {
+    state.aiGroupTokenIds = [];
+    draw();
+    renderTokenList();
+    syncTokenSelectionUi();
+    refreshExport();
   });
 
   function gridCoords(token) {
@@ -2774,16 +2917,20 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   function renderTokenList() {
     tokenListEl.innerHTML = '';
+    const selectedIds = new Set(state.selectedTokenIds);
+    const groupedIds = new Set(getAiGroupTokenIds());
     for (const t of state.tokens) {
       const c = gridCoords(t);
 
       const row = document.createElement('div');
       row.className = 'tokRow';
+      if (selectedIds.has(t.id)) row.classList.add('selected');
+      if (groupedIds.has(t.id)) row.classList.add('grouped');
       if (t.type === 'Monster' && t.statblock) row.title = t.statblock;
       row.innerHTML = `
         <div>
           <b>${escapeHtml(t.name)}</b>
-          <div class="meta">${escapeHtml(t.type)} • HP ${escapeHtml(t.hp)} • ${t.sizeCells}×${t.sizeCells} • (${c.x},${c.y})${t.art?.src ? ' • Art' : ''}</div>
+          <div class="meta">${escapeHtml(t.type)} • HP ${escapeHtml(t.hp)} • ${t.sizeCells}×${t.sizeCells} • (${c.x},${c.y})${groupedIds.has(t.id) ? ' • Grouped' : ''}${t.art?.src ? ' • Art' : ''}</div>
         </div>
       `;
 
@@ -2791,6 +2938,22 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       selBtn.textContent = (t.id === state.currentTurnTokenId) ? 'Turn' : 'Set';
       selBtn.className = (t.id === state.currentTurnTokenId) ? 'primary' : '';
       selBtn.addEventListener('click', (ev) => { ev.stopPropagation(); setCurrentTurnTokenId(t.id); });
+
+      const pickBtn = document.createElement('button');
+      pickBtn.textContent = selectedIds.has(t.id) ? 'Picked' : 'Pick';
+      pickBtn.className = selectedIds.has(t.id) ? 'primary' : '';
+      pickBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (getSelectedAiStrategyId() === 'group_tactical' && t.type === 'Monster') {
+          toggleTokenSelection(t.id);
+        } else {
+          setCurrentTurnTokenId(t.id);
+        }
+        draw();
+        renderTokenList();
+        syncTokenSelectionUi();
+        refreshExport();
+      });
 
       const artBtn = document.createElement('button');
       artBtn.textContent = 'Art';
@@ -2805,13 +2968,26 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       delBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         state.tokens = state.tokens.filter(x => x.id !== t.id);
+        state.aiGroupTokenIds = state.aiGroupTokenIds.filter((id) => id !== t.id);
+        setSelectedTokenIds(state.selectedTokenIds.filter((id) => id !== t.id));
         setCurrentTurnTokenId(state.tokens[0]?.id ?? null);
       });
 
       row.appendChild(selBtn);
+      row.appendChild(pickBtn);
       row.appendChild(artBtn);
       row.appendChild(delBtn);
-      row.addEventListener('click', () => setCurrentTurnTokenId(t.id));
+      row.addEventListener('click', () => {
+        if (getSelectedAiStrategyId() === 'group_tactical' && t.type === 'Monster') {
+          toggleTokenSelection(t.id);
+          draw();
+          renderTokenList();
+          syncTokenSelectionUi();
+          refreshExport();
+          return;
+        }
+        setCurrentTurnTokenId(t.id);
+      });
       row.addEventListener('contextmenu', (ev) => {
         ev.preventDefault();
         openTokenContextMenu(t.id, ev.clientX, ev.clientY);
@@ -2820,6 +2996,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
       tokenListEl.appendChild(row);
     }
     syncTurnDropdown();
+    syncTokenSelectionUi();
   }
 
   // ---------- Turn controls ----------
@@ -3229,13 +3406,17 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   function buildAiTurnPacket() {
     const strategy = getSelectedAiStrategy();
-    return buildAiTurnPacketByVariant(state, strategy?.packetVariant || 'compact_moves5');
+    return buildAiTurnPacketForStrategy(state, strategy || { id: DEFAULT_AI_TURN_STRATEGY_ID, packetVariant: 'compact_moves5' });
   }
 
   function refreshExport() { exportBox.value = buildAiTurnPacket(); }
   aiStrategySelect.addEventListener('change', () => {
+    enforceAiSelectionForStrategy(aiStrategySelect.value);
     syncAiStrategyUi();
+    syncTokenSelectionUi();
     refreshExport();
+    draw();
+    renderTokenList();
   });
   document.getElementById('refreshExport').addEventListener('click', refreshExport);
   document.getElementById('copyExport').addEventListener('click', async () => {
@@ -3384,6 +3565,10 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     const status = document.getElementById('sendStatus');
     const autoApply = document.getElementById('autoApplyAI').checked;
     const strategy = getSelectedAiStrategy();
+    if (strategy?.id === 'group_tactical' && getAiGroupTokenIds().length === 0) {
+      status.textContent = 'Create a monster group first with Set Group From Selection.';
+      return;
+    }
     const userContext = authAdapter.requireAuthenticatedUser();
     if (!authAdapter.canPerform('run_ai', { userContext })) {
       status.textContent = 'Run AI is not permitted for this user.';
@@ -3573,12 +3758,22 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
     const world = screenToWorld(m.x, m.y);
     const hit = tokenHitTest(world.x, world.y);
+    const wantMultiSelect = (e.shiftKey || e.metaKey || e.ctrlKey) && hit && hit.type === 'Monster';
 
     const isMiddle = e.button === 1;
     const wantPan = state.spaceDown || isMiddle;
 
     if (calibrationState.active && e.button === 0 && !wantPan) {
       handleCalibrationClick(world);
+      return;
+    }
+
+    if (wantMultiSelect && !wantPan) {
+      toggleTokenSelection(hit.id);
+      draw();
+      renderTokenList();
+      syncTokenSelectionUi();
+      refreshExport();
       return;
     }
 
@@ -3740,6 +3935,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   syncBoardStatusVisibility();
   aiStrategySelect.value = DEFAULT_AI_TURN_STRATEGY_ID;
   syncAiStrategyUi();
+  syncTokenSelectionUi();
   requestAnimationFrame(() => applyAIDrawerPosition());
   sessionSync.connect('local-session', authAdapter.getCurrentUserContext());
 
@@ -3759,6 +3955,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   // Initial export + render
   refreshExport();
   renderTokenList();
+  syncTokenSelectionUi();
   loadCurrentTurnTokenToEditor();
   syncSaveSlotsUiFromStorage();
   setAutosaveEnabled(boardPersistence.getAutosaveEnabled());

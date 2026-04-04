@@ -64,6 +64,11 @@ export function getCurrentTurnToken(state) {
   return state?.tokens?.find((token) => token.id === state.currentTurnTokenId) || null;
 }
 
+export function getActiveAiGroupTokens(state) {
+  const ids = new Set(Array.isArray(state?.aiGroupTokenIds) ? state.aiGroupTokenIds.map((id) => String(id)) : []);
+  return (state?.tokens || []).filter((token) => ids.has(token.id));
+}
+
 function relationToTurnToken(turnTok, token) {
   if (!turnTok) return 'unknown';
   if (token.id === turnTok.id) return 'self';
@@ -582,4 +587,38 @@ export function buildAiTurnPacketByVariant(state, variantId = 'compact_moves5') 
     default:
       return buildAiTurnPacketCompactFromState(state, { moveCandidateLimit: 5 });
   }
+}
+
+function buildGroupTacticalPacket(packet, state) {
+  const groupTokens = getActiveAiGroupTokens(state);
+  if (!groupTokens.length) return packet;
+
+  const groupLines = [
+    '',
+    'ACTIVE TACTICAL GROUP:',
+    `- Only these grouped monsters may move or act in this turn bundle: ${groupTokens.map((token) => `"${token.name}"`).join(', ')}`,
+    '- Coordinate these monsters together and keep every move/action assigned to one of the grouped monsters.',
+    ''
+  ];
+
+  const groupStatblocks = [
+    'GROUP MEMBER STATBLOCKS:',
+    ...groupTokens.flatMap((token) => [
+      `- ${token.name}:`,
+      token.statblock || '(not provided)'
+    ])
+  ];
+
+  return packet
+    .replace('- Only the current turn token may move or act this turn.', '- Only the current turn token may move or act this turn, unless ACTIVE TACTICAL GROUP rules below override this.')
+    .replace(/(TURN: .*?\n)/, `$1${groupLines.join('\n')}`)
+    .replace(/STATBLOCK \(current turn token\):/, `${groupStatblocks.join('\n')}\n\nSTATBLOCK (current turn token):`);
+}
+
+export function buildAiTurnPacketForStrategy(state, strategy = {}) {
+  const packet = buildAiTurnPacketByVariant(state, strategy?.packetVariant || 'compact_moves5');
+  if (strategy?.id === 'group_tactical') {
+    return buildGroupTacticalPacket(packet, state);
+  }
+  return packet;
 }

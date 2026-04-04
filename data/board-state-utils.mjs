@@ -57,7 +57,13 @@ export function createBoardSnapshot(state, options = {}) {
       },
       tokens: Array.isArray(state?.tokens) ? state.tokens.map(normalizeTokenSnapshot) : [],
       selectedTokenId: state?.selectedTokenId ? String(state.selectedTokenId) : null,
+      selectedTokenIds: Array.isArray(state?.selectedTokenIds)
+        ? state.selectedTokenIds.map((id) => String(id))
+        : state?.selectedTokenId ? [String(state.selectedTokenId)] : [],
       currentTurnTokenId: state?.currentTurnTokenId ? String(state.currentTurnTokenId) : null,
+      aiGroupTokenIds: Array.isArray(state?.aiGroupTokenIds)
+        ? state.aiGroupTokenIds.map((id) => String(id))
+        : [],
       aiControls: String(state?.aiControls ?? 'Monsters'),
       round: Math.max(1, Math.round(clampNumber(state?.round, 1)))
     }
@@ -90,7 +96,13 @@ export function parseBoardSnapshot(snapshot) {
       },
       tokens: Array.isArray(state.tokens) ? state.tokens.map(normalizeTokenSnapshot) : [],
       selectedTokenId: state?.selectedTokenId ? String(state.selectedTokenId) : null,
+      selectedTokenIds: Array.isArray(state?.selectedTokenIds)
+        ? state.selectedTokenIds.map((id) => String(id))
+        : state?.selectedTokenId ? [String(state.selectedTokenId)] : [],
       currentTurnTokenId: state?.currentTurnTokenId ? String(state.currentTurnTokenId) : null,
+      aiGroupTokenIds: Array.isArray(state?.aiGroupTokenIds)
+        ? state.aiGroupTokenIds.map((id) => String(id))
+        : [],
       aiControls: String(state?.aiControls ?? 'Monsters'),
       round: Math.max(1, Math.round(clampNumber(state?.round, 1)))
     }

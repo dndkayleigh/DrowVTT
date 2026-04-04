@@ -42,7 +42,9 @@ test('createBoardSnapshot keeps only serializable board state', () => {
       }
     }],
     selectedTokenId: 'tok-1',
+    selectedTokenIds: ['tok-1'],
     currentTurnTokenId: 'tok-1',
+    aiGroupTokenIds: ['tok-1'],
     draggingToken: { should: 'drop' },
     aiOverlay: { paths: [{ x: 1 }], summary: 'drop' },
     aiControls: 'PCs',
@@ -54,6 +56,8 @@ test('createBoardSnapshot keeps only serializable board state', () => {
   assert.equal(snapshot.state.map.src, 'data:image/png;base64,abc');
   assert.equal('img' in snapshot.state.map, false);
   assert.equal(snapshot.state.tokens[0].art.fileName, 'aria.png');
+  assert.deepEqual(snapshot.state.selectedTokenIds, ['tok-1']);
+  assert.deepEqual(snapshot.state.aiGroupTokenIds, ['tok-1']);
   assert.equal('loading' in snapshot.state.tokens[0].art, false);
   assert.equal('draggingToken' in snapshot.state, false);
   assert.equal('aiOverlay' in snapshot.state, false);
@@ -77,6 +81,8 @@ test('parseBoardSnapshot normalizes missing and malformed values', () => {
         speed: '30',
         art: { src: 'art-data', scale: '2', panX: '0.5', panY: '-0.25' }
       }],
+      selectedTokenIds: ['42', '99'],
+      aiGroupTokenIds: ['42'],
       round: 0
     }
   });
@@ -91,5 +97,7 @@ test('parseBoardSnapshot normalizes missing and malformed values', () => {
   assert.equal(parsed.state.tokens[0].x, 96);
   assert.equal(parsed.state.tokens[0].y, 0);
   assert.equal(parsed.state.tokens[0].art.panY, -0.25);
+  assert.deepEqual(parsed.state.selectedTokenIds, ['42', '99']);
+  assert.deepEqual(parsed.state.aiGroupTokenIds, ['42']);
   assert.equal(parsed.state.round, 1);
 });
