@@ -1,0 +1,13 @@
+{
+  "name": "@drowvtt/vtt-ui-shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared VTT UI shell and interaction layer extracted from OSS DrowVTT for reuse by hosted surfaces.",
+  "exports": {
+    ".": "./src/index.js",
+    "./ai-selection-utils": "./src/ai-selection-utils.js",
+    "./ai-turn-strategy-utils": "./src/ai-turn-strategy-utils.js",
+    "./ai-turn-packet-utils": "./src/ai-turn-packet-utils.js"
+  }
+}
