@@ -139,6 +139,19 @@ async function clickStageWorld(page, worldX, worldY) {
   await page.mouse.click(clientX, clientY);
 }
 
+async function rightClickTokenOnStage(page, name) {
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  const token = snapshot.state.tokens.find((entry) => entry.name === name);
+  if (!token) throw new Error(`Missing token: ${name}`);
+  const canvas = page.locator('#stage');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box unavailable');
+  const { zoom, panX, panY } = snapshot.state.view;
+  const clientX = box.x + (token.x * zoom) + panX;
+  const clientY = box.y + (token.y * zoom) + panY;
+  await page.mouse.click(clientX, clientY, { button: 'right' });
+}
+
 async function clickTokenOnStage(page, name, modifiers = []) {
   const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
   const token = snapshot.state.tokens.find((entry) => entry.name === name);
@@ -195,6 +208,36 @@ test('default VTT positioning keeps the sidebar left and the drawer top-right', 
   expect(sidebar.y).toBeLessThan(stage.y + 20);
   expect(drawer.y).toBeLessThan(stage.y + 140);
   expect(drawer.x).toBeGreaterThan(stage.x + (stage.width / 2));
+});
+
+test('shared shell styling keeps the canvas, token rows, and drawer interactive by default', async ({ page }) => {
+  await addToken(page, { name: 'Styling Goblin', size: 1, type: 'Monster' });
+
+  const shellStyles = await page.evaluate(() => {
+    const topbar = document.querySelector('.topbar');
+    const canvas = document.querySelector('#stage');
+    const tokenRow = document.querySelector('.tokRow');
+    const drawerSummary = document.querySelector('#aiDrawer summary');
+    if (!topbar || !canvas || !tokenRow || !drawerSummary) return null;
+    const topbarStyle = window.getComputedStyle(topbar);
+    const canvasStyle = window.getComputedStyle(canvas);
+    const rowStyle = window.getComputedStyle(tokenRow);
+    const drawerSummaryStyle = window.getComputedStyle(drawerSummary);
+    return {
+      topbarHidden: topbar.hasAttribute('hidden'),
+      canvasCursor: canvasStyle.cursor,
+      canvasBackgroundColor: canvasStyle.backgroundColor,
+      tokenRowDisplay: rowStyle.display,
+      drawerSummaryCursor: drawerSummaryStyle.cursor
+    };
+  });
+
+  if (!shellStyles) throw new Error('Shared shell styles unavailable');
+  expect(shellStyles.topbarHidden).toBe(true);
+  expect(shellStyles.canvasCursor).toBe('grab');
+  expect(shellStyles.canvasBackgroundColor).toBe('rgb(8, 16, 34)');
+  expect(shellStyles.tokenRowDisplay).toBe('grid');
+  expect(shellStyles.drawerSummaryCursor).toBe('grab');
 });
 
 test('AI drawer tabs open one panel at a time and clicking the active tab collapses back to compact mode', async ({ page }) => {
@@ -393,6 +436,17 @@ test('dragging a token into an occupied space snaps it back and records the fail
   await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('Move cancelled');
   await expect(page.locator('#logBox')).toContainText('space is occupied by Ogre');
+});
+
+test('stage right-click on a real token center opens the token context menu', async ({ page }) => {
+  await addToken(page, { name: 'Ghast Captain', size: 1, type: 'Monster' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Ghast Captain', cellX: 6, cellY: 3 });
+
+  await rightClickTokenOnStage(page, 'Ghast Captain');
+
+  await expect(page.locator('#tokenContextMenu')).toBeVisible();
+  await expect(page.locator('#menuAddArt')).toContainText('Add art');
+  await expect(page.locator('#menuClearArt')).toBeDisabled();
 });
 
 test('ctrl-clicking a monster after selecting a PC drops the PC instead of forming a mixed group', async ({ page }) => {
