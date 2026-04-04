@@ -13,9 +13,12 @@ The current stable OSS checkpoint is summarized in [`CHANGELOG.md`](CHANGELOG.md
 
 Recent highlights:
 
-- compact AI packets now preserve more legal attack windows in `balanced` and `fast`
+- Tactics Director now supports `Single (Fast)`, `Single (Tactical)`, and `Group (Tactical)`
+- explicit monster-group selection is now built into the OSS UI
 - save/export UX is centered on file-based saves plus autosave
 - map setup is cleaner and calibration-first
+
+If you want a practical walkthrough of loading a board, selecting monsters, and running AI turns, start with [TUTORIAL.md](TUTORIAL.md).
 
 ## Start Here
 
@@ -110,6 +113,10 @@ Go back to the terminal where it is running and press `Ctrl+C`.
 - Show AI movement paths and a `Narrator's Cue`
 - Enforce basic tactical rules: only the current turn token can move, movement is limited by speed, token spaces cannot overlap, and melee attacks must respect reach
 
+## Tutorial
+
+For a play-focused walkthrough, see [TUTORIAL.md](TUTORIAL.md).
+
 ## Token Positioning Rules
 
 - `1x1` creatures center on the middle of a tile
@@ -192,6 +199,23 @@ The `Tactics Director` settings panel now exposes three AI modes:
 
 The backend resolves these modes server-side, and the response timing block includes the selected strategy and packet variant.
 
+### Selection Behavior
+
+- `Single (Fast)` and `Single (Tactical)` act on exactly one AI-controlled token.
+- Clicking another AI-controlled token switches focus to that token.
+- `Ctrl`-click on Windows/Linux or `Cmd`-click on macOS adds or removes AI-controlled monsters from the active selection.
+- When more than one AI-controlled monster is selected, Tactics Director automatically switches to `Group (Tactical)`.
+- Clicking a non-AI-controlled token such as a PC clears the active monster group.
+
+### Group Workflow
+
+You can build a group in either of these ways:
+
+1. `Ctrl`/`Cmd`-click multiple AI-controlled monsters on the board.
+2. Use `Pick` in the token list, then click `Set Group From Selection`.
+
+Once more than one valid monster is selected, `Run Tactics Director` applies the grouped turn to the active monster group instead of only the current single monster.
+
 ## Benchmarking
 
 Benchmark commands live in [`backend/package.json`](backend/package.json) and should be run from [`backend/`](backend/):
@@ -231,7 +255,7 @@ The frontend posts a small payload to the backend:
 ```json
 {
   "aiExport": "SYSTEM: You are the tactical controller ...",
-  "strategy": "balanced",
+  "strategy": "single_tactical",
   "model": "gpt-5"
 }
 ```
@@ -239,6 +263,8 @@ The frontend posts a small payload to the backend:
 Notes:
 - `strategy` is the preferred control and maps to a server-side model plus packet variant.
 - `model` is still sent by the frontend for transparency and logging, but strategy selection now drives the intended mode.
+- Canonical strategies are `single_fast`, `single_tactical`, and `group_tactical`.
+- Older aliases remain accepted for backward compatibility, but new integrations should use the canonical names above.
 
 ### Response
 
@@ -267,11 +293,12 @@ Notes:
 2. Open `http://localhost:3000/`.
 3. Load a map image if you want one.
 4. Align the map using the controls above the board.
-5. Add tokens and set the current turn token.
-6. Edit stats and statblocks in the Turn panel.
-7. Use `Tactics Director` to run the AI or inspect the packet manually.
-8. Review the returned move JSON, movement path, and `Narrator's Cue`.
-9. Auto-apply it or paste/edit JSON manually.
+5. Add tokens and choose which side `AI controls`.
+6. Click a monster to focus a single turn, or `Ctrl`/`Cmd`-click multiple monsters to build a tactical group.
+7. Edit stats and statblocks in the Turn panel.
+8. Use `Tactics Director` to run the AI or inspect the packet manually.
+9. Review the returned move JSON, movement paths, and `Narrator's Cue`.
+10. Auto-apply it or paste/edit JSON manually.
 
 ## Security Notes
 
