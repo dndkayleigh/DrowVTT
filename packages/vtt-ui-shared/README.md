@@ -49,4 +49,14 @@ The first extraction wave should focus on:
 
 ## Current State
 
-This package is only scaffolded today. It is not yet the active source of any shipped UI.
+This package now owns OSS-shipped tactical interaction modules plus the first shared shell extraction:
+
+- tactical selection, strategy, and packet modules
+- shared shell stylesheet
+- shared OSS shell markup renderer
+
+The first host seam is also present:
+
+- `renderOssVttShell({ showApiEndpoint, sidebarAfterBrandHtml })`
+
+That seam exists so SaaS can hide the raw endpoint field and add a thin hosted sidebar card without forking the shell.

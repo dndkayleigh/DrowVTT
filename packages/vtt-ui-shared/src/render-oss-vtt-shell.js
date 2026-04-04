@@ -18,6 +18,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
         </div>
       </div>
     </div>
+    __SIDEBAR_AFTER_BRAND_HTML__
     <details class="panelSection" id="mapSection" open>
       <summary><h2>Map & Grid</h2></summary>
       <div class="card">
@@ -347,8 +348,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
         <div class="drawerPanel" data-drawer-panel="settings" hidden>
           <div class="subcard">
             <div class="subtleLabel">Settings</div>
-            <label>Backend endpoint</label>
-            <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />
+            __BACKEND_ENDPOINT_HTML__
             <div style="margin-top:8px;">
               <label>AI Mode</label>
               <select id="aiStrategy">
@@ -430,6 +430,16 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
   </div>
 </div>`;
 
-export function renderOssVttShell() {
-  return OSS_VTT_SHELL_HTML;
+const BACKEND_ENDPOINT_HTML = String.raw`<label>Backend endpoint</label>
+            <input id="apiUrl" type="text" value="http://localhost:3000/api/vtt" />`;
+
+export function renderOssVttShell(options = {}) {
+  const showApiEndpoint = options.showApiEndpoint ?? true;
+  const sidebarAfterBrandHtml = typeof options.sidebarAfterBrandHtml === 'string'
+    ? options.sidebarAfterBrandHtml
+    : '';
+
+  return OSS_VTT_SHELL_HTML
+    .replace('__SIDEBAR_AFTER_BRAND_HTML__', sidebarAfterBrandHtml)
+    .replace('__BACKEND_ENDPOINT_HTML__', showApiEndpoint ? BACKEND_ENDPOINT_HTML : '');
 }

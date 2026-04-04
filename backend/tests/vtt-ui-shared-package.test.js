@@ -22,3 +22,14 @@ test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.match(renderOssVttShell(), /<div class="app">/);
   assert.match(renderOssVttShell(), /id="aiDrawer"/);
 });
+
+test('shared VTT shell supports host-specific sidebar and settings seams', () => {
+  const html = renderOssVttShell({
+    showApiEndpoint: false,
+    sidebarAfterBrandHtml: '<section id="hostAccountCard">Hosted account</section>'
+  });
+
+  assert.match(html, /id="hostAccountCard"/);
+  assert.doesNotMatch(html, /id="apiUrl"/);
+  assert.match(html, /id="aiStrategy"/);
+});
