@@ -270,6 +270,76 @@ export function computeTokenListInteraction({
   };
 }
 
+export function computeCanvasContextMenuTarget({
+  hit,
+  clientX,
+  clientY
+}) {
+  if (!hit) return { openMenu: false };
+  return {
+    openMenu: true,
+    tokenId: hit.id,
+    clientX,
+    clientY
+  };
+}
+
+export function computeCanvasMouseDownIntent({
+  button = 0,
+  hit = null,
+  metaKey = false,
+  ctrlKey = false,
+  isAiControllableToken = false,
+  spaceDown = false,
+  dragMode = 'tokens',
+  calibrationActive = false
+}) {
+  const wantMultiSelect = (metaKey || ctrlKey) && !!hit && isAiControllableToken;
+  const isMiddle = button === 1;
+  const wantPan = spaceDown || isMiddle;
+
+  if (calibrationActive && button === 0 && !wantPan) {
+    return { type: 'calibration-click' };
+  }
+
+  if (wantMultiSelect && !wantPan) {
+    return { type: 'toggle-selection', tokenId: hit.id };
+  }
+
+  if (hit && !wantPan && dragMode === 'tokens') {
+    return { type: 'drag-token', tokenId: hit.id };
+  }
+
+  if (!wantPan && dragMode === 'map') {
+    return { type: 'drag-map' };
+  }
+
+  return { type: 'pan-stage' };
+}
+
+export function resolveDragComplete({
+  result,
+  token,
+  targetCell,
+  fallbackCell
+}) {
+  if (!result?.ok) {
+    return {
+      ok: false,
+      tokenId: token.id,
+      resetToCell: fallbackCell,
+      logMessage: `Move cancelled: ${result?.reason || 'Unknown move failure.'}`
+    };
+  }
+
+  return {
+    ok: true,
+    tokenId: token.id,
+    movedToCell: targetCell,
+    logMessage: `Moved ${token.name} -> (${targetCell.x},${targetCell.y})`
+  };
+}
+
 export function buildTokenContextMenuState(
   token,
   {

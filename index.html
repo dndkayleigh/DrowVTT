@@ -587,6 +587,8 @@ import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/d
 import { normalizeSlotName } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
 import {
+  computeCanvasContextMenuTarget,
+  computeCanvasMouseDownIntent,
   computeAiGroupAssignment,
   computeAiControlsState,
   computeCurrentTurnSelectionState,
@@ -598,6 +600,7 @@ import {
   buildTurnEditorState,
   buildTokenSelectionNote,
   moveTokenToCell as moveTokenToCellState,
+  resolveDragComplete,
   validateTokenMove as validateTokenMoveState
 } from '/packages/vtt-ui-shared/src/index.js';
 
@@ -3298,10 +3301,15 @@ import {
     const m = getMousePos(e);
     const world = screenToWorld(m.x, m.y);
     const hit = tokenHitTest(world.x, world.y);
-    if (!hit) return;
+    const menuTarget = computeCanvasContextMenuTarget({
+      hit,
+      clientX: e.clientX,
+      clientY: e.clientY
+    });
+    if (!menuTarget.openMenu) return;
     e.preventDefault();
-    setCurrentTurnTokenId(hit.id);
-    openTokenContextMenu(hit.id, e.clientX, e.clientY);
+    setCurrentTurnTokenId(menuTarget.tokenId);
+    openTokenContextMenu(menuTarget.tokenId, menuTarget.clientX, menuTarget.clientY);
   });
 
   canvas.addEventListener('mousedown', (e) => {
@@ -3311,18 +3319,24 @@ import {
 
     const world = screenToWorld(m.x, m.y);
     const hit = tokenHitTest(world.x, world.y);
-    const wantMultiSelect = (e.metaKey || e.ctrlKey) && hit && isAiControllableToken(hit, state.aiControls);
+    const mouseIntent = computeCanvasMouseDownIntent({
+      button: e.button,
+      hit,
+      metaKey: e.metaKey,
+      ctrlKey: e.ctrlKey,
+      isAiControllableToken: !!hit && isAiControllableToken(hit, state.aiControls),
+      spaceDown: state.spaceDown,
+      dragMode: state.dragMode,
+      calibrationActive: calibrationState.active
+    });
 
-    const isMiddle = e.button === 1;
-    const wantPan = state.spaceDown || isMiddle;
-
-    if (calibrationState.active && e.button === 0 && !wantPan) {
+    if (mouseIntent.type === 'calibration-click') {
       handleCalibrationClick(world);
       return;
     }
 
-    if (wantMultiSelect && !wantPan) {
-      toggleTokenSelection(hit.id);
+    if (mouseIntent.type === 'toggle-selection') {
+      toggleTokenSelection(mouseIntent.tokenId);
       draw();
       renderTokenList();
       syncTokenSelectionUi();
@@ -3330,8 +3344,8 @@ import {
       return;
     }
 
-    if (hit && !wantPan && state.dragMode === 'tokens') {
-      setCurrentTurnTokenId(hit.id);
+    if (mouseIntent.type === 'drag-token') {
+      setCurrentTurnTokenId(mouseIntent.tokenId);
       state.draggingToken = hit;
       state.dragOffset.x = world.x - hit.x;
       state.dragOffset.y = world.y - hit.y;
@@ -3339,7 +3353,7 @@ import {
       return;
     }
 
-    if (!wantPan && state.dragMode === 'map') {
+    if (mouseIntent.type === 'drag-map') {
       state.draggingMap = true;
       return;
     }
@@ -3363,15 +3377,20 @@ import {
       const t = state.draggingToken;
       const targetCell = gridCoords(t);
       const result = moveTokenToCell(t, targetCell, { source: 'Drag' });
+      const dragOutcome = resolveDragComplete({
+        result,
+        token: t,
+        targetCell,
+        fallbackCell: state.dragOriginCell || gridCoords(t)
+      });
       clearAiPaths();
-      if (!result.ok) {
-        const fallback = state.dragOriginCell || gridCoords(t);
-        const snapped = centerFromGridCell(fallback.x, fallback.y, t.sizeCells);
+      if (!dragOutcome.ok) {
+        const snapped = centerFromGridCell(dragOutcome.resetToCell.x, dragOutcome.resetToCell.y, t.sizeCells);
         t.x = snapped.x;
         t.y = snapped.y;
-        pushLog(`Move cancelled: ${result.reason}`);
+        pushLog(dragOutcome.logMessage);
       } else {
-        pushLog(`Moved ${t.name} -> (${targetCell.x},${targetCell.y})`);
+        pushLog(dragOutcome.logMessage);
       }
       state.draggingToken = null;
       state.dragOriginCell = null;

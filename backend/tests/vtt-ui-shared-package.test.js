@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  computeCanvasContextMenuTarget,
+  computeCanvasMouseDownIntent,
   computeAiGroupAssignment,
   computeAiControlsState,
   computeCurrentTurnSelectionState,
@@ -17,6 +19,7 @@ import {
   getVttUiSharedStatus,
   moveTokenToCell,
   renderOssVttShell,
+  resolveDragComplete,
   resolveAiStrategyIdForSelection,
   validateTokenMove
 } from '../../packages/vtt-ui-shared/src/index.js';
@@ -359,6 +362,99 @@ test('shared VTT runtime helpers orchestrate group assignment and token-list int
     {
       type: 'set-current-turn',
       tokenId: 'm2'
+    }
+  );
+});
+
+test('shared VTT runtime helpers orchestrate canvas context menus, mouse down intent, and drag completion', () => {
+  assert.deepEqual(
+    computeCanvasContextMenuTarget({
+      hit: { id: 'm1' },
+      clientX: 120,
+      clientY: 220
+    }),
+    {
+      openMenu: true,
+      tokenId: 'm1',
+      clientX: 120,
+      clientY: 220
+    }
+  );
+
+  assert.deepEqual(
+    computeCanvasContextMenuTarget({ hit: null, clientX: 10, clientY: 20 }),
+    { openMenu: false }
+  );
+
+  assert.deepEqual(
+    computeCanvasMouseDownIntent({
+      button: 0,
+      hit: { id: 'm1' },
+      metaKey: true,
+      ctrlKey: false,
+      isAiControllableToken: true,
+      spaceDown: false,
+      dragMode: 'tokens',
+      calibrationActive: false
+    }),
+    { type: 'toggle-selection', tokenId: 'm1' }
+  );
+
+  assert.deepEqual(
+    computeCanvasMouseDownIntent({
+      button: 0,
+      hit: { id: 'm1' },
+      metaKey: false,
+      ctrlKey: false,
+      isAiControllableToken: true,
+      spaceDown: false,
+      dragMode: 'tokens',
+      calibrationActive: false
+    }),
+    { type: 'drag-token', tokenId: 'm1' }
+  );
+
+  assert.deepEqual(
+    computeCanvasMouseDownIntent({
+      button: 1,
+      hit: null,
+      metaKey: false,
+      ctrlKey: false,
+      isAiControllableToken: false,
+      spaceDown: false,
+      dragMode: 'tokens',
+      calibrationActive: false
+    }),
+    { type: 'pan-stage' }
+  );
+
+  assert.deepEqual(
+    resolveDragComplete({
+      result: { ok: false, reason: 'Blocked path.' },
+      token: { id: 'm1', name: 'Ghoul' },
+      targetCell: { x: 4, y: 4 },
+      fallbackCell: { x: 2, y: 2 }
+    }),
+    {
+      ok: false,
+      tokenId: 'm1',
+      resetToCell: { x: 2, y: 2 },
+      logMessage: 'Move cancelled: Blocked path.'
+    }
+  );
+
+  assert.deepEqual(
+    resolveDragComplete({
+      result: { ok: true },
+      token: { id: 'm1', name: 'Ghoul' },
+      targetCell: { x: 4, y: 4 },
+      fallbackCell: { x: 2, y: 2 }
+    }),
+    {
+      ok: true,
+      tokenId: 'm1',
+      movedToCell: { x: 4, y: 4 },
+      logMessage: 'Moved Ghoul -> (4,4)'
     }
   );
 });
