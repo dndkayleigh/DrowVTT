@@ -186,9 +186,9 @@ This runs the benchmark scenario packet suite without starting Playwright.
 
 The `Tactics Director` settings panel now exposes three AI modes:
 
-- `Balanced`: `gpt-5` with the `compact_moves5` packet. This is the default and the best overall tactical benchmark option.
-- `Full`: `gpt-5` with the `full` packet. Use this as the highest-context fallback.
-- `Fast`: `gpt-5.4-mini` with the `compact_moves5` packet. Use this when responsiveness matters more than matching the strongest tactical baseline.
+- `Single (Fast)`: `gpt-5.4-mini` with the `compact_moves5` packet. Use this when responsiveness matters more than matching the strongest tactical baseline.
+- `Single (Tactical)`: `gpt-5` with the `full` packet. This is the default and the strongest single-monster tactical read.
+- `Group (Tactical)`: `gpt-5` with the `full` packet. This keeps the strongest tactical read for coordinated group turns too.
 
 The backend resolves these modes server-side, and the response timing block includes the selected strategy and packet variant.
 

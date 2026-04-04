@@ -970,7 +970,7 @@
       <summary>
         <span class="drawerSummaryLabel">
           <span>Tactics Director</span>
-          <span class="drawerModeBadge" id="aiStrategyBadge">Balanced</span>
+          <span class="drawerModeBadge" id="aiStrategyBadge">Single (Tactical)</span>
         </span>
       </summary>
       <div class="drawerContent">
@@ -1012,9 +1012,9 @@
             <div style="margin-top:8px;">
               <label>AI Mode</label>
               <select id="aiStrategy">
-                <option value="balanced">Balanced</option>
-                <option value="full">Full</option>
-                <option value="fast">Fast</option>
+                <option value="single_fast">Single (Fast)</option>
+                <option value="single_tactical">Single (Tactical)</option>
+                <option value="group_tactical">Group (Tactical)</option>
               </select>
               <div class="sectionNote" id="aiStrategyHint" style="margin-top:8px;"></div>
             </div>
@@ -3175,6 +3175,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     switch (variantId) {
       case 'full':
         return 'the full tactical packet';
+      case 'full_moves5_attacks6':
+        return 'a full tactical packet with constrained move and attack options';
       case 'compact_moves5':
         return 'a compact packet with the top 5 legal move options';
       case 'compact_moves5_attacks6':
@@ -3188,6 +3190,8 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     switch (variantId) {
       case 'full':
         return 'This includes the full board summary, occupied spaces, and the active creature\'s full statblock for maximum context.';
+      case 'full_moves5_attacks6':
+        return 'This keeps the high-context tactical packet while trimming move and attack choices to a short list, which is a better fit for coordinated group turns.';
       case 'compact_moves5':
         return 'This trims the prompt by listing only the five strongest legal move destinations instead of every possible move, which usually improves response time without losing the main tactical options.';
       case 'compact_moves5_attacks6':
@@ -3205,6 +3209,18 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     aiStrategyBadge.title = `${strategy.label}: ${strategy.description}`;
     aiStrategyHint.textContent =
       `${strategy.description} Uses ${strategy.model} with ${describePacketVariant(strategy.packetVariant)}. ${explainPacketVariant(strategy.packetVariant)}`;
+  }
+
+  function getAiProgressMessage(strategy) {
+    switch (strategy?.id) {
+      case 'single_fast':
+        return 'Running a quick single-monster turn...';
+      case 'group_tactical':
+        return 'Coordinating the selected group...';
+      case 'single_tactical':
+      default:
+        return 'Choosing the best move for this monster...';
+    }
   }
 
   function buildAiTurnPacketFull() {
@@ -3401,7 +3417,7 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     // Payload size (helps diagnose slowness)
     pushLog(`Payload bytes: ${body.length}`);
 
-    status.textContent = "Sending…";
+    status.textContent = getAiProgressMessage(strategy);
 
     // Correlate logs between browser + server
     const reqId = (crypto.randomUUID?.() || String(Date.now()));
