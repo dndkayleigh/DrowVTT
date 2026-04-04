@@ -44,6 +44,7 @@ export function createVttServerApp(options = {}) {
 
   app.use('/maps', express.static(path.join(repoRoot, 'maps')));
   app.use('/data', express.static(path.join(repoRoot, 'data')));
+  app.use('/packages', express.static(path.join(repoRoot, 'packages')));
   app.get('/', (_req, res) => {
     res.sendFile(path.join(repoRoot, 'index.html'));
   });

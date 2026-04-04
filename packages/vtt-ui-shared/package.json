@@ -8,6 +8,7 @@
     ".": "./src/index.js",
     "./ai-selection-utils": "./src/ai-selection-utils.js",
     "./ai-turn-strategy-utils": "./src/ai-turn-strategy-utils.js",
-    "./ai-turn-packet-utils": "./src/ai-turn-packet-utils.js"
+    "./ai-turn-packet-utils": "./src/ai-turn-packet-utils.js",
+    "./vtt-shell.css": "./src/vtt-shell.css"
   }
 }

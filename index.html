@@ -4,104 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Web VTT Prototype (Grid + Tokens + AI Turn Export + Map Align)</title>
+  <link rel="stylesheet" href="/packages/vtt-ui-shared/src/vtt-shell.css" />
   <style>
-    :root{
-      --bg:#0b0f19;--panel:#121a2a;--panel2:#0f1524;--text:#e7eefc;--muted:#9fb1d1;
-      --accent:#5aa9ff;--danger:#ff5a7a;--grid:rgba(180,210,255,.25);--grid-bold:rgba(180,210,255,.38);
-      --surface:rgba(15,21,36,.75);--surface-soft:rgba(8,12,22,.38);--line:rgba(110,150,210,.14);
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-      color:var(--text);
-      background:linear-gradient(180deg,#070a12,#0b0f19 35%,#060812);
-      height:100vh;overflow:hidden;
-    }
-    .app{display:grid;grid-template-columns:380px 1fr;height:100vh;gap:10px;padding:10px}
-    .sidebar{
-      background:rgba(18,26,42,.86);
-      border:1px solid rgba(110,150,210,.18);
-      border-radius:14px;padding:10px;overflow:auto;
-      box-shadow:0 8px 24px rgba(0,0,0,.28);
-    }
-    .stageWrap{
-      background:rgba(18,26,42,.45);
-      border:1px solid rgba(110,150,210,.18);
-      border-radius:14px;overflow:hidden;position:relative;
-      box-shadow:0 8px 24px rgba(0,0,0,.28);
-    }
-    .topbar{
-      position:absolute;
-      top:12px;
-      left:12px;
-      right:12px;
-      z-index:6;
-      display:flex;
-      gap:8px;
-      align-items:center;
-      flex-wrap:wrap;
-      padding:10px 12px;
-      border:1px solid rgba(160,200,255,.16);
-      border-radius:16px;
-      background:linear-gradient(180deg,rgba(10,16,28,.56),rgba(10,16,28,.34));
-      backdrop-filter:blur(10px);
-      -webkit-backdrop-filter:blur(10px);
-      box-shadow:0 10px 30px rgba(0,0,0,.18);
-      pointer-events:none;
-    }
-    .topbar .hint{color:rgba(231,238,252,.82);font-size:12px}
-    .topbar[hidden]{display:none}
-    .miniField{
-      display:grid;
-      gap:4px;
-      min-width:84px;
-    }
-    .miniField label{
-      font-size:10px;
-      margin-bottom:0;
-      text-transform:uppercase;
-      letter-spacing:.08em;
-    }
-    .miniField input,.miniField select{
-      padding:7px 8px;
-      font-size:12px;
-    }
     canvas{display:block;width:100%;height:100%;min-height:320px;background:#081022;cursor:grab}
     canvas.dragging{cursor:grabbing}
     canvas.calibrating{cursor:crosshair}
-    h2{margin:6px 0 8px;font-size:14px;letter-spacing:.2px;color:#eaf2ff}
-    .card{
-      background:var(--surface);
-      border:1px solid var(--line);
-      border-radius:12px;padding:9px;margin-bottom:8px;
-    }
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .row[hidden]{display:none !important}
-    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
-    input[type="text"],input[type="number"],textarea,select{
-      width:100%;border-radius:10px;border:1px solid rgba(110,150,210,.20);
-      padding:9px 10px;background:rgba(8,12,22,.75);color:var(--text);outline:none;
-    }
-    textarea{min-height:120px;resize:vertical}
-    .btnbar{display:flex;gap:8px;flex-wrap:wrap}
-    button{
-      border:1px solid rgba(110,150,210,.20);
-      background:rgba(10,18,35,.85);
-      color:var(--text);padding:9px 10px;border-radius:10px;cursor:pointer;
-      font-weight:600;font-size:12px;
-    }
-    button:hover{border-color:rgba(110,150,210,.35)}
-    button.primary{background:rgba(90,169,255,.18);border-color:rgba(90,169,255,.35)}
-    button.danger{background:rgba(255,90,122,.12);border-color:rgba(255,90,122,.35)}
-    .small{font-size:12px;color:var(--muted);line-height:1.35}
-    .sectionNote{font-size:11px;color:var(--muted);line-height:1.35;margin-top:8px}
     .stack{display:grid;gap:8px}
-    .subcard{
-      background:var(--surface-soft);
-      border:1px solid var(--line);
-      border-radius:12px;
-      padding:8px;
-    }
     .mapControlsGrid{
       display:grid;
       gap:10px;
@@ -162,32 +70,6 @@
     }
     .nudgeButtons button{
       padding:10px 0;
-    }
-    .panelSection{margin-bottom:8px}
-    .panelSection summary{
-      list-style:none;
-      cursor:pointer;
-      user-select:none;
-      margin:0 0 6px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .panelSection summary::-webkit-details-marker{display:none}
-    .panelSection summary::before{
-      content:"+";
-      width:18px;height:18px;
-      display:inline-flex;align-items:center;justify-content:center;
-      border-radius:999px;border:1px solid var(--line);
-      background:var(--surface-soft);color:var(--muted);font-size:12px;
-      flex:0 0 auto;
-    }
-    .panelSection[open] summary::before{content:"-"}
-    .panelSection summary h2{margin:0}
-    .compactRow{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
     }
     .tokenFormRow{
       display:grid;
