@@ -270,6 +270,14 @@ test('shared shell typography keeps the default OSS VTT font scale', async ({ pa
   expect(typography.drawerSummaryFontSize).toBe('12px');
 });
 
+test('starter board seeds Aria and Goblin A by default', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.locator('#tokenList')).toContainText('Aria');
+  await expect(page.locator('#tokenList')).toContainText('Goblin A');
+  await expect(page.locator('#tokenList .tokRow')).toHaveCount(2);
+});
+
 test('AI drawer tabs open one panel at a time and clicking the active tab collapses back to compact mode', async ({ page }) => {
   await openDetails(page, '#aiDrawer');
 
