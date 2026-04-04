@@ -49,6 +49,8 @@ Use the `AI controls` selector to choose one of these:
 
 This controls which tokens are valid for AI turn selection and grouping.
 
+![Board setup with AI controls set to Monsters and the Tactics Director settings open](screenshots/tutorial/tutorial-board-setup.png)
+
 ## 5. Run a single-monster turn
 
 ### Single (Fast)
@@ -79,6 +81,8 @@ How to use it:
 
 This mode is slower than `Single (Fast)`, and the UI surfaces progress text while the model is working.
 
+![Single Tactical mode focused on one goblin turn](screenshots/tutorial/tutorial-single-tactical.png)
+
 ## 6. Run a grouped monster turn
 
 Use `Group (Tactical)` for a coordinated turn across multiple AI-controlled monsters.
@@ -102,6 +106,8 @@ Use `Group (Tactical)` for a coordinated turn across multiple AI-controlled mons
 - Clicking a PC or other non-AI-controlled token clears the active monster group.
 - `Ctrl`/`Cmd`-click adds or removes monsters from the active group.
 - Group turns can apply movement traces for multiple monsters in the same response.
+
+![Group Tactical mode with multiple goblins selected as one active group](screenshots/tutorial/tutorial-group-tactical.png)
 
 ## 7. Read the result
 
