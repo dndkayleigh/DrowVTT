@@ -5,12 +5,13 @@ import {
   DEFAULT_AI_TURN_STRATEGY_ID,
   getAiTurnStrategy,
   getVttUiSharedStatus,
+  renderOssVttShell,
   resolveAiStrategyIdForSelection
 } from '../../packages/vtt-ui-shared/src/index.js';
 
 test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.deepEqual(getVttUiSharedStatus(), {
-    phase: 'initial-tactical-modules',
+    phase: 'shell-markup-and-tactical-modules',
     sourceOfTruth: 'oss',
     intendedConsumers: ['oss', 'saas']
   });
@@ -18,4 +19,6 @@ test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.equal(DEFAULT_AI_TURN_STRATEGY_ID, 'single_tactical');
   assert.equal(getAiTurnStrategy('group_tactical')?.model, 'gpt-5');
   assert.equal(resolveAiStrategyIdForSelection('single_fast', ['a', 'b']), 'group_tactical');
+  assert.match(renderOssVttShell(), /<div class="app">/);
+  assert.match(renderOssVttShell(), /id="aiDrawer"/);
 });
