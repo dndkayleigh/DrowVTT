@@ -586,6 +586,12 @@ import { createLocalUsageTrackingAdapter } from '/data/local-usage-tracking-adap
 import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/data/board-state-utils.mjs';
 import { normalizeSlotName } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
+import {
+  buildTokenContextMenuState,
+  buildTokenSelectionNote,
+  moveTokenToCell as moveTokenToCellState,
+  validateTokenMove as validateTokenMoveState
+} from '/packages/vtt-ui-shared/src/index.js';
 
 (() => {
   const canvas = document.getElementById('stage');
@@ -820,18 +826,12 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   }
 
   function syncTokenSelectionUi() {
-    const selectedCount = state.selectedTokenIds.length;
-    const groupIds = getAiGroupTokenIds();
-    const groupCount = groupIds.length;
-    const strategyId = getSelectedAiStrategyId();
-    const strategyLabel = getSelectedAiStrategy()?.label || 'Single (Tactical)';
-    if (strategyId === 'group_tactical') {
-      tokenSelectionNote.textContent = groupCount
-        ? `${strategyLabel} will use ${groupCount} grouped AI-controlled token${groupCount === 1 ? '' : 's'}. Use Pick or ctrl/cmd-click eligible tokens, then click Set Group From Selection.`
-        : `${strategyLabel} needs an explicit AI-controlled group. Use Pick or ctrl/cmd-click eligible rows, then click Set Group From Selection.`;
-    } else {
-      tokenSelectionNote.textContent = `${strategyLabel} uses exactly one selected monster. Current selection: ${selectedCount || 0}.`;
-    }
+    tokenSelectionNote.textContent = buildTokenSelectionNote({
+      strategyId: getSelectedAiStrategyId(),
+      strategyLabel: getSelectedAiStrategy()?.label || 'Single (Tactical)',
+      selectedCount: state.selectedTokenIds.length,
+      groupCount: getAiGroupTokenIds().length
+    });
   }
 
   function normalizeTokenArt(art = {}) {
@@ -1509,14 +1509,6 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
     return Math.max(1, Math.ceil(feet / 5));
   }
 
-  function tokenSide(token) {
-    return token?.type === 'Monster' ? 'monsters' : 'friendlies';
-  }
-
-  function areFriendlyTokens(a, b) {
-    return tokenSide(a) === tokenSide(b);
-  }
-
   function pathCellsBetween(fromCell, toCell) {
     const steps = [];
     let x = fromCell.x;
@@ -1534,63 +1526,25 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
   }
 
   function validateTokenMove(token, toCell, options = {}) {
-    const { ignoreSpeed = false, source = 'move' } = options;
-    if (!token) return { ok: false, reason: 'Unknown token.' };
-    if (!isTokenControlledThisTurn(token)) {
-      return { ok: false, reason: `${token.name} cannot move because it is not the current turn token.` };
-    }
-
-    const fromCell = gridCoords(token);
-    const maxCells = Math.floor((Number(token.speed) || 0) / 5);
-    const distanceCells = chebyshevDistanceCells(fromCell, toCell);
-    if (!ignoreSpeed && distanceCells > maxCells) {
-      return {
-        ok: false,
-        reason: `${token.name} cannot move to (${toCell.x},${toCell.y}); speed ${token.speed} ft allows ${maxCells} cells, not ${distanceCells}.`
-      };
-    }
-
-    for (const other of state.tokens) {
-      if (other.id === token.id) continue;
-      const otherCell = gridCoords(other);
-      const occupied = new Set(
-        cellsOccupiedAt(otherCell.x, otherCell.y, other.sizeCells).map((cell) => `${cell.x},${cell.y}`)
-      );
-      const path = pathCellsBetween(fromCell, toCell);
-      for (let i = 0; i < path.length; i++) {
-        const step = path[i];
-        const isFinalStep = i === path.length - 1;
-        const stepCells = cellsOccupiedAt(step.x, step.y, token.sizeCells);
-        const blockedCell = stepCells.find((cell) => occupied.has(`${cell.x},${cell.y}`));
-        if (!blockedCell) continue;
-
-        if (isFinalStep || !areFriendlyTokens(token, other)) {
-          return {
-            ok: false,
-            reason: isFinalStep
-              ? `${token.name} cannot move to (${toCell.x},${toCell.y}); space is occupied by ${other.name}.`
-              : `${token.name} cannot pass through ${other.name}.`
-          };
-        }
-      }
-    }
-
-    return { ok: true, fromCell, toCell, distanceCells, source };
+    return validateTokenMoveState({
+      token,
+      toCell,
+      tokens: state.tokens,
+      isTokenControlledThisTurn,
+      gridCoords,
+      chebyshevDistanceCells,
+      cellsOccupiedAt
+    }, options);
   }
 
   function moveTokenToCell(token, cell, options = {}) {
-    const result = validateTokenMove(token, cell, options);
-    if (!result.ok) return result;
-    const snapped = centerFromGridCell(cell.x, cell.y, token.sizeCells);
-    token.x = snapped.x;
-    token.y = snapped.y;
-    publishBoardEvent('token.moved', {
-      tokenId: token.id,
-      name: token.name,
-      toCell: { x: cell.x, y: cell.y },
-      source: options.source || 'move'
-    });
-    return result;
+    return moveTokenToCellState({
+      token,
+      cell,
+      validateMove: validateTokenMove,
+      centerFromGridCell,
+      onMoved: (payload) => publishBoardEvent('token.moved', payload)
+    }, options);
   }
 
   function validateAction(a) {
@@ -2624,17 +2578,19 @@ import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } fro
 
   function openTokenContextMenu(tokenId, clientX, clientY) {
     const token = getTokenById(tokenId);
-    if (!token) return;
-    state.contextMenuTokenId = token.id;
-    menuAddArt.textContent = token.art?.src ? 'Edit art' : 'Add art';
-    menuClearArt.disabled = !token.art?.src;
+    const menuState = buildTokenContextMenuState(token, {
+      clientX,
+      clientY,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight
+    });
+    if (!menuState) return;
+    state.contextMenuTokenId = menuState.tokenId;
+    menuAddArt.textContent = menuState.addArtLabel;
+    menuClearArt.disabled = menuState.clearArtDisabled;
     tokenContextMenu.hidden = false;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const menuWidth = 190;
-    const menuHeight = 92;
-    tokenContextMenu.style.left = `${Math.max(10, Math.min(clientX, viewportWidth - menuWidth - 10))}px`;
-    tokenContextMenu.style.top = `${Math.max(10, Math.min(clientY, viewportHeight - menuHeight - 10))}px`;
+    tokenContextMenu.style.left = `${menuState.left}px`;
+    tokenContextMenu.style.top = `${menuState.top}px`;
   }
 
   function closeTokenArtEditor() {

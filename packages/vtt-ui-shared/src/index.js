@@ -1,5 +1,5 @@
 export const VTT_UI_SHARED_STATUS = {
-  phase: 'shell-markup-and-tactical-modules',
+  phase: 'shell-markup-tactical-and-runtime-modules',
   sourceOfTruth: 'oss',
   intendedConsumers: ['oss', 'saas']
 };
@@ -12,3 +12,4 @@ export * from './ai-selection-utils.js';
 export * from './ai-turn-strategy-utils.js';
 export * from './ai-turn-packet-utils.js';
 export * from './render-oss-vtt-shell.js';
+export * from './vtt-runtime-utils.js';

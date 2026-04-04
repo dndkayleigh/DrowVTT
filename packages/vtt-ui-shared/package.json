@@ -10,6 +10,7 @@
     "./ai-turn-strategy-utils": "./src/ai-turn-strategy-utils.js",
     "./ai-turn-packet-utils": "./src/ai-turn-packet-utils.js",
     "./render-oss-vtt-shell": "./src/render-oss-vtt-shell.js",
+    "./vtt-runtime-utils": "./src/vtt-runtime-utils.js",
     "./vtt-shell.css": "./src/vtt-shell.css"
   }
 }
