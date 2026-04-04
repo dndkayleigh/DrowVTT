@@ -50,22 +50,44 @@ async function dragNamedTokenToTopLeftCell(page, { name, cellX, cellY }) {
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas bounding box unavailable');
 
-  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
-  const token = snapshot.state.tokens.find((entry) => entry.name === name);
-  if (!token) throw new Error(`Missing token: ${name}`);
-  const { zoom, panX, panY } = snapshot.state.view;
+  const points = await page.evaluate(({ name, cellX, cellY }) => {
+    const snapshot = window.__VTT_DEBUG__.getBoardSnapshot();
+    const token = snapshot.state.tokens.find((entry) => entry.name === name);
+    if (!token) return null;
+    const start = window.__VTT_DEBUG__.getTokenInteractionPoint(token.id);
+    const gridSize = snapshot.state.gridSize || 64;
+    const endWorldX = gridSize * (cellX + (token.sizeCells / 2));
+    const endWorldY = gridSize * (cellY + (token.sizeCells / 2));
+    const { zoom, panX, panY } = snapshot.state.view;
+    return {
+      startX: start?.x,
+      startY: start?.y,
+      endX: (endWorldX * zoom) + panX,
+      endY: (endWorldY * zoom) + panY
+    };
+  }, { name, cellX, cellY });
+  if (!points) throw new Error(`Missing token: ${name}`);
 
-  const startX = box.x + (token.x * zoom) + panX;
-  const startY = box.y + (token.y * zoom) + panY;
-  const endWorldX = 64 * (cellX + (token.sizeCells / 2));
-  const endWorldY = 64 * (cellY + (token.sizeCells / 2));
-  const endX = box.x + (endWorldX * zoom) + panX;
-  const endY = box.y + (endWorldY * zoom) + panY;
+  await page.mouse.move(box.x + points.startX, box.y + points.startY);
+  await page.mouse.down();
+  await page.mouse.move(box.x + points.endX, box.y + points.endY, { steps: 12 });
+  await page.mouse.up();
+}
 
+async function panStageWithSpace(page, { dx = 96, dy = 48 } = {}) {
+  const canvas = page.locator('#stage');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box unavailable');
+
+  const startX = box.x + box.width - 120;
+  const startY = box.y + box.height - 120;
+
+  await page.keyboard.down('Space');
   await page.mouse.move(startX, startY);
   await page.mouse.down();
-  await page.mouse.move(endX, endY, { steps: 12 });
+  await page.mouse.move(startX + dx, startY + dy, { steps: 10 });
   await page.mouse.up();
+  await page.keyboard.up('Space');
 }
 
 async function expectTokenCell(page, name, x, y) {
@@ -140,25 +162,33 @@ async function clickStageWorld(page, worldX, worldY) {
 }
 
 async function rightClickTokenOnStage(page, name) {
-  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
-  const token = snapshot.state.tokens.find((entry) => entry.name === name);
-  if (!token) throw new Error(`Missing token: ${name}`);
   const canvas = page.locator('#stage');
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas bounding box unavailable');
-  const { zoom, panX, panY } = snapshot.state.view;
-  const clientX = box.x + (token.x * zoom) + panX;
-  const clientY = box.y + (token.y * zoom) + panY;
+  const point = await page.evaluate((name) => {
+    const snapshot = window.__VTT_DEBUG__.getBoardSnapshot();
+    const token = snapshot.state.tokens.find((entry) => entry.name === name);
+    return token ? window.__VTT_DEBUG__.getTokenInteractionPoint(token.id) : null;
+  }, name);
+  if (!point) throw new Error(`Missing token: ${name}`);
+  const clientX = box.x + point.x;
+  const clientY = box.y + point.y;
   await page.mouse.click(clientX, clientY, { button: 'right' });
 }
 
 async function clickTokenOnStage(page, name, modifiers = []) {
-  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
-  const token = snapshot.state.tokens.find((entry) => entry.name === name);
-  if (!token) throw new Error(`Missing token: ${name}`);
+  const point = await page.evaluate((name) => {
+    const snapshot = window.__VTT_DEBUG__.getBoardSnapshot();
+    const token = snapshot.state.tokens.find((entry) => entry.name === name);
+    return token ? window.__VTT_DEBUG__.getTokenInteractionPoint(token.id) : null;
+  }, name);
+  if (!point) throw new Error(`Missing token: ${name}`);
   const keys = Array.isArray(modifiers) ? modifiers : [modifiers];
   for (const key of keys) await page.keyboard.down(key);
-  await clickStageWorld(page, token.x, token.y);
+  const canvas = page.locator('#stage');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box unavailable');
+  await page.mouse.click(box.x + point.x, box.y + point.y);
   for (const key of [...keys].reverse()) await page.keyboard.up(key);
 }
 
@@ -335,12 +365,117 @@ test('tokens, turn, and save panels use the expected OSS control typography', as
   expect(panelTypography.saveButton?.borderRadius).toBe('10px');
 });
 
+test('map and grid panel uses the expected OSS control typography', async ({ page }) => {
+  await openDetails(page, '#mapSection');
+
+  const mapTypography = await page.evaluate(() => {
+    const pick = (selector) => {
+      const el = document.querySelector(selector);
+      if (!el) return null;
+      const style = window.getComputedStyle(el);
+      return {
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        paddingTop: style.paddingTop,
+        paddingRight: style.paddingRight,
+        borderRadius: style.borderRadius,
+        color: style.color,
+        backgroundColor: style.backgroundColor
+      };
+    };
+
+    return {
+      heading: pick('#mapSection summary h2'),
+      label: pick('#mapSection label'),
+      note: pick('#mapSection .sectionNote'),
+      fileTrigger: pick('#mapSection .fileTrigger'),
+      fileMeta: pick('#mapSection .fileMeta'),
+      boardButton: pick('#fitMap'),
+      dragButton: pick('#dragModeBtn'),
+      calibrationButton: pick('#startCalibrationBtn'),
+      checkLabel: pick('#mapSection .checkRow label'),
+      checkbox: (() => {
+        const el = document.querySelector('#showBoardStatus');
+        if (!el) return null;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return {
+          width: rect.width,
+          height: rect.height,
+          transform: style.transform,
+          marginTop: style.marginTop,
+          marginRight: style.marginRight
+        };
+      })(),
+      gridInput: pick('#calibrationGridSize'),
+      offsetInput: pick('#horizontalNudgePx'),
+      mapPill: pick('#mapPill')
+    };
+  });
+
+  if (!mapTypography) throw new Error('Map panel typography styles unavailable');
+  expect(mapTypography.heading?.fontSize).toBe('14px');
+  expect(mapTypography.label?.fontSize).toBe('12px');
+  expect(mapTypography.label?.color).toBe('rgb(159, 177, 209)');
+  expect(mapTypography.note?.fontSize).toBe('11px');
+  expect(mapTypography.note?.color).toBe('rgb(159, 177, 209)');
+  expect(mapTypography.fileTrigger?.fontSize).toBe('12px');
+  expect(mapTypography.fileTrigger?.fontWeight).toBe('600');
+  expect(mapTypography.fileMeta?.fontSize).toBe('11px');
+  expect(mapTypography.fileMeta?.color).toBe('rgb(159, 177, 209)');
+  expect(mapTypography.boardButton?.fontFamily).toBe('Arial');
+  expect(mapTypography.boardButton?.fontSize).toBe('12px');
+  expect(mapTypography.boardButton?.fontWeight).toBe('600');
+  expect(mapTypography.boardButton?.paddingTop).toBe('9px');
+  expect(mapTypography.boardButton?.paddingRight).toBe('10px');
+  expect(mapTypography.boardButton?.borderRadius).toBe('10px');
+  expect(mapTypography.dragButton?.fontFamily).toBe('Arial');
+  expect(mapTypography.dragButton?.fontSize).toBe('12px');
+  expect(mapTypography.calibrationButton?.fontFamily).toBe('Arial');
+  expect(mapTypography.calibrationButton?.fontSize).toBe('12px');
+  expect(mapTypography.checkLabel?.fontSize).toBe('12px');
+  expect(mapTypography.checkLabel?.color).toBe('rgb(159, 177, 209)');
+  expect(mapTypography.checkbox?.width).toBeGreaterThan(14);
+  expect(mapTypography.checkbox?.width).toBeLessThan(15);
+  expect(mapTypography.checkbox?.height).toBeGreaterThan(14);
+  expect(mapTypography.checkbox?.height).toBeLessThan(15);
+  expect(mapTypography.checkbox?.transform).toContain('matrix(1.1');
+  expect(mapTypography.gridInput?.fontFamily).toBe('Arial');
+  expect(mapTypography.gridInput?.fontSize).toBe('13.3333px');
+  expect(mapTypography.offsetInput?.fontFamily).toBe('Arial');
+  expect(mapTypography.offsetInput?.fontSize).toBe('13.3333px');
+  expect(mapTypography.mapPill?.fontSize).toBe('12px');
+});
+
+test('space + left drag pans the stage', async ({ page }) => {
+  await expect(page.locator('#viewPill')).toContainText('Pan: (0,0)');
+  await panStageWithSpace(page, { dx: 120, dy: 60 });
+  await expect(page.locator('#viewPill')).not.toContainText('Pan: (0,0)');
+});
+
 test('starter board seeds Aria and Goblin A by default', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.locator('#tokenList')).toContainText('Aria');
   await expect(page.locator('#tokenList')).toContainText('Goblin A');
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(2);
+});
+
+test('starter board uses center snap mode and centered world anchors', async ({ page }) => {
+  await addToken(page, { name: 'Aria', size: 1, type: 'PC' });
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Aria', cellX: 1, cellY: 1 });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Goblin A', cellX: 0, cellY: 0 });
+
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  const aria = snapshot.state.tokens.find((token) => token.name === 'Aria');
+  const goblin = snapshot.state.tokens.find((token) => token.name === 'Goblin A');
+
+  expect(snapshot.state.snapMode).toBe('center');
+  expect(snapshot.state.gridSize).toBe(64);
+  expect(aria).toMatchObject({ x: 96, y: 96 });
+  expect(goblin).toMatchObject({ x: 32, y: 32 });
 });
 
 test('AI drawer tabs open one panel at a time and clicking the active tab collapses back to compact mode', async ({ page }) => {
@@ -485,6 +620,73 @@ test('1x1 tokens snap to the center of a single tile', async ({ page }) => {
   await addToken(page, { name: 'Scout', size: 1 });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 5, cellY: 2 });
   await expectTokenCell(page, 'Scout', 5, 2);
+});
+
+test('1x1 tokens render at the center of their occupied tile', async ({ page }) => {
+  await addToken(page, { name: 'Centered Scout', size: 1 });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 5, cellY: 2 });
+
+  const renderPoint = await page.evaluate(() => {
+    const snapshot = window.__VTT_DEBUG__.getBoardSnapshot();
+    const token = snapshot.state.tokens.find((entry) => entry.name === 'Centered Scout');
+    return token ? window.__VTT_DEBUG__.getTokenRenderPoint(token.id) : null;
+  });
+
+  expect(renderPoint).not.toBeNull();
+  expect(renderPoint.x).toBe(64 * 5.5);
+  expect(renderPoint.y).toBe(64 * 2.5);
+});
+
+test('1x1 token interaction point stays aligned with the rendered token center', async ({ page }) => {
+  await addToken(page, { name: 'Aligned Scout', size: 1 });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 4, cellY: 3 });
+
+  const points = await page.evaluate(() => {
+    const snapshot = window.__VTT_DEBUG__.getBoardSnapshot();
+    const token = snapshot.state.tokens.find((entry) => entry.name === 'Aligned Scout');
+    if (!token) return null;
+    return {
+      interaction: window.__VTT_DEBUG__.getTokenInteractionPoint(token.id),
+      render: window.__VTT_DEBUG__.getTokenRenderPoint(token.id)
+    };
+  });
+
+  expect(points).not.toBeNull();
+  expect(points.interaction.x).toBe(points.render.x);
+  expect(points.interaction.y).toBe(points.render.y);
+});
+
+test('1x1 token drag threshold advances on the expected snap step', async ({ page }) => {
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Goblin A', cellX: 0, cellY: 0 });
+
+  const canvas = page.locator('#stage');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box unavailable');
+
+  const point = await page.evaluate(() => {
+    const snapshot = window.__VTT_DEBUG__.getBoardSnapshot();
+    const token = snapshot.state.tokens.find((entry) => entry.name === 'Goblin A');
+    return token ? window.__VTT_DEBUG__.getTokenInteractionPoint(token.id) : null;
+  });
+  if (!point) throw new Error('Token interaction point unavailable');
+
+  await page.mouse.move(box.x + point.x, box.y + point.y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + point.x + 24, box.y + point.y + 12, { steps: 6 });
+  await expect.poll(async () => {
+    const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+    const token = snapshot.state.tokens.find((entry) => entry.name === 'Goblin A');
+    return token ? `${token.x},${token.y}` : null;
+  }).toBe('32,32');
+
+  await page.mouse.move(box.x + point.x + 36, box.y + point.y + 18, { steps: 3 });
+  await expect.poll(async () => {
+    const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+    const token = snapshot.state.tokens.find((entry) => entry.name === 'Goblin A');
+    return token ? `${token.x},${token.y}` : null;
+  }).toBe('96,32');
+  await page.mouse.up();
 });
 
 test('left-click dragging a non-current token moves it in one gesture', async ({ page }) => {

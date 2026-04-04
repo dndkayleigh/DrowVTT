@@ -1431,6 +1431,14 @@ import {
     };
   }
 
+  function getTokenRenderWorldPoint(token) {
+    const b = getTokenBounds(token);
+    return {
+      x: b.left + (b.width / 2),
+      y: b.top + (b.height / 2)
+    };
+  }
+
   function tokenRadiusPx(token) {
     return state.gridSize * 0.42 * token.sizeCells;
   }
@@ -1882,9 +1890,10 @@ import {
     const selectedIds = new Set(state.selectedTokenIds);
     const groupIds = new Set(getAiGroupTokenIds());
     for (const t of state.tokens) {
-      const s = worldToScreen(t.x, t.y);
-      const r = tokenRadiusPx(t) * zoom;
       const b = getTokenBounds(t);
+      const renderPoint = getTokenRenderWorldPoint(t);
+      const s = worldToScreen(renderPoint.x, renderPoint.y);
+      const r = tokenRadiusPx(t) * zoom;
       const isSelected = selectedIds.has(t.id);
       const isGrouped = groupIds.has(t.id);
 
@@ -3553,6 +3562,18 @@ import {
     getSaveSlotSnapshot: async (slotId) => await boardPersistence.loadSaveSlotSnapshot(slotId),
     getSessionEvents: () => sessionSync.getPublishedEvents(),
     getUsageEvents: () => usageTracking.getUsageEvents(),
+    getTokenInteractionPoint: (tokenId) => {
+      const token = state.tokens.find((entry) => entry.id === tokenId);
+      if (!token) return null;
+      const renderPoint = getTokenRenderWorldPoint(token);
+      return worldToScreen(renderPoint.x, renderPoint.y);
+    },
+    getTokenRenderPoint: (tokenId) => {
+      const token = state.tokens.find((entry) => entry.id === tokenId);
+      if (!token) return null;
+      const renderPoint = getTokenRenderWorldPoint(token);
+      return worldToScreen(renderPoint.x, renderPoint.y);
+    },
     getTokens: () => state.tokens.map((token) => ({
       id: token.id,
       name: token.name,
