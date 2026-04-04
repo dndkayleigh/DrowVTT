@@ -240,6 +240,36 @@ test('shared shell styling keeps the canvas, token rows, and drawer interactive 
   expect(shellStyles.drawerSummaryCursor).toBe('grab');
 });
 
+test('shared shell typography keeps the default OSS VTT font scale', async ({ page }) => {
+  await addToken(page, { name: 'Typography Goblin', size: 1, type: 'Monster' });
+
+  const typography = await page.evaluate(() => {
+    const body = document.body;
+    const heading = document.querySelector('.panelSection summary h2');
+    const tokenMeta = document.querySelector('.tokRow .meta');
+    const drawerSummary = document.querySelector('#aiDrawer summary');
+    if (!body || !heading || !tokenMeta || !drawerSummary) return null;
+    const bodyStyle = window.getComputedStyle(body);
+    const headingStyle = window.getComputedStyle(heading);
+    const tokenMetaStyle = window.getComputedStyle(tokenMeta);
+    const drawerSummaryStyle = window.getComputedStyle(drawerSummary);
+    return {
+      bodyFontFamily: bodyStyle.fontFamily,
+      bodyFontSize: bodyStyle.fontSize,
+      headingFontSize: headingStyle.fontSize,
+      tokenMetaFontSize: tokenMetaStyle.fontSize,
+      drawerSummaryFontSize: drawerSummaryStyle.fontSize
+    };
+  });
+
+  if (!typography) throw new Error('Typography styles unavailable');
+  expect(typography.bodyFontFamily.toLowerCase()).not.toContain('georgia');
+  expect(typography.bodyFontSize).toBe('16px');
+  expect(typography.headingFontSize).toBe('14px');
+  expect(typography.tokenMetaFontSize).toBe('11px');
+  expect(typography.drawerSummaryFontSize).toBe('12px');
+});
+
 test('AI drawer tabs open one panel at a time and clicking the active tab collapses back to compact mode', async ({ page }) => {
   await openDetails(page, '#aiDrawer');
 
