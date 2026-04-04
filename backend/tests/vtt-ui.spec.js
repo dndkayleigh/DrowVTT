@@ -185,6 +185,18 @@ test('AI drawer defaults to compact controls with autopilot on and no tab expand
   }
 });
 
+test('default VTT positioning keeps the sidebar left and the drawer top-right', async ({ page }) => {
+  const stage = await page.locator('.stageWrap').boundingBox();
+  const sidebar = await page.locator('.sidebar').boundingBox();
+  const drawer = await page.locator('#aiDrawer').boundingBox();
+  if (!stage || !sidebar || !drawer) throw new Error('Layout bounds unavailable');
+
+  expect(sidebar.x).toBeLessThan(stage.x);
+  expect(sidebar.y).toBeLessThan(stage.y + 20);
+  expect(drawer.y).toBeLessThan(stage.y + 140);
+  expect(drawer.x).toBeGreaterThan(stage.x + (stage.width / 2));
+});
+
 test('AI drawer tabs open one panel at a time and clicking the active tab collapses back to compact mode', async ({ page }) => {
   await openDetails(page, '#aiDrawer');
 
@@ -234,6 +246,22 @@ test('AI drawer settings persist across tab changes', async ({ page }) => {
   await expect(page.locator('#aiStrategy')).toHaveValue('single_tactical');
   await expect(page.locator('#aiStrategyHint')).toContainText('gpt-5');
   await expect(page.locator('#aiStrategyHint')).toContainText('full');
+});
+
+test('AI drawer can be dragged around the stage on desktop layouts', async ({ page }) => {
+  const summary = page.locator('#aiDrawer summary');
+  const before = await page.locator('#aiDrawer').boundingBox();
+  const grip = await summary.boundingBox();
+  if (!before || !grip) throw new Error('Drawer bounds unavailable');
+
+  await page.mouse.move(grip.x + (grip.width / 2), grip.y + (grip.height / 2));
+  await page.mouse.down();
+  await page.mouse.move(grip.x + (grip.width / 2) - 120, grip.y + (grip.height / 2) + 60, { steps: 12 });
+  await page.mouse.up();
+
+  const after = await page.locator('#aiDrawer').boundingBox();
+  if (!after) throw new Error('Drawer bounds unavailable after drag');
+  expect(Math.abs(after.x - before.x)).toBeGreaterThan(20);
 });
 
 test('monster name autocomplete shows matching SRD suggestions and clicking one fills the input', async ({ page }) => {
@@ -315,9 +343,10 @@ test('1x1 tokens snap to the center of a single tile', async ({ page }) => {
 
 test('left-click dragging a non-current token moves it in one gesture', async ({ page }) => {
   await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
-  await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 3 });
 
   await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await setCurrentTurnToken(page, 'Goblin A');
   await dragNamedTokenToTopLeftCell(page, { name: 'Goblin A', cellX: 3, cellY: 1 });
   await expectTokenCell(page, 'Goblin A', 3, 1);
 
@@ -348,6 +377,22 @@ test('left-click dragging a non-current token moves it in one gesture', async ({
   expect(sessionEvents.some((event) => event.type === 'token.created')).toBe(true);
   expect(sessionEvents.some((event) => event.type === 'token.moved')).toBe(true);
   expect(sessionEvents.some((event) => event.type === 'turn.changed')).toBe(true);
+});
+
+test('dragging a token into an occupied space snaps it back and records the failure', async ({ page }) => {
+  await addToken(page, { name: 'Guard', size: 1 });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 6, cellY: 1 });
+
+  await addToken(page, { name: 'Ogre', size: 2 });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Ogre', cellX: 0, cellY: 0 });
+  await setCurrentTurnToken(page, 'Guard');
+
+  await dragNamedTokenToTopLeftCell(page, { name: 'Guard', cellX: 0, cellY: 0 });
+
+  await expectTokenCell(page, 'Guard', 6, 1);
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('Move cancelled');
+  await expect(page.locator('#logBox')).toContainText('space is occupied by Ogre');
 });
 
 test('ctrl-clicking a monster after selecting a PC drops the PC instead of forming a mixed group', async ({ page }) => {
@@ -849,10 +894,11 @@ test('movement rules reject wrong-turn, out-of-range, and overlapping AI moves',
 });
 
 test('melee attacks are rejected when the target is beyond reach', async ({ page }) => {
-  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
-  await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
   await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
-  await dragNamedTokenToTopLeftCell(page, { name: 'Hero', cellX: 3, cellY: 1 });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 3, cellY: 1 });
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await setCurrentTurnToken(page, 'Goblin A');
+  await dragNamedTokenToTopLeftCell(page, { name: 'Goblin A', cellX: 1, cellY: 1 });
   await setCurrentTurnToken(page, 'Goblin A');
 
   await openDrawerTab(page, 'apply');

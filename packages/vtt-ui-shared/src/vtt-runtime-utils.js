@@ -12,6 +12,27 @@ export function buildTokenSelectionNote({
   return `${strategyLabel} uses exactly one selected monster. Current selection: ${selectedCount || 0}.`;
 }
 
+export function shouldFloatAIDrawer(viewportWidth = 0) {
+  return Number(viewportWidth) > 900;
+}
+
+export function clampFloatingAIDrawerPosition({
+  left = 0,
+  top = 0,
+  viewportWidth = 0,
+  viewportHeight = 0,
+  drawerWidth = 0,
+  drawerHeight = 0,
+  padding = 10
+} = {}) {
+  const maxLeft = Math.max(padding, Number(viewportWidth) - Number(drawerWidth) - padding);
+  const maxTop = Math.max(padding, Number(viewportHeight) - Number(drawerHeight) - padding);
+  return {
+    left: Math.max(padding, Math.min(Number(left), maxLeft)),
+    top: Math.max(padding, Math.min(Number(top), maxTop))
+  };
+}
+
 export function buildTokenRowState(
   token,
   {
@@ -404,7 +425,7 @@ export function validateTokenMove(
     return { ok: false, reason: `${token.name} cannot move because it is not the current turn token.` };
   }
 
-  const fromCell = gridCoords(token);
+  const fromCell = options.fromCell || gridCoords(token);
   const maxCells = Math.floor((Number(token.speed) || 0) / 5);
   const distanceCells = chebyshevDistanceCells(fromCell, toCell);
   if (!ignoreSpeed && distanceCells > maxCells) {

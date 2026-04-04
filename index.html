@@ -3376,7 +3376,10 @@ import {
     if (state.draggingToken) {
       const t = state.draggingToken;
       const targetCell = gridCoords(t);
-      const result = moveTokenToCell(t, targetCell, { source: 'Drag' });
+      const result = moveTokenToCell(t, targetCell, {
+        source: 'Drag',
+        fromCell: state.dragOriginCell || gridCoords(t)
+      });
       const dragOutcome = resolveDragComplete({
         result,
         token: t,

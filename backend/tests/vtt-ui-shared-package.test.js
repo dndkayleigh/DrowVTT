@@ -14,6 +14,7 @@ import {
   buildTokenSelectionNote,
   buildTurnDropdownState,
   buildTurnEditorState,
+  clampFloatingAIDrawerPosition,
   DEFAULT_AI_TURN_STRATEGY_ID,
   getAiTurnStrategy,
   getVttUiSharedStatus,
@@ -21,6 +22,7 @@ import {
   renderOssVttShell,
   resolveDragComplete,
   resolveAiStrategyIdForSelection,
+  shouldFloatAIDrawer,
   validateTokenMove
 } from '../../packages/vtt-ui-shared/src/index.js';
 import {
@@ -83,6 +85,25 @@ test('shared VTT runtime helpers expose selection note and context menu state', 
   );
 });
 
+test('shared VTT runtime helpers expose floating drawer rules', () => {
+  assert.equal(shouldFloatAIDrawer(901), true);
+  assert.equal(shouldFloatAIDrawer(900), false);
+  assert.deepEqual(
+    clampFloatingAIDrawerPosition({
+      left: 900,
+      top: 700,
+      viewportWidth: 1024,
+      viewportHeight: 768,
+      drawerWidth: 440,
+      drawerHeight: 320
+    }),
+    {
+      left: 574,
+      top: 438
+    }
+  );
+});
+
 test('shared VTT runtime helpers validate and apply token movement', () => {
   const tokens = [
     { id: 'm1', name: 'Ghoul', type: 'Monster', speed: 30, sizeCells: 1, x: 32, y: 32 },
@@ -139,6 +160,22 @@ test('shared VTT runtime helpers validate and apply token movement', () => {
       source: 'move'
     }
   ]);
+
+  tokens[0].x = 96;
+  tokens[0].y = 32;
+  const dragBlocked = validateTokenMove({
+    token: tokens[0],
+    toCell: { x: 1, y: 0 },
+    tokens,
+    isTokenControlledThisTurn: () => true,
+    gridCoords,
+    chebyshevDistanceCells,
+    cellsOccupiedAt
+  }, {
+    fromCell: { x: 0, y: 0 }
+  });
+  assert.equal(dragBlocked.ok, false);
+  assert.match(dragBlocked.reason, /space is occupied by Lyra/);
 });
 
 test('shared VTT runtime helpers expose token-row, turn-dropdown, and editor state', () => {
