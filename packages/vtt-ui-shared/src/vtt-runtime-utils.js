@@ -229,6 +229,47 @@ export function computeAiControlsState(
   };
 }
 
+export function computeAiGroupAssignment({
+  controlledIds,
+  currentTurnTokenId
+}) {
+  if (!controlledIds.length) {
+    return {
+      ok: false,
+      note: 'Select one or more AI-controlled rows with Pick before creating a tactical group.'
+    };
+  }
+  return {
+    ok: true,
+    aiGroupTokenIds: controlledIds,
+    currentTurnTokenId: currentTurnTokenId && controlledIds.includes(currentTurnTokenId)
+      ? currentTurnTokenId
+      : controlledIds[0]
+  };
+}
+
+export function computeTokenListInteraction({
+  tokenId,
+  additive = false,
+  canPickForGroup = false,
+  selectedTokenIds,
+  tokens,
+  toggleTokenSelection
+}) {
+  if (additive && canPickForGroup) {
+    const next = toggleTokenSelection(tokens, selectedTokenIds, tokenId);
+    return {
+      type: 'toggle-selection',
+      ...next
+    };
+  }
+
+  return {
+    type: 'set-current-turn',
+    tokenId
+  };
+}
+
 export function buildTokenContextMenuState(
   token,
   {

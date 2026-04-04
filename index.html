@@ -587,8 +587,10 @@ import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/d
 import { normalizeSlotName } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
 import {
+  computeAiGroupAssignment,
   computeAiControlsState,
   computeCurrentTurnSelectionState,
+  computeTokenListInteraction,
   applyTurnEditorToToken,
   buildTokenRowState,
   buildTokenContextMenuState,
@@ -2391,15 +2393,16 @@ import {
   });
 
   setAiGroupBtn.addEventListener('click', () => {
-    const controlledIds = getSelectedAiControlledIds();
-    if (!controlledIds.length) {
-      tokenSelectionNote.textContent = 'Select one or more AI-controlled rows with Pick before creating a tactical group.';
+    const result = computeAiGroupAssignment({
+      controlledIds: getSelectedAiControlledIds(),
+      currentTurnTokenId: state.currentTurnTokenId
+    });
+    if (!result.ok) {
+      tokenSelectionNote.textContent = result.note;
       return;
     }
-    state.aiGroupTokenIds = controlledIds;
-    if (!state.currentTurnTokenId || !controlledIds.includes(state.currentTurnTokenId)) {
-      state.currentTurnTokenId = controlledIds[0];
-    }
+    state.aiGroupTokenIds = result.aiGroupTokenIds;
+    state.currentTurnTokenId = result.currentTurnTokenId;
     draw();
     renderTokenList();
     syncTokenSelectionUi();
@@ -2457,10 +2460,20 @@ import {
       pickBtn.disabled = rowState.pickButton.disabled;
       pickBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        if ((ev.metaKey || ev.ctrlKey) && canPickForGroup) {
-          toggleTokenSelection(t.id);
+        const interaction = computeTokenListInteraction({
+          tokenId: t.id,
+          additive: ev.metaKey || ev.ctrlKey,
+          canPickForGroup,
+          selectedTokenIds: state.selectedTokenIds,
+          tokens: state.tokens,
+          toggleTokenSelection: toggleTokenSelectionState
+        });
+        if (interaction.type === 'toggle-selection') {
+          state.selectedTokenIds = interaction.selectedTokenIds;
+          state.selectedTokenId = interaction.selectedTokenId;
+          syncAiStrategyFromSelection();
         } else {
-          setCurrentTurnTokenId(t.id);
+          setCurrentTurnTokenId(interaction.tokenId);
         }
         draw();
         renderTokenList();
@@ -2491,15 +2504,25 @@ import {
       row.appendChild(artBtn);
       row.appendChild(delBtn);
       row.addEventListener('click', (ev) => {
-        if ((ev.metaKey || ev.ctrlKey) && canPickForGroup) {
-          toggleTokenSelection(t.id);
+        const interaction = computeTokenListInteraction({
+          tokenId: t.id,
+          additive: ev.metaKey || ev.ctrlKey,
+          canPickForGroup,
+          selectedTokenIds: state.selectedTokenIds,
+          tokens: state.tokens,
+          toggleTokenSelection: toggleTokenSelectionState
+        });
+        if (interaction.type === 'toggle-selection') {
+          state.selectedTokenIds = interaction.selectedTokenIds;
+          state.selectedTokenId = interaction.selectedTokenId;
+          syncAiStrategyFromSelection();
           draw();
           renderTokenList();
           syncTokenSelectionUi();
           refreshExport();
           return;
         }
-        setCurrentTurnTokenId(t.id);
+        setCurrentTurnTokenId(interaction.tokenId);
       });
       row.addEventListener('contextmenu', (ev) => {
         ev.preventDefault();

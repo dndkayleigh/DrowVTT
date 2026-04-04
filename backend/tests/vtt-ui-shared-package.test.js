@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  computeAiGroupAssignment,
   computeAiControlsState,
   computeCurrentTurnSelectionState,
+  computeTokenListInteraction,
   applyTurnEditorToToken,
   buildTokenRowState,
   buildTokenContextMenuState,
@@ -24,7 +26,8 @@ import {
   isAiControllableToken,
   resolveAiCurrentTurnTokenId,
   setSelectedTokenIds,
-  setSingleSelection
+  setSingleSelection,
+  toggleTokenSelection
 } from '../../packages/vtt-ui-shared/src/ai-selection-utils.js';
 
 test('shared VTT UI package exposes tactical interaction modules', () => {
@@ -294,6 +297,68 @@ test('shared VTT runtime helpers orchestrate current-turn and AI-controls state 
       selectedTokenIds: ['p1'],
       selectedTokenId: 'p1',
       currentTurnTokenId: 'p1'
+    }
+  );
+});
+
+test('shared VTT runtime helpers orchestrate group assignment and token-list interactions', () => {
+  const tokens = [
+    { id: 'm1', type: 'Monster', name: 'Ghoul' },
+    { id: 'm2', type: 'Monster', name: 'Ghast' },
+    { id: 'p1', type: 'PC', name: 'Lyra' }
+  ];
+
+  assert.deepEqual(
+    computeAiGroupAssignment({
+      controlledIds: [],
+      currentTurnTokenId: 'm1'
+    }),
+    {
+      ok: false,
+      note: 'Select one or more AI-controlled rows with Pick before creating a tactical group.'
+    }
+  );
+
+  assert.deepEqual(
+    computeAiGroupAssignment({
+      controlledIds: ['m1', 'm2'],
+      currentTurnTokenId: 'm1'
+    }),
+    {
+      ok: true,
+      aiGroupTokenIds: ['m1', 'm2'],
+      currentTurnTokenId: 'm1'
+    }
+  );
+
+  assert.deepEqual(
+    computeTokenListInteraction({
+      tokenId: 'm2',
+      additive: true,
+      canPickForGroup: true,
+      selectedTokenIds: ['m1'],
+      tokens,
+      toggleTokenSelection
+    }),
+    {
+      type: 'toggle-selection',
+      selectedTokenIds: ['m1', 'm2'],
+      selectedTokenId: 'm1'
+    }
+  );
+
+  assert.deepEqual(
+    computeTokenListInteraction({
+      tokenId: 'm2',
+      additive: false,
+      canPickForGroup: true,
+      selectedTokenIds: ['m1'],
+      tokens,
+      toggleTokenSelection
+    }),
+    {
+      type: 'set-current-turn',
+      tokenId: 'm2'
     }
   );
 });
