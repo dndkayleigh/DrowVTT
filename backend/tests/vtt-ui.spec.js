@@ -270,6 +270,71 @@ test('shared shell typography keeps the default OSS VTT font scale', async ({ pa
   expect(typography.drawerSummaryFontSize).toBe('12px');
 });
 
+test('tokens, turn, and save panels use the expected OSS control typography', async ({ page }) => {
+  await addToken(page, { name: 'Style Goblin', size: 1, type: 'Monster' });
+  await openDetails(page, '#turnSection');
+  await openDetails(page, '#saveSection');
+
+  const panelTypography = await page.evaluate(() => {
+    const pick = (selector) => {
+      const el = document.querySelector(selector);
+      if (!el) return null;
+      const style = window.getComputedStyle(el);
+      return {
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        paddingTop: style.paddingTop,
+        paddingRight: style.paddingRight,
+        borderRadius: style.borderRadius,
+        color: style.color,
+        backgroundColor: style.backgroundColor
+      };
+    };
+
+    return {
+      tokenLabel: pick('#tokensSection label'),
+      tokenMeta: pick('.tokRow .meta'),
+      tokenRowButton: pick('.tokRow button'),
+      turnTab: pick('#turnSection .tabBtn'),
+      turnInput: pick('#selAC'),
+      turnNote: pick('#turnRuleNote'),
+      saveInput: pick('#saveSlotName'),
+      saveSelect: pick('#saveSlotSelect'),
+      saveButton: pick('#saveSlotBtn')
+    };
+  });
+
+  if (!panelTypography) throw new Error('Panel typography styles unavailable');
+  expect(panelTypography.tokenLabel?.fontSize).toBe('12px');
+  expect(panelTypography.tokenLabel?.color).toBe('rgb(159, 177, 209)');
+  expect(panelTypography.tokenMeta?.fontSize).toBe('11px');
+  expect(panelTypography.tokenMeta?.color).toBe('rgb(159, 177, 209)');
+  expect(panelTypography.tokenRowButton?.fontFamily).toBe('Arial');
+  expect(panelTypography.tokenRowButton?.fontSize).toBe('12px');
+  expect(panelTypography.tokenRowButton?.fontWeight).toBe('600');
+  expect(panelTypography.tokenRowButton?.paddingTop).toBe('6px');
+  expect(panelTypography.tokenRowButton?.paddingRight).toBe('8px');
+  expect(panelTypography.tokenRowButton?.borderRadius).toBe('9px');
+  expect(panelTypography.turnTab?.fontFamily).toBe('Arial');
+  expect(panelTypography.turnTab?.fontSize).toBe('11px');
+  expect(panelTypography.turnTab?.fontWeight).toBe('600');
+  expect(panelTypography.turnInput?.fontFamily).toBe('Arial');
+  expect(panelTypography.turnInput?.fontSize).toBe('13.3333px');
+  expect(panelTypography.turnNote?.fontSize).toBe('11px');
+  expect(panelTypography.turnNote?.color).toBe('rgb(159, 177, 209)');
+  expect(panelTypography.saveInput?.fontFamily).toBe('Arial');
+  expect(panelTypography.saveInput?.fontSize).toBe('13.3333px');
+  expect(panelTypography.saveSelect?.fontFamily).toBe('Arial');
+  expect(panelTypography.saveSelect?.fontSize).toBe('13.3333px');
+  expect(panelTypography.saveButton?.fontFamily).toBe('Arial');
+  expect(panelTypography.saveButton?.fontSize).toBe('12px');
+  expect(panelTypography.saveButton?.fontWeight).toBe('600');
+  expect(panelTypography.saveButton?.paddingTop).toBe('9px');
+  expect(panelTypography.saveButton?.paddingRight).toBe('10px');
+  expect(panelTypography.saveButton?.borderRadius).toBe('10px');
+});
+
 test('starter board seeds Aria and Goblin A by default', async ({ page }) => {
   await page.goto('/');
 
