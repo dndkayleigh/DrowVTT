@@ -12,6 +12,136 @@ export function buildTokenSelectionNote({
   return `${strategyLabel} uses exactly one selected monster. Current selection: ${selectedCount || 0}.`;
 }
 
+export function buildTokenRowState(
+  token,
+  {
+    gridCell,
+    isSelected = false,
+    isGrouped = false,
+    isCurrentTurn = false,
+    canPickForGroup = true,
+    strategyId = 'single_tactical'
+  } = {}
+) {
+  return {
+    title: token.type === 'Monster' && token.statblock ? token.statblock : '',
+    rowClasses: {
+      selected: isSelected,
+      grouped: isGrouped
+    },
+    metaText: `${token.type} • HP ${token.hp} • ${token.sizeCells}×${token.sizeCells} • (${gridCell.x},${gridCell.y})${isGrouped ? ' • Grouped' : ''}${token.art?.src ? ' • Art' : ''}`,
+    turnButton: {
+      text: isCurrentTurn ? 'Turn' : 'Set',
+      primary: isCurrentTurn
+    },
+    pickButton: {
+      text: isSelected ? 'Picked' : 'Pick',
+      primary: isSelected,
+      disabled: strategyId === 'group_tactical' && !canPickForGroup
+    }
+  };
+}
+
+export function buildTurnDropdownState({
+  tokens,
+  controllableIds,
+  currentTokenId,
+  currentToken,
+  resolvedCurrentId
+}) {
+  const allowedIds = new Set(controllableIds);
+  const turnTokens = tokens.filter((token) => allowedIds.has(token.id));
+  const currentIsAiControlled = !!currentToken && allowedIds.has(currentToken.id);
+
+  if (!turnTokens.length) {
+    return {
+      options: [{
+        value: '',
+        label: currentToken ? `(selected ${currentToken.type}: ${currentToken.name})` : '(no AI-controlled tokens)'
+      }],
+      value: '',
+      currentTurnTokenId: currentTokenId
+    };
+  }
+
+  const options = turnTokens.map((token) => ({
+    value: token.id,
+    label: `${token.type}: ${token.name}`
+  }));
+
+  if (currentIsAiControlled && resolvedCurrentId && turnTokens.some((token) => token.id === resolvedCurrentId)) {
+    return {
+      options,
+      value: resolvedCurrentId,
+      currentTurnTokenId: resolvedCurrentId
+    };
+  }
+
+  return {
+    options: [{
+      value: '',
+      label: currentToken ? `(selected ${currentToken.type}: ${currentToken.name})` : '(non-AI token selected)'
+    }, ...options],
+    value: '',
+    currentTurnTokenId: currentTokenId
+  };
+}
+
+export function buildTurnEditorState(token, { normalizeSizeCells } = {}) {
+  const normalize = normalizeSizeCells || ((value) => value);
+  if (!token) {
+    return {
+      disabled: true,
+      values: {
+        ac: 15,
+        hp: '',
+        size: '1',
+        color: '#ff5a7a',
+        speed: 30,
+        notes: '',
+        statblock: ''
+      }
+    };
+  }
+  return {
+    disabled: false,
+    values: {
+      ac: Number(token.ac) || 10,
+      hp: token.hp ?? '',
+      size: String(normalize(token.sizeCells)),
+      color: token.color ?? '#ff5a7a',
+      speed: Number(token.speed) || 30,
+      notes: token.notes ?? '',
+      statblock: token.statblock ?? ''
+    }
+  };
+}
+
+export function applyTurnEditorToToken(
+  token,
+  values,
+  {
+    normalizeSizeCells,
+    gridCoords,
+    centerFromGridCell
+  } = {}
+) {
+  if (!token) return null;
+  const normalize = normalizeSizeCells || ((value) => value);
+  const oldCell = gridCoords(token);
+  token.ac = Number(values.ac) || token.ac;
+  token.hp = (values.hp ?? '').trim();
+  token.sizeCells = normalize(values.size);
+  token.color = values.color || token.color;
+  token.speed = Number(values.speed) || token.speed;
+  token.notes = (values.notes ?? '').trim();
+  token.statblock = (values.statblock ?? '').trim();
+  const snapped = centerFromGridCell(oldCell.x, oldCell.y, token.sizeCells);
+  token.x = snapped.x;
+  token.y = snapped.y;
+  return token;
+}
+
 export function buildTokenContextMenuState(
   token,
   {

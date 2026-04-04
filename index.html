@@ -587,7 +587,11 @@ import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/d
 import { normalizeSlotName } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
 import {
+  applyTurnEditorToToken,
+  buildTokenRowState,
   buildTokenContextMenuState,
+  buildTurnDropdownState,
+  buildTurnEditorState,
   buildTokenSelectionNote,
   moveTokenToCell as moveTokenToCellState,
   validateTokenMove as validateTokenMoveState
@@ -2426,29 +2430,37 @@ import {
     const groupedIds = new Set(getAiGroupTokenIds());
     for (const t of state.tokens) {
       const c = gridCoords(t);
+      const canPickForGroup = isAiControllableToken(t, state.aiControls);
+      const rowState = buildTokenRowState(t, {
+        gridCell: c,
+        isSelected: selectedIds.has(t.id),
+        isGrouped: groupedIds.has(t.id),
+        isCurrentTurn: t.id === state.currentTurnTokenId,
+        canPickForGroup,
+        strategyId: getSelectedAiStrategyId()
+      });
 
       const row = document.createElement('div');
       row.className = 'tokRow';
-      if (selectedIds.has(t.id)) row.classList.add('selected');
-      if (groupedIds.has(t.id)) row.classList.add('grouped');
-      if (t.type === 'Monster' && t.statblock) row.title = t.statblock;
+      if (rowState.rowClasses.selected) row.classList.add('selected');
+      if (rowState.rowClasses.grouped) row.classList.add('grouped');
+      if (rowState.title) row.title = rowState.title;
       row.innerHTML = `
         <div>
           <b>${escapeHtml(t.name)}</b>
-          <div class="meta">${escapeHtml(t.type)} • HP ${escapeHtml(t.hp)} • ${t.sizeCells}×${t.sizeCells} • (${c.x},${c.y})${groupedIds.has(t.id) ? ' • Grouped' : ''}${t.art?.src ? ' • Art' : ''}</div>
+          <div class="meta">${escapeHtml(rowState.metaText)}</div>
         </div>
       `;
 
       const selBtn = document.createElement('button');
-      selBtn.textContent = (t.id === state.currentTurnTokenId) ? 'Turn' : 'Set';
-      selBtn.className = (t.id === state.currentTurnTokenId) ? 'primary' : '';
+      selBtn.textContent = rowState.turnButton.text;
+      selBtn.className = rowState.turnButton.primary ? 'primary' : '';
       selBtn.addEventListener('click', (ev) => { ev.stopPropagation(); setCurrentTurnTokenId(t.id); });
 
       const pickBtn = document.createElement('button');
-      pickBtn.textContent = selectedIds.has(t.id) ? 'Picked' : 'Pick';
-      pickBtn.className = selectedIds.has(t.id) ? 'primary' : '';
-      const canPickForGroup = isAiControllableToken(t, state.aiControls);
-      pickBtn.disabled = getSelectedAiStrategyId() === 'group_tactical' && !canPickForGroup;
+      pickBtn.textContent = rowState.pickButton.text;
+      pickBtn.className = rowState.pickButton.primary ? 'primary' : '';
+      pickBtn.disabled = rowState.pickButton.disabled;
       pickBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         if ((ev.metaKey || ev.ctrlKey) && canPickForGroup) {
@@ -2531,49 +2543,29 @@ import {
   turnTokenSel.addEventListener('change', () => setCurrentTurnTokenId(turnTokenSel.value || null));
 
   function syncTurnDropdown() {
-    const current = resolveAiCurrentTurnTokenId([
+    const resolvedCurrentId = resolveAiCurrentTurnTokenId([
       ...getAiGroupTokenIds(),
       ...getSelectedAiControlledIds(),
       ...state.selectedTokenIds
     ]);
-    const controllableIds = new Set(getAiControllableTokenIds());
-    const turnTokens = state.tokens.filter((token) => controllableIds.has(token.id));
     const currentToken = getCurrentTurnToken();
-    const currentIsAiControlled = !!currentToken && controllableIds.has(currentToken.id);
+    const dropdownState = buildTurnDropdownState({
+      tokens: state.tokens,
+      controllableIds: getAiControllableTokenIds(),
+      currentTokenId: state.currentTurnTokenId,
+      currentToken,
+      resolvedCurrentId
+    });
+
     turnTokenSel.innerHTML = '';
-
-    if (!turnTokens.length) {
+    state.currentTurnTokenId = dropdownState.currentTurnTokenId;
+    for (const option of dropdownState.options) {
       const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = currentToken
-        ? `(selected ${currentToken.type}: ${currentToken.name})`
-        : '(no AI-controlled tokens)';
-      turnTokenSel.appendChild(opt);
-      turnTokenSel.value = '';
-      return;
-    }
-
-    if (currentIsAiControlled) {
-      state.currentTurnTokenId = current;
-    }
-    for (const t of turnTokens) {
-      const opt = document.createElement('option');
-      opt.value = t.id;
-      opt.textContent = `${t.type}: ${t.name}`;
+      opt.value = option.value;
+      opt.textContent = option.label;
       turnTokenSel.appendChild(opt);
     }
-
-    if (currentIsAiControlled && current && turnTokens.some((t) => t.id === current)) {
-      turnTokenSel.value = current;
-    } else {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = currentToken
-        ? `(selected ${currentToken.type}: ${currentToken.name})`
-        : '(non-AI token selected)';
-      turnTokenSel.insertBefore(opt, turnTokenSel.firstChild);
-      turnTokenSel.value = '';
-    }
+    turnTokenSel.value = dropdownState.value;
   }
 
   function openTokenContextMenu(tokenId, clientX, clientY) {
@@ -2762,39 +2754,34 @@ import {
   }
 
   function loadCurrentTurnTokenToEditor() {
-    const t = getCurrentTurnToken();
-    const disabled = !t;
-    for (const el of [selAC, selHP, selSize, selColor, selSpeed, selNotes, selStatblock]) el.disabled = disabled;
-
-    if (!t) {
-      selAC.value = 15; selHP.value = ""; selSize.value = "1"; selColor.value = "#ff5a7a"; selSpeed.value = 30; selNotes.value = ""; selStatblock.value = "";
-      return;
-    }
-    selAC.value = Number(t.ac) || 10;
-    selHP.value = t.hp ?? "";
-    selSize.value = String(normalizeSizeCells(t.sizeCells));
-    selColor.value = t.color ?? "#ff5a7a";
-    selSpeed.value = Number(t.speed) || 30;
-    selNotes.value = t.notes ?? "";
-    selStatblock.value = t.statblock ?? "";
+    const editorState = buildTurnEditorState(getCurrentTurnToken(), { normalizeSizeCells });
+    for (const el of [selAC, selHP, selSize, selColor, selSpeed, selNotes, selStatblock]) el.disabled = editorState.disabled;
+    selAC.value = editorState.values.ac;
+    selHP.value = editorState.values.hp;
+    selSize.value = editorState.values.size;
+    selColor.value = editorState.values.color;
+    selSpeed.value = editorState.values.speed;
+    selNotes.value = editorState.values.notes;
+    selStatblock.value = editorState.values.statblock;
   }
 
   function saveEditorToCurrentTurnToken() {
     const t = getCurrentTurnToken();
     if (!t) return;
     clearAiPaths();
-
-    const oldCell = gridCoords(t);
-    t.ac = Number(selAC.value) || t.ac;
-    t.hp = (selHP.value ?? "").trim();
-    t.sizeCells = normalizeSizeCells(selSize.value);
-    t.color = selColor.value || t.color;
-    t.speed = Number(selSpeed.value) || t.speed;
-    t.notes = (selNotes.value ?? "").trim();
-    t.statblock = (selStatblock.value ?? "").trim();
-    const snapped = centerFromGridCell(oldCell.x, oldCell.y, t.sizeCells);
-    t.x = snapped.x;
-    t.y = snapped.y;
+    applyTurnEditorToToken(t, {
+      ac: selAC.value,
+      hp: selHP.value,
+      size: selSize.value,
+      color: selColor.value,
+      speed: selSpeed.value,
+      notes: selNotes.value,
+      statblock: selStatblock.value
+    }, {
+      normalizeSizeCells,
+      gridCoords,
+      centerFromGridCell
+    });
 
     draw();
     renderTokenList();

@@ -2,8 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  applyTurnEditorToToken,
+  buildTokenRowState,
   buildTokenContextMenuState,
   buildTokenSelectionNote,
+  buildTurnDropdownState,
+  buildTurnEditorState,
   DEFAULT_AI_TURN_STRATEGY_ID,
   getAiTurnStrategy,
   getVttUiSharedStatus,
@@ -119,4 +123,96 @@ test('shared VTT runtime helpers validate and apply token movement', () => {
       source: 'move'
     }
   ]);
+});
+
+test('shared VTT runtime helpers expose token-row, turn-dropdown, and editor state', () => {
+  const token = {
+    id: 'm1',
+    name: 'Ghoul',
+    type: 'Monster',
+    hp: '22/22',
+    sizeCells: 1,
+    art: { src: 'ghoul.png' },
+    statblock: 'Ghoul statblock',
+    ac: 12,
+    speed: 30,
+    color: '#ff5a7a',
+    notes: 'Hungry',
+    x: 32,
+    y: 32
+  };
+
+  assert.deepEqual(
+    buildTokenRowState(token, {
+      gridCell: { x: 4, y: 5 },
+      isSelected: true,
+      isGrouped: true,
+      isCurrentTurn: true,
+      canPickForGroup: true,
+      strategyId: 'group_tactical'
+    }),
+    {
+      title: 'Ghoul statblock',
+      rowClasses: { selected: true, grouped: true },
+      metaText: 'Monster • HP 22/22 • 1×1 • (4,5) • Grouped • Art',
+      turnButton: { text: 'Turn', primary: true },
+      pickButton: { text: 'Picked', primary: true, disabled: false }
+    }
+  );
+
+  assert.deepEqual(
+    buildTurnDropdownState({
+      tokens: [
+        { id: 'm1', type: 'Monster', name: 'Ghoul' },
+        { id: 'p1', type: 'PC', name: 'Lyra' }
+      ],
+      controllableIds: ['m1'],
+      currentTokenId: 'm1',
+      currentToken: { id: 'm1', type: 'Monster', name: 'Ghoul' },
+      resolvedCurrentId: 'm1'
+    }),
+    {
+      options: [{ value: 'm1', label: 'Monster: Ghoul' }],
+      value: 'm1',
+      currentTurnTokenId: 'm1'
+    }
+  );
+
+  assert.deepEqual(
+    buildTurnEditorState(token, { normalizeSizeCells: (value) => Number(value) }),
+    {
+      disabled: false,
+      values: {
+        ac: 12,
+        hp: '22/22',
+        size: '1',
+        color: '#ff5a7a',
+        speed: 30,
+        notes: 'Hungry',
+        statblock: 'Ghoul statblock'
+      }
+    }
+  );
+
+  const edited = { ...token };
+  applyTurnEditorToToken(edited, {
+    ac: '15',
+    hp: '19/22',
+    size: '2',
+    color: '#5aa9ff',
+    speed: '40',
+    notes: 'Repositioned',
+    statblock: 'Updated statblock'
+  }, {
+    normalizeSizeCells: (value) => Number(value),
+    gridCoords: () => ({ x: 1, y: 2 }),
+    centerFromGridCell: (x, y, sizeCells) => ({ x: x * 64 + (sizeCells * 16), y: y * 64 + (sizeCells * 16) })
+  });
+  assert.equal(edited.ac, 15);
+  assert.equal(edited.hp, '19/22');
+  assert.equal(edited.sizeCells, 2);
+  assert.equal(edited.color, '#5aa9ff');
+  assert.equal(edited.speed, 40);
+  assert.equal(edited.notes, 'Repositioned');
+  assert.equal(edited.statblock, 'Updated statblock');
 });
