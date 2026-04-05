@@ -482,6 +482,20 @@ test('shared VTT runtime helpers orchestrate canvas context menus, mouse down in
   );
 
   assert.deepEqual(
+    computeCanvasMouseDownIntent({
+      button: 0,
+      hit: null,
+      metaKey: false,
+      ctrlKey: false,
+      isAiControllableToken: false,
+      spaceDown: false,
+      dragMode: 'tokens',
+      calibrationActive: false
+    }),
+    { type: 'pan-stage' }
+  );
+
+  assert.deepEqual(
     resolveDragComplete({
       result: { ok: false, reason: 'Blocked path.' },
       token: { id: 'm1', name: 'Ghoul' },

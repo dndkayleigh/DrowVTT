@@ -335,6 +335,10 @@ export function computeCanvasMouseDownIntent({
     return { type: 'drag-map' };
   }
 
+  if (!wantPan && button === 0) {
+    return { type: 'pan-stage' };
+  }
+
   return { type: 'pan-stage' };
 }
 

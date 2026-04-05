@@ -454,6 +454,22 @@ test('space + left drag pans the stage', async ({ page }) => {
   await expect(page.locator('#viewPill')).not.toContainText('Pan: (0,0)');
 });
 
+test('plain left drag over empty stage space pans the stage', async ({ page }) => {
+  const canvas = page.locator('#stage');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box unavailable');
+
+  const startX = box.x + box.width - 120;
+  const startY = box.y + box.height - 120;
+
+  await expect(page.locator('#viewPill')).toContainText('Pan: (0,0)');
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 120, startY + 60, { steps: 10 });
+  await page.mouse.up();
+  await expect(page.locator('#viewPill')).not.toContainText('Pan: (0,0)');
+});
+
 test('starter board seeds Aria and Goblin A by default', async ({ page }) => {
   await page.goto('/');
 
