@@ -1361,6 +1361,39 @@ test('calibration offset fields directly update map offsets and survive redraw',
   await expect(page.locator('#mapPill')).toContainText('off(12,8)');
 });
 
+test('fit map changes the view to frame the map without changing grid size', async ({ page }) => {
+  await uploadTestMap(page, { width: 7200, height: 6000 });
+  await openDetails(page, '#mapSection');
+
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  expect(snapshot.state.gridSize).toBe(64);
+  expect(snapshot.state.view.zoom).toBeLessThan(1);
+  expect(snapshot.state.map.scale).toBe(1);
+
+  await expect(page.locator('#gridPill')).toContainText('64px');
+  await expect(page.locator('#viewPill')).not.toContainText('100%');
+  await expect(page.locator('#mapPill')).toContainText('off(0,0)');
+});
+
+test('wheel zoom changes the view zoom on the stage', async ({ page }) => {
+  const before = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot().state.view.zoom);
+  expect(before).toBe(1);
+
+  const canvas = page.locator('#stage');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box unavailable');
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -400);
+
+  await expect.poll(async () => {
+    const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+    return snapshot.state.view.zoom;
+  }).toBeGreaterThan(1);
+
+  await expect(page.locator('#viewPill')).not.toContainText('100%');
+});
+
 test('manual calibration measures one cell and then shifts the map alignment', async ({ page }) => {
   await uploadTestMap(page);
   await openDetails(page, '#mapSection');
