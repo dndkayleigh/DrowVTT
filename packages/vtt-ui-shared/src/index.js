@@ -12,4 +12,7 @@ export * from './ai-selection-utils.js';
 export * from './ai-turn-strategy-utils.js';
 export * from './ai-turn-packet-utils.js';
 export * from './render-oss-vtt-shell.js';
+export * from './srd-monster-utils.js';
+export * from './srd-monsters-data.js';
+export * from './token-spawn-utils.js';
 export * from './vtt-runtime-utils.js';

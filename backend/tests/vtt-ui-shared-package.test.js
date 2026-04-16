@@ -19,6 +19,14 @@ import {
   getAiTurnStrategy,
   getVttUiSharedStatus,
   moveTokenToCell,
+  normalizeMonsterName,
+  sizeCellsFromSrdSize,
+  createSrdMonstersByName,
+  resolveSrdMonsterTemplate,
+  topMonsterMatches,
+  SRD_MONSTERS,
+  findOpenSpawnCell,
+  findVisibleSpawnCell,
   renderOssVttShell,
   resolveDragComplete,
   resolveAiStrategyIdForSelection,
@@ -58,6 +66,33 @@ test('shared VTT shell supports host-specific sidebar and settings seams', () =>
   assert.match(html, /id="hostAccountCard"/);
   assert.doesNotMatch(html, /id="apiUrl"/);
   assert.match(html, /id="aiStrategy"/);
+});
+
+test('shared VTT package exports SRD monster helpers, SRD data, and spawn helpers', () => {
+  assert.equal(normalizeMonsterName('  Goblin A  '), 'goblin a');
+  assert.equal(sizeCellsFromSrdSize('Large'), 2);
+  assert.ok(Array.isArray(SRD_MONSTERS));
+  assert.ok(SRD_MONSTERS.length > 100);
+
+  const monstersByName = createSrdMonstersByName(SRD_MONSTERS);
+  assert.equal(resolveSrdMonsterTemplate('Goblin', monstersByName)?.name, 'Goblin');
+  assert.equal(topMonsterMatches(SRD_MONSTERS, 'gob', 1)[0]?.name, 'Goblin');
+
+  assert.deepEqual(
+    findOpenSpawnCell({ x: 0, y: 0 }, 1, (x, y) => x === 1 && y === 0),
+    { x: 1, y: 0 }
+  );
+
+  assert.deepEqual(
+    findVisibleSpawnCell({
+      sizeCells: 1,
+      screenToWorld: (x, y) => ({ x, y }),
+      gridCellFromWorldPoint: (x, y) => ({ x: Math.floor(x / 64), y: Math.floor(y / 64) }),
+      canPlaceTokenAtCell: (x, y) => x === 2 && y === 1,
+      preferredScreenPoint: { x: 70, y: 70 }
+    }),
+    { x: 2, y: 1 }
+  );
 });
 
 test('shared VTT runtime helpers expose selection note and context menu state', () => {
