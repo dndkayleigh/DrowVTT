@@ -54,7 +54,12 @@ test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.equal(getAiTurnStrategy('group_tactical')?.model, 'gpt-5');
   assert.equal(resolveAiStrategyIdForSelection('single_fast', ['a', 'b']), 'group_tactical');
   assert.match(renderOssVttShell(), /<div class="app">/);
-  assert.match(renderOssVttShell(), /id="aiDrawer"/);
+  assert.match(renderOssVttShell(), /class="leftRail"/);
+  assert.match(renderOssVttShell(), /id="contextDrawer"/);
+  assert.match(renderOssVttShell(), /data-sidebar-section-target="map"/);
+  assert.match(renderOssVttShell(), /id="sessionSection"/);
+  assert.match(renderOssVttShell(), /data-sidebar-section-target="ai"/);
+  assert.match(renderOssVttShell(), /id="aiSection"/);
 });
 
 test('shared VTT shell supports host-specific sidebar and settings seams', () => {

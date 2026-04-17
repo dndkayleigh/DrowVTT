@@ -1,20 +1,63 @@
 import { test, expect } from '@playwright/test';
 
 async function openDetails(page, selector) {
-  const details = page.locator(selector);
+  const sectionMap = {
+    '#sessionSection': 'session',
+    '#mapSection': 'map',
+    '#tokensSection': 'tokens',
+    '#turnSection': 'turn',
+    '#saveSection': 'save',
+    '#aiSection': 'ai',
+    '#aiDrawer': 'ai'
+  };
+  const sectionId = sectionMap[selector];
+  if (sectionId) {
+    const app = page.locator('.app');
+    const isDrawerOpen = await page.locator('#contextDrawer').getAttribute('data-open');
+    const activeButton = page.locator(`[data-sidebar-section-target="${sectionId}"][aria-pressed="true"]`);
+    const alreadyActive = await activeButton.count();
+    if (isDrawerOpen !== 'true' || !alreadyActive) {
+      const railButton = page.locator(`[data-sidebar-section-target="${sectionId}"]`);
+      await railButton.click();
+      await expect(app).toHaveClass(/drawerOpen/);
+    }
+  }
+  const resolvedSelector = selector === '#aiDrawer' ? '#aiSection' : selector;
+  const details = page.locator(resolvedSelector);
   if ((await details.getAttribute('open')) !== null) return;
   await details.evaluate((el) => { el.open = true; });
 }
 
 async function openDrawerTab(page, tab) {
-  await openDetails(page, '#aiDrawer');
-  await page.locator(`[data-drawer-tab="${tab}"]`).click();
+  const app = page.locator('.app');
+  const isDrawerOpen = await page.locator('#contextDrawer').getAttribute('data-open');
+  const aiButton = page.locator('[data-sidebar-section-target="ai"]');
+  const aiActive = await page.locator('[data-sidebar-section-target="ai"][aria-pressed="true"]').count();
+  if (isDrawerOpen !== 'true' || !aiActive) {
+    await aiButton.click();
+    await expect(app).toHaveClass(/drawerOpen/);
+  }
+  await expect(page.locator('#aiSection')).toBeVisible();
+  const panel = page.locator(`[data-tab-panel="${tab}"], [data-drawer-panel="${tab}"], [data-turn-panel="${tab}"]`);
+  if (!(await panel.isVisible().catch(() => false))) {
+    await page.locator(`[data-drawer-tab="${tab}"]`).click();
+  }
+}
+
+async function closeDrawer(page) {
+  const app = page.locator('.app');
+  if ((await page.locator('#contextDrawer').getAttribute('data-open')) === 'true') {
+    await page.locator('#contextDrawerClose').click();
+    await expect(app).not.toHaveClass(/drawerOpen/);
+  }
 }
 
 async function clearTokens(page) {
   await openDetails(page, '#tokensSection');
   await page.getByRole('button', { name: 'Clear all' }).click();
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
+  await page.locator('[data-sidebar-section-target="tokens"]').click();
+  await expect(page.locator('.app')).not.toHaveClass(/drawerOpen/);
 }
 
 async function addToken(page, { name, size, type = 'Monster' }) {
@@ -23,6 +66,8 @@ async function addToken(page, { name, size, type = 'Monster' }) {
   await page.locator('#tokType').selectOption(type);
   await page.locator('#tokSize').selectOption(String(size));
   await page.getByRole('button', { name: 'Add token' }).click();
+  await page.locator('[data-sidebar-section-target="tokens"]').click();
+  await expect(page.locator('.app')).not.toHaveClass(/drawerOpen/);
 }
 
 function tokenRow(page, name) {
@@ -34,14 +79,28 @@ async function dragTokenToTopLeftCell(page, { size, cellX, cellY }) {
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas bounding box unavailable');
 
-  const spawnCell = Math.round((70 / 64) - (size / 2));
-  const startCenter = 64 * (spawnCell + (size / 2));
-  const endX = 64 * (cellX + (size / 2));
-  const endY = 64 * (cellY + (size / 2));
+  const points = await page.evaluate(({ cellX, cellY, size }) => {
+    const snapshot = window.__VTT_DEBUG__.getBoardSnapshot();
+    const token = snapshot.state.tokens.find((entry) => entry.id === snapshot.state.currentTurnTokenId);
+    if (!token) return null;
+    const start = window.__VTT_DEBUG__.getTokenInteractionPoint(token.id);
+    const gridSize = snapshot.state.gridSize || 64;
+    const footprint = token.sizeCells || size || 1;
+    const endWorldX = gridSize * (cellX + (footprint / 2));
+    const endWorldY = gridSize * (cellY + (footprint / 2));
+    const { zoom, panX, panY } = snapshot.state.view;
+    return {
+      startX: start?.x,
+      startY: start?.y,
+      endX: (endWorldX * zoom) + panX,
+      endY: (endWorldY * zoom) + panY
+    };
+  }, { size, cellX, cellY });
+  if (!points) throw new Error('Current-turn token interaction point unavailable');
 
-  await page.mouse.move(box.x + startCenter, box.y + startCenter);
+  await page.mouse.move(box.x + points.startX, box.y + points.startY);
   await page.mouse.down();
-  await page.mouse.move(box.x + endX, box.y + endY, { steps: 12 });
+  await page.mouse.move(box.x + points.endX, box.y + points.endY, { steps: 12 });
   await page.mouse.up();
 }
 
@@ -98,11 +157,15 @@ async function setCurrentTurnToken(page, name) {
   await openDetails(page, '#turnSection');
   const option = page.locator('#turnToken option').filter({ hasText: name }).first();
   await page.locator('#turnToken').selectOption(await option.getAttribute('value'));
+  await page.locator('[data-sidebar-section-target="turn"]').click();
+  await expect(page.locator('.app')).not.toHaveClass(/drawerOpen/);
 }
 
 async function setAiControls(page, value) {
   await openDetails(page, '#turnSection');
   await page.locator('#aiControls').selectOption(value);
+  await page.locator('[data-sidebar-section-target="turn"]').click();
+  await expect(page.locator('.app')).not.toHaveClass(/drawerOpen/);
 }
 
 async function uploadTestMap(page, { width = 256, height = 256 } = {}) {
@@ -202,6 +265,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('loads the VTT UI', async ({ page }) => {
+  await expect(page.locator('.app')).not.toHaveClass(/drawerOpen/);
+  await expect(page.locator('#contextDrawer')).toHaveAttribute('data-open', 'false');
   await expect(page.locator('#gridSize')).toHaveValue('64');
   await openDrawerTab(page, 'settings');
   await expect(page.locator('#apiUrl')).toHaveValue(/http:\/\/localhost:3000\/api\/vtt/);
@@ -215,9 +280,29 @@ test('loads the VTT UI', async ({ page }) => {
   await expect(page.locator('#clearAutosavesBtn')).toContainText('Clear');
 });
 
-test('AI drawer defaults to compact controls with autopilot on and no tab expanded', async ({ page }) => {
-  const drawer = page.locator('#aiDrawer');
-  await expect(drawer).toHaveAttribute('open', '');
+test('left rail toggles the contextual drawer and swaps sections', async ({ page }) => {
+  const app = page.locator('.app');
+  const title = page.locator('#contextDrawerTitle');
+
+  await page.locator('[data-sidebar-section-target="map"]').click();
+  await expect(app).toHaveClass(/drawerOpen/);
+  await expect(title).toHaveText('Map & Grid');
+  await expect(page.locator('#mapSection')).toBeVisible();
+  await expect(page.locator('#tokensSection')).toBeHidden();
+
+  await page.locator('[data-sidebar-section-target="tokens"]').click();
+  await expect(title).toHaveText('Tokens');
+  await expect(page.locator('#tokensSection')).toBeVisible();
+  await expect(page.locator('#mapSection')).toBeHidden();
+
+  await page.locator('[data-sidebar-section-target="tokens"]').click();
+  await expect(app).not.toHaveClass(/drawerOpen/);
+  await expect(page.locator('#contextDrawer')).toHaveAttribute('data-open', 'false');
+});
+
+test('AI section defaults to compact controls with autopilot on and no tab expanded', async ({ page }) => {
+  await openDetails(page, '#aiSection');
+  await expect(page.locator('#contextDrawerTitle')).toHaveText('Tactics Director');
   await expect(page.getByRole('button', { name: 'Run AI' })).toBeVisible();
   await expect(page.locator('#autoApplyAI')).toBeChecked();
   await expect(page.getByText('Autopilot')).toBeVisible();
@@ -228,16 +313,138 @@ test('AI drawer defaults to compact controls with autopilot on and no tab expand
   }
 });
 
-test('default VTT positioning keeps the sidebar left and the drawer top-right', async ({ page }) => {
+test('default VTT positioning keeps the rail left and overlays the unified drawer over the stage', async ({ page }) => {
   const stage = await page.locator('.stageWrap').boundingBox();
-  const sidebar = await page.locator('.sidebar').boundingBox();
-  const drawer = await page.locator('#aiDrawer').boundingBox();
-  if (!stage || !sidebar || !drawer) throw new Error('Layout bounds unavailable');
+  const rail = await page.locator('.leftRail').boundingBox();
+  await page.locator('[data-sidebar-section-target="map"]').click();
+  const drawer = await page.locator('#contextDrawer .contextDrawerFrame').boundingBox();
+  if (!stage || !rail || !drawer) throw new Error('Layout bounds unavailable');
 
-  expect(sidebar.x).toBeLessThan(stage.x);
-  expect(sidebar.y).toBeLessThan(stage.y + 20);
-  expect(drawer.y).toBeLessThan(stage.y + 140);
-  expect(drawer.x).toBeGreaterThan(stage.x + (stage.width / 2));
+  expect(rail.x).toBeLessThan(stage.x);
+  expect(drawer.x).toBeLessThan(stage.x + 24);
+  expect(drawer.y).toBeLessThan(stage.y + 24);
+});
+
+test('responsive shell exposes only desktop and mobile rail layouts', async ({ page }) => {
+  const snapshotAt = async (width) => {
+    await page.setViewportSize({ width, height: 900 });
+    return page.evaluate(() => {
+      const app = document.querySelector('.app');
+      const rail = document.querySelector('.leftRail');
+      const stage = document.querySelector('.stageWrap');
+      const railStyle = window.getComputedStyle(rail);
+      const appStyle = window.getComputedStyle(app);
+      const stageStyle = window.getComputedStyle(stage);
+      return {
+        gridTemplateColumns: appStyle.gridTemplateColumns,
+        gridTemplateRows: appStyle.gridTemplateRows,
+        railFlexDirection: railStyle.flexDirection,
+        railGridColumns: railStyle.gridTemplateColumns,
+        stageGridRowStart: stageStyle.gridRowStart
+      };
+    });
+  };
+
+  const desktop = await snapshotAt(1200);
+  const medium = await snapshotAt(1000);
+  const mobile = await snapshotAt(800);
+
+  expect(desktop.gridTemplateColumns).toContain('72px');
+  expect(desktop.railFlexDirection).toBe('column');
+
+  expect(medium.gridTemplateColumns).toContain('72px');
+  expect(medium.gridTemplateColumns).not.toContain('340px');
+  expect(medium.railFlexDirection).toBe('column');
+
+  expect(mobile.gridTemplateRows).not.toBe('none');
+  expect(mobile.railGridColumns.split(' ').filter(Boolean)).toHaveLength(7);
+  expect(mobile.stageGridRowStart).toBe('2');
+});
+
+test('responsive shell sweep stays in exactly two modes and the mobile rail never wraps', async ({ page }) => {
+  const widths = [1400, 1200, 1000, 950, 920, 901, 900, 899, 840, 800, 700, 600, 480, 390, 360];
+  const signatures = new Set();
+
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+
+    const closed = await page.evaluate(() => {
+      const app = document.querySelector('.app');
+      const rail = document.querySelector('.leftRail');
+      const stage = document.querySelector('.stageWrap');
+      const railButtons = Array.from(document.querySelectorAll('.railButton'));
+      const appStyle = window.getComputedStyle(app);
+      const railStyle = window.getComputedStyle(rail);
+      const stageStyle = window.getComputedStyle(stage);
+      const buttonTops = railButtons.map((button) => Math.round(button.getBoundingClientRect().top));
+      return {
+        railDisplay: railStyle.display,
+        railFlexDirection: railStyle.flexDirection,
+        railGridColumns: railStyle.gridTemplateColumns.split(' ').filter(Boolean).length,
+        appGridRows: appStyle.gridTemplateRows,
+        stageGridRowStart: stageStyle.gridRowStart,
+        railClientWidth: rail.clientWidth,
+        railScrollWidth: rail.scrollWidth,
+        railClientHeight: rail.clientHeight,
+        railScrollHeight: rail.scrollHeight,
+        buttonTopCount: new Set(buttonTops).size
+      };
+    });
+
+    await page.locator('[data-sidebar-section-target="map"]').click();
+
+    const open = await page.evaluate(() => {
+      const app = document.querySelector('.app');
+      const rail = document.querySelector('.leftRail');
+      const drawer = document.querySelector('#contextDrawer');
+      const drawerFrame = document.querySelector('#contextDrawer .contextDrawerFrame');
+      const railStyle = window.getComputedStyle(rail);
+      const drawerStyle = window.getComputedStyle(drawer);
+      const frameStyle = window.getComputedStyle(drawerFrame);
+      return {
+        railDisplay: railStyle.display,
+        railFlexDirection: railStyle.flexDirection,
+        railGridColumns: railStyle.gridTemplateColumns.split(' ').filter(Boolean).length,
+        drawerTop: drawerStyle.top,
+        drawerLeft: drawerStyle.left,
+        drawerRight: drawerStyle.right,
+        drawerWidth: drawerStyle.width,
+        drawerTransform: frameStyle.transform,
+        fullscreen: app.classList.contains('drawerFullscreen')
+      };
+    });
+
+    await page.locator('#contextDrawerClose').click();
+
+    const signature = width <= 900
+      ? `mobile:${closed.railDisplay}:${closed.railGridColumns}:${closed.stageGridRowStart}:${open.fullscreen}`
+      : `desktop:${closed.railDisplay}:${closed.railFlexDirection}:${closed.stageGridRowStart}:${open.fullscreen}`;
+    signatures.add(signature);
+
+    if (width <= 900) {
+      expect(closed.railDisplay).toBe('grid');
+      expect(closed.railGridColumns).toBe(7);
+      expect(closed.stageGridRowStart).toBe('2');
+      expect(closed.buttonTopCount).toBe(1);
+      expect(closed.railScrollWidth).toBe(closed.railClientWidth);
+      expect(closed.railScrollHeight).toBe(closed.railClientHeight);
+      expect(open.fullscreen).toBe(true);
+      expect(open.drawerLeft).toBe('10px');
+      expect(open.drawerRight).toBe('10px');
+    } else {
+      expect(closed.railDisplay).toBe('flex');
+      expect(closed.railFlexDirection).toBe('column');
+      expect(closed.stageGridRowStart).toBe('auto');
+      expect(open.fullscreen).toBe(false);
+      expect(open.drawerWidth).toBe('360px');
+      expect(open.drawerLeft).toBe('92px');
+    }
+  }
+
+  expect([...signatures].sort()).toEqual([
+    'desktop:flex:column:auto:false',
+    'mobile:grid:7:2:true'
+  ]);
 });
 
 test('shared shell styling keeps the canvas, token rows, and drawer interactive by default', async ({ page }) => {
@@ -247,18 +454,18 @@ test('shared shell styling keeps the canvas, token rows, and drawer interactive 
     const topbar = document.querySelector('.topbar');
     const canvas = document.querySelector('#stage');
     const tokenRow = document.querySelector('.tokRow');
-    const drawerSummary = document.querySelector('#aiDrawer summary');
-    if (!topbar || !canvas || !tokenRow || !drawerSummary) return null;
+    const drawerClose = document.querySelector('#contextDrawerClose');
+    if (!topbar || !canvas || !tokenRow || !drawerClose) return null;
     const topbarStyle = window.getComputedStyle(topbar);
     const canvasStyle = window.getComputedStyle(canvas);
     const rowStyle = window.getComputedStyle(tokenRow);
-    const drawerSummaryStyle = window.getComputedStyle(drawerSummary);
+    const drawerCloseStyle = window.getComputedStyle(drawerClose);
     return {
       topbarHidden: topbar.hasAttribute('hidden'),
       canvasCursor: canvasStyle.cursor,
       canvasBackgroundColor: canvasStyle.backgroundColor,
       tokenRowDisplay: rowStyle.display,
-      drawerSummaryCursor: drawerSummaryStyle.cursor
+      drawerCloseCursor: drawerCloseStyle.cursor
     };
   });
 
@@ -267,7 +474,7 @@ test('shared shell styling keeps the canvas, token rows, and drawer interactive 
   expect(shellStyles.canvasCursor).toBe('grab');
   expect(shellStyles.canvasBackgroundColor).toBe('rgb(8, 16, 34)');
   expect(shellStyles.tokenRowDisplay).toBe('grid');
-  expect(shellStyles.drawerSummaryCursor).toBe('grab');
+  expect(shellStyles.drawerCloseCursor).toBe('pointer');
 });
 
 test('shared shell typography keeps the default OSS VTT font scale', async ({ page }) => {
@@ -277,18 +484,18 @@ test('shared shell typography keeps the default OSS VTT font scale', async ({ pa
     const body = document.body;
     const heading = document.querySelector('.panelSection summary h2');
     const tokenMeta = document.querySelector('.tokRow .meta');
-    const drawerSummary = document.querySelector('#aiDrawer summary');
-    if (!body || !heading || !tokenMeta || !drawerSummary) return null;
+    const drawerTitle = document.querySelector('#contextDrawerTitle');
+    if (!body || !heading || !tokenMeta || !drawerTitle) return null;
     const bodyStyle = window.getComputedStyle(body);
     const headingStyle = window.getComputedStyle(heading);
     const tokenMetaStyle = window.getComputedStyle(tokenMeta);
-    const drawerSummaryStyle = window.getComputedStyle(drawerSummary);
+    const drawerTitleStyle = window.getComputedStyle(drawerTitle);
     return {
       bodyFontFamily: bodyStyle.fontFamily,
       bodyFontSize: bodyStyle.fontSize,
       headingFontSize: headingStyle.fontSize,
       tokenMetaFontSize: tokenMetaStyle.fontSize,
-      drawerSummaryFontSize: drawerSummaryStyle.fontSize
+      drawerTitleFontSize: drawerTitleStyle.fontSize
     };
   });
 
@@ -297,7 +504,7 @@ test('shared shell typography keeps the default OSS VTT font scale', async ({ pa
   expect(typography.bodyFontSize).toBe('16px');
   expect(typography.headingFontSize).toBe('14px');
   expect(typography.tokenMetaFontSize).toBe('11px');
-  expect(typography.drawerSummaryFontSize).toBe('12px');
+  expect(typography.drawerTitleFontSize).toBe('16px');
 });
 
 test('tokens, turn, and save panels use the expected OSS control typography', async ({ page }) => {
@@ -394,20 +601,6 @@ test('map and grid panel uses the expected OSS control typography', async ({ pag
       boardButton: pick('#fitMap'),
       dragButton: pick('#dragModeBtn'),
       calibrationButton: pick('#startCalibrationBtn'),
-      checkLabel: pick('#mapSection .checkRow label'),
-      checkbox: (() => {
-        const el = document.querySelector('#showBoardStatus');
-        if (!el) return null;
-        const style = window.getComputedStyle(el);
-        const rect = el.getBoundingClientRect();
-        return {
-          width: rect.width,
-          height: rect.height,
-          transform: style.transform,
-          marginTop: style.marginTop,
-          marginRight: style.marginRight
-        };
-      })(),
       gridInput: pick('#calibrationGridSize'),
       offsetInput: pick('#horizontalNudgePx'),
       mapPill: pick('#mapPill')
@@ -434,13 +627,6 @@ test('map and grid panel uses the expected OSS control typography', async ({ pag
   expect(mapTypography.dragButton?.fontSize).toBe('12px');
   expect(mapTypography.calibrationButton?.fontFamily).toBe('Arial');
   expect(mapTypography.calibrationButton?.fontSize).toBe('12px');
-  expect(mapTypography.checkLabel?.fontSize).toBe('12px');
-  expect(mapTypography.checkLabel?.color).toBe('rgb(159, 177, 209)');
-  expect(mapTypography.checkbox?.width).toBeGreaterThan(14);
-  expect(mapTypography.checkbox?.width).toBeLessThan(15);
-  expect(mapTypography.checkbox?.height).toBeGreaterThan(14);
-  expect(mapTypography.checkbox?.height).toBeLessThan(15);
-  expect(mapTypography.checkbox?.transform).toContain('matrix(1.1');
   expect(mapTypography.gridInput?.fontFamily).toBe('Arial');
   expect(mapTypography.gridInput?.fontSize).toBe('13.3333px');
   expect(mapTypography.offsetInput?.fontFamily).toBe('Arial');
@@ -545,20 +731,12 @@ test('AI drawer settings persist across tab changes', async ({ page }) => {
   await expect(page.locator('#aiStrategyHint')).toContainText('full');
 });
 
-test('AI drawer can be dragged around the stage on desktop layouts', async ({ page }) => {
-  const summary = page.locator('#aiDrawer summary');
-  const before = await page.locator('#aiDrawer').boundingBox();
-  const grip = await summary.boundingBox();
-  if (!before || !grip) throw new Error('Drawer bounds unavailable');
-
-  await page.mouse.move(grip.x + (grip.width / 2), grip.y + (grip.height / 2));
-  await page.mouse.down();
-  await page.mouse.move(grip.x + (grip.width / 2) - 120, grip.y + (grip.height / 2) + 60, { steps: 12 });
-  await page.mouse.up();
-
-  const after = await page.locator('#aiDrawer').boundingBox();
-  if (!after) throw new Error('Drawer bounds unavailable after drag');
-  expect(Math.abs(after.x - before.x)).toBeGreaterThan(20);
+test('AI rail item opens the unified drawer instead of a floating draggable panel', async ({ page }) => {
+  await page.locator('[data-sidebar-section-target="ai"]').click();
+  await expect(page.locator('.app')).toHaveClass(/drawerOpen/);
+  await expect(page.locator('#aiSection')).toBeVisible();
+  await expect(page.locator('#contextDrawerTitle')).toHaveText('Tactics Director');
+  await expect(page.locator('#sendState')).toBeVisible();
 });
 
 test('monster name autocomplete shows matching SRD suggestions and clicking one fills the input', async ({ page }) => {
@@ -782,6 +960,7 @@ test('ctrl-clicking a monster after selecting a PC drops the PC instead of formi
   await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
   await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
 
+  await openDetails(page, '#tokensSection');
   await tokenRow(page, 'Hero').click();
   await expect(tokenRow(page, 'Hero')).toHaveClass(/selected/);
 
@@ -790,6 +969,7 @@ test('ctrl-clicking a monster after selecting a PC drops the PC instead of formi
   await expect(tokenRow(page, 'Hero')).not.toHaveClass(/selected/);
   await expect(tokenRow(page, 'Hero')).not.toContainText('Grouped');
   await expect(tokenRow(page, 'Goblin A')).toHaveClass(/selected/);
+  await openDrawerTab(page, 'settings');
   await expect(page.locator('#aiStrategy')).toHaveValue('single_tactical');
 });
 
@@ -800,6 +980,8 @@ test('multi-selecting monsters auto-switches tactics director to group tactical'
   await clickTokenOnStage(page, 'Goblin A');
   await clickTokenOnStage(page, 'Goblin B', ['Control']);
 
+  await openDrawerTab(page, 'settings');
+  await openDetails(page, '#tokensSection');
   await expect(page.locator('#aiStrategy')).toHaveValue('group_tactical');
   await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
   await expect(tokenRow(page, 'Goblin B')).toContainText('Grouped');
@@ -846,6 +1028,7 @@ test('editing the current turn token size re-snaps it while preserving its occup
 test('token art can be uploaded, cropped, and saved from the token list', async ({ page }) => {
   await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
 
+  await openDetails(page, '#tokensSection');
   const row = page.locator('#tokenList .tokRow').filter({ hasText: 'Hero' });
   await row.getByRole('button', { name: 'Art' }).click();
   await expect(page.locator('#tokenArtModal')).toBeVisible();
@@ -909,10 +1092,13 @@ test('named save slots restore a saved board and can be managed from the toolbar
     await page.evaluate(() => document.querySelector('#saveSlotSelect')?.value || '')
   )).toMatch(/.+/);
 
+  await openDetails(page, '#tokensSection');
   await page.getByRole('button', { name: 'Clear all' }).click();
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
+  await openDetails(page, '#turnSection');
   await page.locator('#roundNum').fill('1');
   await page.locator('#aiControls').selectOption('Monsters');
+  await openDetails(page, '#saveSection');
   await setHiddenInputValue(page, '#saveSlotName', 'Empty Board');
   await clickHiddenElement(page, '#saveSlotBtn');
 
@@ -1008,10 +1194,9 @@ test('saving with another slot name reuses that named slot instead of failing', 
 test('map-backed named saves can be created repeatedly and restored', async ({ page }) => {
   await uploadTestMap(page, { width: 1024, height: 1024 });
   await addToken(page, { name: 'Ranger', size: 1, type: 'PC' });
-  await openDetails(page, '#saveSection');
-  await openDetails(page, '#turnSection');
 
   for (const [name, round] of [['Quick Save', '1'], ['Quick Save 3', '3'], ['Quick Save 10', '10']]) {
+    await openDetails(page, '#turnSection');
     await page.locator('#roundNum').fill(round);
     await openDetails(page, '#saveSection');
     await setHiddenInputValue(page, '#saveSlotName', name);
@@ -1023,14 +1208,19 @@ test('map-backed named saves can be created repeatedly and restored', async ({ p
     await page.evaluate(() => window.__VTT_DEBUG__.getSaveSlots().map((slot) => slot.name))
   )).toEqual(['Quick Save 10', 'Quick Save 3', 'Quick Save']);
 
+  await openDetails(page, '#tokensSection');
   await page.getByRole('button', { name: 'Clear all' }).click();
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
 
+  await openDetails(page, '#saveSection');
   await selectHiddenOptionByLabel(page, '#saveSlotSelect', 'Quick Save 3');
   await clickHiddenElement(page, '#loadSlotBtn');
 
+  await openDetails(page, '#tokensSection');
   await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Ranger' })).toHaveCount(1);
+  await openDetails(page, '#turnSection');
   await expect(page.locator('#roundNum')).toHaveValue('3');
+  await openDetails(page, '#saveSection');
   await expect(page.locator('#saveStateStatus')).toContainText('Quick Save 3');
 });
 
@@ -1047,16 +1237,22 @@ test('board snapshots can be exported and imported as json files', async ({ page
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/^drowvtt-board-save-\d{8}-\d{4}\.json$/);
 
+  await openDetails(page, '#tokensSection');
   await page.getByRole('button', { name: 'Clear all' }).click();
+  await openDetails(page, '#turnSection');
   await page.locator('#roundNum').fill('1');
+  await openDetails(page, '#saveSection');
   await page.locator('#importBoardFile').setInputFiles({
     name: 'restored-board.json',
     mimeType: 'application/json',
     buffer: Buffer.from(exported)
   });
 
+  await openDetails(page, '#tokensSection');
   await expectTokenCell(page, 'Mage', 6, 4);
+  await openDetails(page, '#turnSection');
   await expect(page.locator('#roundNum')).toHaveValue('5');
+  await openDetails(page, '#saveSection');
   await expect(page.locator('#saveStateStatus')).toContainText('Imported JSON');
 });
 
@@ -1070,12 +1266,16 @@ test('autosave history can restore a recent board snapshot', async ({ page }) =>
   await page.waitForFunction(() => window.__VTT_DEBUG__.getAutosaves().length > 0);
   await expect(page.locator('#autosaveSelect option')).toHaveCount(1);
 
+  await openDetails(page, '#tokensSection');
   await page.getByRole('button', { name: 'Clear all' }).click();
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
 
+  await openDetails(page, '#saveSection');
   await page.getByRole('button', { name: 'Recover' }).click();
 
+  await openDetails(page, '#tokensSection');
   await expectTokenCell(page, 'Scout', 2, 5);
+  await openDetails(page, '#saveSection');
   await expect(page.locator('#saveStateStatus')).toContainText('Restored autosave');
 });
 
@@ -1331,6 +1531,7 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
   await setAiControls(page, 'Both');
   await setCurrentTurnToken(page, 'Hero');
 
+  await openDrawerTab(page, 'apply');
   await page.locator('#applyJson').fill(JSON.stringify({
     moves: [{ token: 'Hero', to: [5, 1] }],
     actions: [],
@@ -1343,12 +1544,14 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
 });
 
 test('map controls update the map pill and drag mode label', async ({ page }) => {
-  await openDetails(page, '#mapSection');
+  await openDetails(page, '#sessionSection');
   await page.locator('#showBoardStatus').check();
+  await openDetails(page, '#mapSection');
   await page.locator('#calibrationGridSize').fill('72');
   await page.locator('#horizontalNudgePx').fill('48');
   await page.locator('#verticalNudgePx').fill('24');
 
+  await openDetails(page, '#sessionSection');
   await page.getByRole('button', { name: 'Drag: Tokens' }).click();
   await expect(page.getByRole('button', { name: 'Drag: Map' })).toBeVisible();
   await expect(page.locator('#gridPill')).toContainText('72px');
@@ -1357,8 +1560,9 @@ test('map controls update the map pill and drag mode label', async ({ page }) =>
 
 test('calibration offset fields directly update map offsets and survive redraw', async ({ page }) => {
   await uploadTestMap(page);
-  await openDetails(page, '#mapSection');
+  await openDetails(page, '#sessionSection');
   await page.locator('#showBoardStatus').check();
+  await openDetails(page, '#mapSection');
 
   await page.locator('#horizontalNudgePx').fill('36');
   await page.locator('#verticalNudgePx').fill('-18');
@@ -1372,6 +1576,7 @@ test('calibration offset fields directly update map offsets and survive redraw',
   await page.locator('#verticalNudgePx').fill('8');
   await expect(page.locator('#mapPill')).toContainText('off(12,8)');
 
+  await openDetails(page, '#sessionSection');
   await page.getByRole('button', { name: 'Drag: Tokens' }).click();
   await expect(page.getByRole('button', { name: 'Drag: Map' })).toBeVisible();
   await expect(page.locator('#mapPill')).toContainText('off(12,8)');
@@ -1418,6 +1623,7 @@ test('manual calibration measures one cell and then shifts the map alignment', a
   await page.getByRole('button', { name: 'Start calibration' }).click();
   await expect(page.locator('#gridCalibrationNote')).toContainText('step 1 of 2');
 
+  await closeDrawer(page);
   await clickStageWorld(page, 20, 20);
   await expect(page.locator('#gridCalibrationNote')).toContainText('adjacent grid line or corner');
 
@@ -1442,6 +1648,7 @@ test('manual calibration can be cancelled with escape before changing the map', 
   await openDetails(page, '#mapSection');
 
   await page.getByRole('button', { name: 'Start calibration' }).click();
+  await closeDrawer(page);
   await clickStageWorld(page, 20, 20);
   await expect(page.locator('#gridCalibrationNote')).toContainText('adjacent grid line or corner');
 

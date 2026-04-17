@@ -1,6 +1,6 @@
 const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
-  <aside class="sidebar">
-    <div class="brandMark" aria-label="DrowVTT logo">
+  <aside class="leftRail" aria-label="Board tools">
+    <div class="brandMark railBrand" aria-label="DrowVTT logo">
       <div class="brandLine">
         <div class="brandSigil" aria-hidden="true">
           <svg viewBox="0 0 64 64" role="img" aria-hidden="true">
@@ -18,8 +18,65 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
         </div>
       </div>
     </div>
-    __SIDEBAR_AFTER_BRAND_HTML__
-    <details class="panelSection" id="mapSection" open>
+    <nav class="railNav" aria-label="Control sections">
+      <button type="button" class="railButton" data-sidebar-section-target="session" aria-controls="sessionSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">S</span>
+        <span class="railButtonLabel">Session</span>
+      </button>
+      <button type="button" class="railButton" data-sidebar-section-target="map" aria-controls="mapSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">M</span>
+        <span class="railButtonLabel">Map</span>
+      </button>
+      <button type="button" class="railButton" data-sidebar-section-target="tokens" aria-controls="tokensSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">T</span>
+        <span class="railButtonLabel">Tokens</span>
+      </button>
+      <button type="button" class="railButton" data-sidebar-section-target="turn" aria-controls="turnSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">R</span>
+        <span class="railButtonLabel">Turn</span>
+      </button>
+      <button type="button" class="railButton" data-sidebar-section-target="save" aria-controls="saveSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">V</span>
+        <span class="railButtonLabel">Save</span>
+      </button>
+      <button type="button" class="railButton" data-sidebar-section-target="ai" aria-controls="aiSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">A</span>
+        <span class="railButtonLabel">AI</span>
+      </button>
+    </nav>
+  </aside>
+
+  <aside class="contextDrawer" id="contextDrawer" data-open="false" aria-label="Board controls">
+    <div class="contextDrawerFrame">
+      <div class="contextDrawerHeader">
+        <div class="contextDrawerTitleBlock">
+          <div class="subtleLabel">Controls</div>
+          <div class="contextDrawerTitle" id="contextDrawerTitle">Session</div>
+        </div>
+        <button type="button" class="contextDrawerClose" id="contextDrawerClose" aria-label="Close controls">Close</button>
+      </div>
+      <div class="sidebar contextDrawerPanels">
+        __SIDEBAR_AFTER_BRAND_HTML__
+        <details class="panelSection drawerSection" id="sessionSection" data-sidebar-section="session" open>
+          <summary><h2>Session</h2></summary>
+          <div class="card">
+            <div class="subcard">
+              <div class="subtleLabel">Board Tools</div>
+              <div class="mapToolbar">
+                <button id="resetView">Reset view</button>
+                <button id="dragModeBtn" class="primary">Drag: Tokens</button>
+              </div>
+              <div class="checkRow" style="margin-top:10px">
+                <input id="showBoardStatus" type="checkbox" />
+                <label for="showBoardStatus" style="margin:0;color:var(--muted)">Show board status overlay</label>
+              </div>
+            </div>
+            <div class="sectionNote">
+              Keep this drawer closed when you want maximum map space. Open a section from the left rail only when needed.
+            </div>
+          </div>
+        </details>
+        <details class="panelSection drawerSection" id="mapSection" data-sidebar-section="map" open>
       <summary><h2>Map & Grid</h2></summary>
       <div class="card">
         <div class="row">
@@ -75,12 +132,6 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
             <div class="subtleLabel">Board Tools</div>
             <div class="mapToolbar">
               <button id="fitMap" class="primary">Fit map</button>
-              <button id="resetView">Reset view</button>
-              <button id="dragModeBtn" class="primary">Drag: Tokens</button>
-            </div>
-            <div class="checkRow" style="margin-top:10px">
-              <input id="showBoardStatus" type="checkbox" />
-              <label for="showBoardStatus" style="margin:0;color:var(--muted)">Show board status overlay</label>
             </div>
           </div>
 
@@ -116,7 +167,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
       </div>
     </details>
 
-    <details class="panelSection" id="tokensSection">
+    <details class="panelSection drawerSection" id="tokensSection" data-sidebar-section="tokens">
       <summary><h2>Tokens</h2></summary>
       <div class="card">
         <div class="tokenFormRow">
@@ -169,7 +220,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
       </div>
     </details>
 
-    <details class="panelSection" id="turnSection">
+    <details class="panelSection drawerSection" id="turnSection" data-sidebar-section="turn">
       <summary><h2>Turn</h2></summary>
       <div class="card">
         <div class="compactRow">
@@ -252,7 +303,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
       </div>
     </details>
 
-    <details class="panelSection" id="saveSection">
+    <details class="panelSection drawerSection" id="saveSection" data-sidebar-section="save">
       <summary><h2>Save States</h2></summary>
       <div class="card">
         <div class="saveSlotGrid legacySaveSlotsUi" aria-hidden="true">
@@ -297,24 +348,9 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
         <div class="sectionNote">Download Save is the primary way to keep a board. Autosave quietly keeps a rolling local history of recent changes in this browser.</div>
       </div>
     </details>
-
-  </aside>
-
-  <main class="stageWrap">
-    <div class="topbar" id="boardStatusBar" hidden>
-      <span class="pill" id="viewPill">Zoom: 100% • Pan: (0,0)</span>
-      <span class="pill" id="gridPill">Grid: 64px</span>
-      <span class="pill" id="mapPill">Map: off(0,0) scale 1 rot 0°</span>
-      <span class="hint">Grid combat, map alignment, and AI-assisted turns.</span>
-    </div>
-    <details class="aiDrawer" id="aiDrawer" open>
-      <summary>
-        <span class="drawerSummaryLabel">
-          <span>Tactics Director</span>
-          <span class="drawerModeBadge" id="aiStrategyBadge">Single (Tactical)</span>
-        </span>
-      </summary>
-      <div class="drawerContent">
+    <details class="panelSection drawerSection aiSection" id="aiSection" data-sidebar-section="ai">
+      <summary><h2>Tactics Director</h2></summary>
+      <div class="card">
         <div class="drawerLead">Run Tactics Director, review its plan, adjust settings, and check the log here.</div>
         <div class="drawerActions">
           <button id="sendState" class="primary">Run AI</button>
@@ -382,6 +418,17 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
         </div>
       </div>
     </details>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stageWrap">
+    <div class="topbar" id="boardStatusBar" hidden>
+      <span class="pill" id="viewPill">Zoom: 100% • Pan: (0,0)</span>
+      <span class="pill" id="gridPill">Grid: 64px</span>
+      <span class="pill" id="mapPill">Map: off(0,0) scale 1 rot 0°</span>
+      <span class="hint">Grid combat, map alignment, and AI-assisted turns.</span>
+    </div>
     <canvas id="stage"></canvas>
   </main>
 </div>

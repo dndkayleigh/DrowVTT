@@ -522,11 +522,6 @@
       color:var(--muted);font-size:12px;
     }
     input[type="checkbox"]{transform:scale(1.1)}
-    @media (max-width: 1180px){
-      .app{grid-template-columns:340px 1fr}
-      .drawerBody{grid-template-columns:1fr}
-      .tokenFormRow{grid-template-columns:1fr 1fr}
-    }
     @media (max-width: 900px){
       body{height:auto;overflow:auto}
       .app{grid-template-columns:1fr;height:auto}
@@ -607,13 +602,22 @@ import {
 (() => {
   const canvas = document.getElementById('stage');
   const ctx = canvas.getContext('2d');
+  let lastCanvasCssWidth = 0;
+  let lastCanvasCssHeight = 0;
 
   function resizeCanvasToCSS() {
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
+    if (state.map.img && lastCanvasCssWidth > 0 && lastCanvasCssHeight > 0) {
+      const centerWorld = screenToWorld(lastCanvasCssWidth / 2, lastCanvasCssHeight / 2);
+      state.view.panX = (rect.width / 2) - centerWorld.x * state.view.zoom;
+      state.view.panY = (rect.height / 2) - centerWorld.y * state.view.zoom;
+    }
     canvas.width = Math.max(600, Math.floor(rect.width * dpr));
     canvas.height = Math.max(400, Math.floor(rect.height * dpr));
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    lastCanvasCssWidth = rect.width;
+    lastCanvasCssHeight = rect.height;
     draw();
   }
   window.addEventListener('resize', resizeCanvasToCSS);
@@ -634,10 +638,6 @@ import {
     draggingPan: false,
     draggingMap: false,
     draggingArtPreview: false,
-    draggingAIDrawer: false,
-    aiDrawerPointerDown: null,
-    aiDrawerPos: null,
-    suppressAIDrawerToggle: false,
     dragOffset: { x: 0, y: 0 },
     dragOriginCell: null,
     lastMouse: { x: 0, y: 0 },
@@ -645,6 +645,8 @@ import {
     dragMode: 'tokens',
     contextMenuTokenId: null,
     tokenArtEditor: null,
+    activeSidebarSection: 'session',
+    sidebarDrawerOpen: false,
 
     aiControls: 'Monsters',
     round: 1,
@@ -656,8 +658,13 @@ import {
   const uid = () => Math.random().toString(36).slice(2, 10);
   const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
   const toRad = (deg) => deg * Math.PI / 180;
-  const aiDrawer = document.getElementById('aiDrawer');
-  const aiDrawerSummary = aiDrawer.querySelector('summary');
+  const appShell = document.querySelector('.app');
+  const contextDrawer = document.getElementById('contextDrawer');
+  const contextDrawerFrame = contextDrawer?.querySelector('.contextDrawerFrame');
+  const contextDrawerTitle = document.getElementById('contextDrawerTitle');
+  const contextDrawerClose = document.getElementById('contextDrawerClose');
+  const sidebarSectionButtons = Array.from(document.querySelectorAll('[data-sidebar-section-target]'));
+  const drawerSections = Array.from(document.querySelectorAll('[data-sidebar-section]'));
   const stageWrap = document.querySelector('.stageWrap');
   const tokenContextMenu = document.getElementById('tokenContextMenu');
   const menuAddArt = document.getElementById('menuAddArt');
@@ -730,9 +737,62 @@ import {
     step: 'idle',
     firstPoint: null
   };
+  const MOBILE_RAIL_BREAKPOINT = 900;
 
   function syncBoardStatusVisibility() {
     boardStatusBar.hidden = !showBoardStatusCheckbox.checked;
+  }
+
+  function getSidebarSectionLabel(sectionId) {
+    switch (sectionId) {
+      case 'session': return 'Session';
+      case 'map': return 'Map & Grid';
+      case 'tokens': return 'Tokens';
+      case 'turn': return 'Turn';
+      case 'save': return 'Save States';
+      case 'ai': return 'Tactics Director';
+      default: return 'Controls';
+    }
+  }
+
+  function shouldUseFullscreenDrawer() {
+    if (!state.sidebarDrawerOpen) return false;
+    return window.innerWidth <= MOBILE_RAIL_BREAKPOINT;
+  }
+
+  function syncSidebarDrawer() {
+    appShell.classList.toggle('drawerOpen', state.sidebarDrawerOpen);
+    appShell.classList.toggle('drawerFullscreen', shouldUseFullscreenDrawer());
+    contextDrawer.dataset.open = state.sidebarDrawerOpen ? 'true' : 'false';
+    contextDrawerTitle.textContent = getSidebarSectionLabel(state.activeSidebarSection);
+    for (const button of sidebarSectionButtons) {
+      button.setAttribute('aria-pressed', button.dataset.sidebarSectionTarget === state.activeSidebarSection && state.sidebarDrawerOpen ? 'true' : 'false');
+    }
+    for (const section of drawerSections) {
+      const isActive = section.dataset.sidebarSection === state.activeSidebarSection;
+      section.hidden = !isActive;
+      if (isActive) section.open = true;
+    }
+    requestAnimationFrame(resizeCanvasToCSS);
+  }
+
+  function openSidebarDrawer(sectionId) {
+    state.activeSidebarSection = sectionId;
+    state.sidebarDrawerOpen = true;
+    syncSidebarDrawer();
+  }
+
+  function closeSidebarDrawer() {
+    state.sidebarDrawerOpen = false;
+    syncSidebarDrawer();
+  }
+
+  function toggleSidebarDrawer(sectionId) {
+    if (state.sidebarDrawerOpen && state.activeSidebarSection === sectionId) {
+      closeSidebarDrawer();
+      return;
+    }
+    openSidebarDrawer(sectionId);
   }
 
   function publishBoardEvent(type, payload = {}) {
@@ -1634,67 +1694,6 @@ import {
 
   function getCss(varName) {
     return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-  }
-
-  function shouldFloatAIDrawer() {
-    return window.innerWidth > 900;
-  }
-
-  function measureAIDrawerHeight() {
-    const previousHeight = aiDrawer.style.height;
-    aiDrawer.style.height = 'auto';
-    const measured = aiDrawer.offsetHeight || 80;
-    aiDrawer.style.height = previousHeight;
-    return measured;
-  }
-
-  function applyAIDrawerPosition() {
-    if (!shouldFloatAIDrawer()) {
-      aiDrawer.style.left = '';
-      aiDrawer.style.top = '';
-      aiDrawer.style.right = '';
-      aiDrawer.style.height = '';
-      state.aiDrawerPos = null;
-      return;
-    }
-
-    if (!state.aiDrawerPos) {
-      const wrapRect = stageWrap.getBoundingClientRect();
-      const drawerRect = aiDrawer.getBoundingClientRect();
-      state.aiDrawerPos = {
-        left: drawerRect.left - wrapRect.left,
-        top: drawerRect.top - wrapRect.top
-      };
-    }
-
-    const wrapRect = stageWrap.getBoundingClientRect();
-    const drawerWidth = aiDrawer.offsetWidth || 440;
-    aiDrawer.style.height = '';
-    const naturalHeight = measureAIDrawerHeight();
-    if (!aiDrawer.open) {
-      const maxLeft = Math.max(10, wrapRect.width - drawerWidth - 10);
-      const collapsedHeight = naturalHeight;
-      const maxTop = Math.max(10, wrapRect.height - collapsedHeight - 10);
-      state.aiDrawerPos.left = clamp(state.aiDrawerPos.left, 10, maxLeft);
-      state.aiDrawerPos.top = clamp(state.aiDrawerPos.top, 10, maxTop);
-      aiDrawer.style.left = `${state.aiDrawerPos.left}px`;
-      aiDrawer.style.top = `${state.aiDrawerPos.top}px`;
-      aiDrawer.style.right = 'auto';
-      return;
-    }
-    const maxHeight = Math.max(naturalHeight, wrapRect.height - 20);
-    const targetHeight = Math.min(naturalHeight, maxHeight);
-    aiDrawer.style.height = `${targetHeight}px`;
-
-    const drawerHeight = aiDrawer.offsetHeight || targetHeight;
-    const maxLeft = Math.max(10, wrapRect.width - drawerWidth - 10);
-    const maxTop = Math.max(10, wrapRect.height - drawerHeight - 10);
-    state.aiDrawerPos.left = clamp(state.aiDrawerPos.left, 10, maxLeft);
-    state.aiDrawerPos.top = clamp(state.aiDrawerPos.top, 10, maxTop);
-
-    aiDrawer.style.left = `${state.aiDrawerPos.left}px`;
-    aiDrawer.style.top = `${state.aiDrawerPos.top}px`;
-    aiDrawer.style.right = 'auto';
   }
 
   function escapeHtml(s) {
@@ -2774,7 +2773,6 @@ import {
     for (const panel of drawerTabPanels) {
       panel.hidden = panel.dataset.drawerPanel !== activeDrawerTab;
     }
-    requestAnimationFrame(() => applyAIDrawerPosition());
   }
 
   for (const btn of drawerTabButtons) {
@@ -2947,10 +2945,14 @@ import {
     const strategy = getSelectedAiStrategy();
     if (!strategy) return;
     aiStrategySelect.value = strategy.id;
-    aiStrategyBadge.textContent = strategy.label;
-    aiStrategyBadge.title = `${strategy.label}: ${strategy.description}`;
-    aiStrategyHint.textContent =
-      `${strategy.description} Uses ${strategy.model} with ${describePacketVariant(strategy.packetVariant)}. ${explainPacketVariant(strategy.packetVariant)}`;
+    if (aiStrategyBadge) {
+      aiStrategyBadge.textContent = strategy.label;
+      aiStrategyBadge.title = `${strategy.label}: ${strategy.description}`;
+    }
+    if (aiStrategyHint) {
+      aiStrategyHint.textContent =
+        `${strategy.description} Uses ${strategy.model} with ${describePacketVariant(strategy.packetVariant)}. ${explainPacketVariant(strategy.packetVariant)}`;
+    }
   }
 
   function getAiProgressMessage(strategy) {
@@ -3016,7 +3018,6 @@ import {
     requestAnimationFrame(() => {
       const isOverflowing = decisionSummary.scrollHeight > decisionSummary.clientHeight + 1;
       decisionSummary.title = (isOverflowing || summary.length > 140) ? summary : '';
-      applyAIDrawerPosition();
     });
   }
 
@@ -3278,26 +3279,13 @@ import {
   }
   document.getElementById('sendState').addEventListener('click', sendStateToBackend);
 
-  // ---------- AI Drawer Drag ----------
-  aiDrawerSummary.addEventListener('mousedown', (e) => {
-    if (!shouldFloatAIDrawer() || e.button !== 0) return;
-    state.aiDrawerPointerDown = {
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      startLeft: state.aiDrawerPos?.left ?? 0,
-      startTop: state.aiDrawerPos?.top ?? 0
-    };
-  });
-
-  aiDrawerSummary.addEventListener('click', (e) => {
-    if (!state.suppressAIDrawerToggle) return;
-    e.preventDefault();
-    e.stopPropagation();
-    state.suppressAIDrawerToggle = false;
-  });
-
-  aiDrawer.addEventListener('toggle', () => {
-    requestAnimationFrame(() => applyAIDrawerPosition());
+  for (const button of sidebarSectionButtons) {
+    button.addEventListener('click', () => toggleSidebarDrawer(button.dataset.sidebarSectionTarget));
+  }
+  contextDrawerClose.addEventListener('click', () => closeSidebarDrawer());
+  window.addEventListener('resize', () => {
+    if (!state.sidebarDrawerOpen) return;
+    syncSidebarDrawer();
   });
 
   // ---------- Mouse / Keyboard ----------
@@ -3376,12 +3364,6 @@ import {
       state.draggingArtPreview = false;
       artPreviewShell.classList.remove('dragging');
     }
-    if (state.draggingAIDrawer) {
-      state.draggingAIDrawer = false;
-      state.suppressAIDrawerToggle = true;
-      aiDrawer.classList.remove('dragging');
-    }
-    state.aiDrawerPointerDown = null;
     if (state.draggingToken) {
       const t = state.draggingToken;
       const targetCell = gridCoords(t);
@@ -3414,23 +3396,6 @@ import {
   });
 
   window.addEventListener('mousemove', (e) => {
-    if (state.aiDrawerPointerDown && shouldFloatAIDrawer()) {
-      const dxClient = e.clientX - state.aiDrawerPointerDown.startClientX;
-      const dyClient = e.clientY - state.aiDrawerPointerDown.startClientY;
-      if (!state.draggingAIDrawer && Math.hypot(dxClient, dyClient) > 4) {
-        state.draggingAIDrawer = true;
-        aiDrawer.classList.add('dragging');
-      }
-      if (state.draggingAIDrawer) {
-        state.aiDrawerPos = {
-          left: state.aiDrawerPointerDown.startLeft + dxClient,
-          top: state.aiDrawerPointerDown.startTop + dyClient
-        };
-        applyAIDrawerPosition();
-        return;
-      }
-    }
-
     const m = getMousePos(e);
     const dx = m.x - state.lastMouse.x;
     const dy = m.y - state.lastMouse.y;
@@ -3495,7 +3460,6 @@ import {
 
   window.addEventListener('keydown', (e) => { if (e.code === 'Space') state.spaceDown = true; });
   window.addEventListener('keyup',   (e) => { if (e.code === 'Space') state.spaceDown = false; });
-  window.addEventListener('resize', () => requestAnimationFrame(() => applyAIDrawerPosition()));
   window.addEventListener('mousedown', (e) => {
     if (!tokenContextMenu.hidden && !tokenContextMenu.contains(e.target)) hideTokenContextMenu();
     if (!tokenArtModal.hidden && e.target === tokenArtModal) closeTokenArtEditor();
@@ -3506,6 +3470,9 @@ import {
         stopCalibration();
         return;
       }
+      if (state.sidebarDrawerOpen) {
+        closeSidebarDrawer();
+      }
       if (!tokenContextMenu.hidden) hideTokenContextMenu();
       if (!tokenArtModal.hidden) closeTokenArtEditor();
     }
@@ -3514,6 +3481,7 @@ import {
   // ---------- Init ----------
   setTurnTab('stats');
   setDrawerTab(null);
+  syncSidebarDrawer();
   syncCalibrationControls();
   document.getElementById('gridSize').dispatchEvent(new Event('input'));
   document.getElementById('snapMode').dispatchEvent(new Event('change'));
@@ -3521,7 +3489,6 @@ import {
   aiStrategySelect.value = DEFAULT_AI_TURN_STRATEGY_ID;
   syncAiStrategyUi();
   syncTokenSelectionUi();
-  requestAnimationFrame(() => applyAIDrawerPosition());
   sessionSync.connect('local-session', authAdapter.getCurrentUserContext());
 
   // Seed tokens
