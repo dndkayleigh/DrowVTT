@@ -157,6 +157,10 @@
     .tokRow b{font-size:12px}
     .tokRow .meta{font-size:11px;color:var(--muted)}
     .tokRow button{padding:6px 8px;border-radius:9px}
+    #mobileGroupSelectBtn[aria-pressed="true"]{
+      background:rgba(90,169,255,.18);
+      border-color:rgba(90,169,255,.35);
+    }
     .footerNote{margin-top:8px;font-size:11px;color:var(--muted)}
     .subtleLabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
     .statusRow{min-height:16px}
@@ -651,7 +655,8 @@ import {
     aiControls: 'Monsters',
     round: 1,
     log: [],
-    aiOverlay: { paths: [], summary: '' }
+    aiOverlay: { paths: [], summary: '' },
+    mobileGroupSelectMode: false
   };
 
   // ---------- Helpers ----------
@@ -710,6 +715,7 @@ import {
   const tokSizeSelect = document.getElementById('tokSize');
   const tokColorSelect = document.getElementById('tokColor');
   const monsterAutocomplete = document.getElementById('monsterAutocomplete');
+  const mobileGroupSelectBtn = document.getElementById('mobileGroupSelectBtn');
   const setAiGroupBtn = document.getElementById('setAiGroup');
   const clearAiGroupBtn = document.getElementById('clearAiGroup');
   const tokenSelectionNote = document.getElementById('tokenSelectionNote');
@@ -902,6 +908,12 @@ import {
       selectedCount: state.selectedTokenIds.length,
       groupCount: getAiGroupTokenIds().length
     });
+    if (mobileGroupSelectBtn) {
+      const mobileMode = window.innerWidth <= 900;
+      mobileGroupSelectBtn.hidden = !mobileMode;
+      mobileGroupSelectBtn.textContent = state.mobileGroupSelectMode ? 'Done' : 'Group Select';
+      mobileGroupSelectBtn.setAttribute('aria-pressed', state.mobileGroupSelectMode ? 'true' : 'false');
+    }
   }
 
   function normalizeTokenArt(art = {}) {
@@ -2380,6 +2392,10 @@ import {
     else monsterAutocomplete.hidden = true;
   });
   window.addEventListener('resize', () => {
+    if (window.innerWidth > 900 && state.mobileGroupSelectMode) {
+      state.mobileGroupSelectMode = false;
+      syncTokenSelectionUi();
+    }
     if (!monsterAutocomplete.hidden) renderMonsterAutocomplete();
   });
 
@@ -2443,6 +2459,11 @@ import {
     renderTokenList();
     syncTokenSelectionUi();
     refreshExport();
+  });
+
+  mobileGroupSelectBtn?.addEventListener('click', () => {
+    state.mobileGroupSelectMode = !state.mobileGroupSelectMode;
+    syncTokenSelectionUi();
   });
 
   function gridCoords(token) {
@@ -2534,7 +2555,7 @@ import {
       row.addEventListener('click', (ev) => {
         const interaction = computeTokenListInteraction({
           tokenId: t.id,
-          additive: ev.metaKey || ev.ctrlKey,
+          additive: ev.metaKey || ev.ctrlKey || (window.innerWidth <= 900 && state.mobileGroupSelectMode),
           canPickForGroup,
           selectedTokenIds: state.selectedTokenIds,
           tokens: state.tokens,

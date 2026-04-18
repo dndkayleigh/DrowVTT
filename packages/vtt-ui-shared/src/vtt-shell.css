@@ -409,6 +409,10 @@ canvas.calibrating{cursor:crosshair}
 .tokRow b{font-size:12px}
 .tokRow .meta{font-size:11px;color:var(--muted)}
 .tokRow button{padding:6px 8px;border-radius:9px}
+#mobileGroupSelectBtn[aria-pressed="true"]{
+  background:rgba(90,169,255,.18);
+  border-color:rgba(90,169,255,.35);
+}
 .footerNote{margin-top:8px;font-size:11px;color:var(--muted)}
 .subtleLabel{
   font-size:11px;

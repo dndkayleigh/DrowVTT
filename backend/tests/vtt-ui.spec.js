@@ -60,8 +60,7 @@ async function clearTokens(page) {
   await openDetails(page, '#tokensSection');
   await page.getByRole('button', { name: 'Clear all' }).click();
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
-  await page.locator('[data-sidebar-section-target="tokens"]').click();
-  await expect(page.locator('.app')).not.toHaveClass(/drawerOpen/);
+  await closeDrawer(page);
 }
 
 async function addToken(page, { name, size, type = 'Monster' }) {
@@ -70,8 +69,7 @@ async function addToken(page, { name, size, type = 'Monster' }) {
   await page.locator('#tokType').selectOption(type);
   await page.locator('#tokSize').selectOption(String(size));
   await page.getByRole('button', { name: 'Add token' }).click();
-  await page.locator('[data-sidebar-section-target="tokens"]').click();
-  await expect(page.locator('.app')).not.toHaveClass(/drawerOpen/);
+  await closeDrawer(page);
 }
 
 function tokenRow(page, name) {
@@ -161,15 +159,13 @@ async function setCurrentTurnToken(page, name) {
   await openDetails(page, '#turnSection');
   const option = page.locator('#turnToken option').filter({ hasText: name }).first();
   await page.locator('#turnToken').selectOption(await option.getAttribute('value'));
-  await page.locator('[data-sidebar-section-target="turn"]').click();
-  await expect(page.locator('.app')).not.toHaveClass(/drawerOpen/);
+  await closeDrawer(page);
 }
 
 async function setAiControls(page, value) {
   await openDetails(page, '#turnSection');
   await page.locator('#aiControls').selectOption(value);
-  await page.locator('[data-sidebar-section-target="turn"]').click();
-  await expect(page.locator('.app')).not.toHaveClass(/drawerOpen/);
+  await closeDrawer(page);
 }
 
 async function uploadTestMap(page, { width = 256, height = 256 } = {}) {
@@ -1020,6 +1016,35 @@ test('multi-selecting monsters auto-switches tactics director to group tactical'
   await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
   await expect(tokenRow(page, 'Goblin B')).toContainText('Grouped');
   await expect(page.locator('#tokenSelectionNote')).toContainText('2 grouped AI-controlled tokens');
+});
+
+test('mobile group select mode supports grouped selection without ctrl-click', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await addToken(page, { name: 'Goblin B', size: 1, type: 'Monster' });
+
+  await openDetails(page, '#tokensSection');
+  await expect(page.locator('#mobileGroupSelectBtn')).toBeVisible();
+  await expect(page.locator('#mobileGroupSelectBtn')).toHaveText('Group Select');
+
+  await page.locator('#mobileGroupSelectBtn').click();
+  await expect(page.locator('#mobileGroupSelectBtn')).toHaveText('Done');
+  await expect(page.locator('#mobileGroupSelectBtn')).toHaveAttribute('aria-pressed', 'true');
+
+  await tokenRow(page, 'Goblin A').click();
+
+  await closeDrawer(page);
+  await openDrawerTab(page, 'settings');
+  await expect(page.locator('#aiStrategy')).toHaveValue('group_tactical');
+  await closeDrawer(page);
+  await openDetails(page, '#tokensSection');
+  await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
+  await expect(tokenRow(page, 'Goblin B')).toContainText('Grouped');
+  await expect(page.locator('#tokenSelectionNote')).toContainText('2 grouped AI-controlled tokens');
+
+  await page.locator('#mobileGroupSelectBtn').click();
+  await expect(page.locator('#mobileGroupSelectBtn')).toHaveText('Group Select');
+  await expect(page.locator('#mobileGroupSelectBtn')).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('new duplicate creature names auto-increment by letter', async ({ page }) => {

@@ -224,6 +224,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
           <button id="clearTokens" class="danger">Clear all</button>
         </div>
         <div class="btnbar" style="margin-top:8px;">
+          <button id="mobileGroupSelectBtn" type="button">Group Select</button>
           <button id="setAiGroup">Set Group From Selection</button>
           <button id="clearAiGroup">Clear Group</button>
         </div>

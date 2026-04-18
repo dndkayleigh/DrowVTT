@@ -61,6 +61,7 @@ test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.match(renderOssVttShell(), /data-sidebar-section-target="ai"/);
   assert.match(renderOssVttShell(), /id="aiSection"/);
   assert.doesNotMatch(renderOssVttShell(), /data-sidebar-section-target="save"/);
+  assert.match(renderOssVttShell(), /id="mobileGroupSelectBtn"/);
   assert.match(renderOssVttShell(), /class="stageWatermark"/);
   assert.match(renderOssVttShell(), />Tactics</);
 });
@@ -110,7 +111,7 @@ test('shared VTT runtime helpers expose selection note and context menu state', 
       strategyLabel: 'Group (Tactical)',
       groupCount: 2
     }),
-    'Group (Tactical) will use 2 grouped AI-controlled tokens. Use Pick or ctrl/cmd-click eligible tokens, then click Set Group From Selection.'
+    'Group (Tactical) will use 2 grouped AI-controlled tokens. Use ctrl/cmd-click on desktop or Group Select on mobile, then click Set Group From Selection.'
   );
 
   assert.deepEqual(
@@ -414,7 +415,7 @@ test('shared VTT runtime helpers orchestrate group assignment and token-list int
     }),
     {
       ok: false,
-      note: 'Select one or more AI-controlled rows with Pick before creating a tactical group.'
+      note: 'Select one or more AI-controlled rows before creating a tactical group.'
     }
   );
 
