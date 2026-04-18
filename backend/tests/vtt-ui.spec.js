@@ -6,7 +6,7 @@ async function openDetails(page, selector) {
     '#mapSection': 'map',
     '#tokensSection': 'tokens',
     '#turnSection': 'turn',
-    '#saveSection': 'save',
+    '#saveSection': 'session',
     '#aiSection': 'ai',
     '#aiDrawer': 'ai'
   };
@@ -22,7 +22,11 @@ async function openDetails(page, selector) {
       await expect(app).toHaveClass(/drawerOpen/);
     }
   }
-  const resolvedSelector = selector === '#aiDrawer' ? '#aiSection' : selector;
+  const resolvedSelector = selector === '#aiDrawer'
+    ? '#aiSection'
+    : selector === '#saveSection'
+      ? '#sessionSection'
+      : selector;
   const details = page.locator(resolvedSelector);
   if ((await details.getAttribute('open')) !== null) return;
   await details.evaluate((el) => { el.open = true; });
@@ -268,6 +272,9 @@ test('loads the VTT UI', async ({ page }) => {
   await expect(page.locator('.app')).not.toHaveClass(/drawerOpen/);
   await expect(page.locator('#contextDrawer')).toHaveAttribute('data-open', 'false');
   await expect(page.locator('#gridSize')).toHaveValue('64');
+  await expect(page.locator('.stageWatermark')).toBeVisible();
+  await expect(page.locator('.stageWatermarkWordmark')).toHaveText('DrowVTT');
+  await expect(page.locator('#saveSlotName')).toHaveValue(new RegExp(`^New Session - \\d{4}-\\d{2}-\\d{2}$`));
   await openDrawerTab(page, 'settings');
   await expect(page.locator('#apiUrl')).toHaveValue(/http:\/\/localhost:3000\/api\/vtt/);
   await expect(page.locator('#stage')).toBeVisible();
@@ -298,6 +305,33 @@ test('left rail toggles the contextual drawer and swaps sections', async ({ page
   await page.locator('[data-sidebar-section-target="tokens"]').click();
   await expect(app).not.toHaveClass(/drawerOpen/);
   await expect(page.locator('#contextDrawer')).toHaveAttribute('data-open', 'false');
+});
+
+test('rail shows Session Map Tokens Turn and Tactics with no Save button', async ({ page }) => {
+  await expect(page.locator('.railButton')).toHaveCount(5);
+  await expect(page.locator('.railButtonLabel')).toHaveText(['Session', 'Map', 'Tokens', 'Turn', 'Tactics']);
+  await expect(page.locator('[data-sidebar-section-target="save"]')).toHaveCount(0);
+});
+
+test('session drawer owns session naming and save recovery controls', async ({ page }) => {
+  await openDetails(page, '#sessionSection');
+  await expect(page.locator('#contextDrawerTitle')).toHaveText('Session');
+  await expect(page.locator('#saveSlotName')).toBeVisible();
+  await expect(page.locator('#saveSlotName')).toHaveValue(new RegExp(`^New Session - \\d{4}-\\d{2}-\\d{2}$`));
+  await expect(page.locator('#exportBoardBtn')).toBeVisible();
+  await expect(page.locator('#importBoardBtn')).toBeVisible();
+  await expect(page.locator('#autosaveSelect')).toBeVisible();
+  await expect(page.locator('#restoreAutosaveBtn')).toBeVisible();
+  await expect(page.locator('#clearAutosavesBtn')).toBeVisible();
+});
+
+test('map drawer owns board tools formerly in session', async ({ page }) => {
+  await openDetails(page, '#mapSection');
+  await expect(page.locator('#contextDrawerTitle')).toHaveText('Map & Grid');
+  await expect(page.locator('#resetView')).toBeVisible();
+  await expect(page.locator('#dragModeBtn')).toBeVisible();
+  await expect(page.locator('#fitMap')).toBeVisible();
+  await expect(page.locator('#showBoardStatus')).toBeVisible();
 });
 
 test('AI section defaults to compact controls with autopilot on and no tab expanded', async ({ page }) => {
@@ -357,7 +391,7 @@ test('responsive shell exposes only desktop and mobile rail layouts', async ({ p
   expect(medium.railFlexDirection).toBe('column');
 
   expect(mobile.gridTemplateRows).not.toBe('none');
-  expect(mobile.railGridColumns.split(' ').filter(Boolean)).toHaveLength(7);
+  expect(mobile.railGridColumns.split(' ').filter(Boolean)).toHaveLength(5);
   expect(mobile.stageGridRowStart).toBe('2');
 });
 
@@ -423,7 +457,7 @@ test('responsive shell sweep stays in exactly two modes and the mobile rail neve
 
     if (width <= 900) {
       expect(closed.railDisplay).toBe('grid');
-      expect(closed.railGridColumns).toBe(7);
+      expect(closed.railGridColumns).toBe(5);
       expect(closed.stageGridRowStart).toBe('2');
       expect(closed.buttonTopCount).toBe(1);
       expect(closed.railScrollWidth).toBe(closed.railClientWidth);
@@ -443,7 +477,7 @@ test('responsive shell sweep stays in exactly two modes and the mobile rail neve
 
   expect([...signatures].sort()).toEqual([
     'desktop:flex:column:auto:false',
-    'mobile:grid:7:2:true'
+    'mobile:grid:5:2:true'
   ]);
 });
 
@@ -1359,6 +1393,40 @@ test('group tactical application moves multiple grouped monsters and keeps a tra
   const overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
   expect(overlay.paths).toHaveLength(2);
   expect(overlay.paths.map((entry) => entry.name).sort()).toEqual(['Goblin A', 'Goblin B']);
+});
+
+test('manual movement clears the AI trail for the moved token only', async ({ page }) => {
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 1, cellY: 1 });
+  await addToken(page, { name: 'Goblin B', size: 1, type: 'Monster' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Goblin B', cellX: 3, cellY: 1 });
+
+  await clickTokenOnStage(page, 'Goblin A');
+  await clickTokenOnStage(page, 'Goblin B', ['Control']);
+  await expect(page.locator('#aiStrategy')).toHaveValue('group_tactical');
+
+  await openDrawerTab(page, 'apply');
+  await page.locator('#applyJson').fill(JSON.stringify({
+    summary: 'The goblins advance together.',
+    moves: [
+      { token: 'Goblin A', to: [2, 2], rationale: 'Close distance from the left flank.' },
+      { token: 'Goblin B', to: [4, 2], rationale: 'Mirror the push from the right flank.' }
+    ],
+    actions: [],
+    end_turn: false
+  }));
+  await page.locator('#applyBtn').click();
+
+  let overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
+  expect(overlay.paths).toHaveLength(2);
+
+  await closeDrawer(page);
+  await dragNamedTokenToTopLeftCell(page, { name: 'Goblin A', cellX: 5, cellY: 2 });
+  await expectTokenCell(page, 'Goblin A', 5, 2);
+
+  overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
+  expect(overlay.paths).toHaveLength(1);
+  expect(overlay.paths[0].name).toBe('Goblin B');
 });
 
 test('backend auto-apply fills the response box and moves the current token', async ({ page }) => {

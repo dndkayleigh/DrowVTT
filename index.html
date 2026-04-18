@@ -579,7 +579,7 @@ import { createLocalBoardPersistenceAdapter } from '/data/board-persistence-adap
 import { createLocalSessionSyncAdapter } from '/data/local-session-sync-adapter.mjs';
 import { createLocalUsageTrackingAdapter } from '/data/local-usage-tracking-adapter.mjs';
 import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/data/board-state-utils.mjs';
-import { normalizeSlotName } from '/data/save-slots-utils.mjs';
+import { buildDefaultSlotName, normalizeSlotName } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
 import {
   computeCanvasContextMenuTarget,
@@ -749,7 +749,6 @@ import {
       case 'map': return 'Map & Grid';
       case 'tokens': return 'Tokens';
       case 'turn': return 'Turn';
-      case 'save': return 'Save States';
       case 'ai': return 'Tactics Director';
       default: return 'Controls';
     }
@@ -1053,10 +1052,18 @@ import {
       const slots = loadSaveSlotsFromStorage();
       updateSaveControls(slots, preferredSlotId);
       const activeSlot = slots.find((slot) => slot.id === saveSlotSelect.value) || slots[0] || null;
+      if (activeSlot) {
+        saveSlotNameInput.value = activeSlot.name;
+      } else if (!String(saveSlotNameInput.value || '').trim()) {
+        saveSlotNameInput.value = buildDefaultSlotName();
+      }
       updateSaveStatusFromSlot(activeSlot);
       return slots;
     } catch {
       updateSaveControls([], '');
+      if (!String(saveSlotNameInput.value || '').trim()) {
+        saveSlotNameInput.value = buildDefaultSlotName();
+      }
       setSaveStatus('Save slots unreadable', true);
       return [];
     }
@@ -1617,13 +1624,17 @@ import {
   }
 
   function moveTokenToCell(token, cell, options = {}) {
-    return moveTokenToCellState({
+    const result = moveTokenToCellState({
       token,
       cell,
       validateMove: validateTokenMove,
       centerFromGridCell,
       onMoved: (payload) => publishBoardEvent('token.moved', payload)
     }, options);
+    if (result?.ok && options?.manualOverride) {
+      clearAiPathForToken(token?.id);
+    }
+    return result;
   }
 
   function validateAction(a) {
@@ -1685,6 +1696,11 @@ import {
 
   function clearAiPaths() {
     state.aiOverlay.paths = [];
+  }
+
+  function clearAiPathForToken(tokenId) {
+    if (!tokenId || !Array.isArray(state.aiOverlay.paths) || !state.aiOverlay.paths.length) return;
+    state.aiOverlay.paths = state.aiOverlay.paths.filter((overlay) => overlay?.tokenId !== tokenId);
   }
 
   function getPathLabelPoint(points) {
@@ -2230,6 +2246,7 @@ import {
       saveSlotNameInput.value = slot.name;
       updateSaveStatusFromSlot(slot);
     } else {
+      saveSlotNameInput.value = buildDefaultSlotName();
       updateSaveStatusFromSlot(null);
     }
     updateSaveControls(slots, saveSlotSelect.value);
@@ -3378,7 +3395,7 @@ import {
         targetCell,
         fallbackCell: state.dragOriginCell || gridCoords(t)
       });
-      clearAiPaths();
+      clearAiPathForToken(t.id);
       if (!dragOutcome.ok) {
         const snapped = centerFromGridCell(dragOutcome.resetToCell.x, dragOutcome.resetToCell.y, t.sizeCells);
         t.x = snapped.x;
