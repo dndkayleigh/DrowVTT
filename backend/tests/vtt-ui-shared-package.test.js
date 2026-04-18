@@ -60,6 +60,9 @@ test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.match(renderOssVttShell(), /id="sessionSection"/);
   assert.match(renderOssVttShell(), /data-sidebar-section-target="ai"/);
   assert.match(renderOssVttShell(), /id="aiSection"/);
+  assert.doesNotMatch(renderOssVttShell(), /data-sidebar-section-target="save"/);
+  assert.match(renderOssVttShell(), /class="stageWatermark"/);
+  assert.match(renderOssVttShell(), />Tactics</);
 });
 
 test('shared VTT shell supports host-specific sidebar and settings seams', () => {

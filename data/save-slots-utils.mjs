@@ -1,6 +1,11 @@
+function buildDefaultSlotName(date = new Date()) {
+  const isoDate = date instanceof Date ? date.toISOString().slice(0, 10) : new Date(date).toISOString().slice(0, 10);
+  return `New Session - ${isoDate}`;
+}
+
 function normalizeSlotName(name) {
   const trimmed = String(name ?? '').trim();
-  return trimmed || 'Quick Save';
+  return trimmed || buildDefaultSlotName();
 }
 
 function normalizeSlotRecord(slot = {}) {
@@ -45,4 +50,4 @@ export function removeSaveSlot(slots, slotId) {
     .filter((slot) => slot.id !== slotId);
 }
 
-export { normalizeSlotName };
+export { buildDefaultSlotName, normalizeSlotName };

@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeSlotName, parseSaveSlots, removeSaveSlot, stringifySaveSlots, upsertSaveSlot } from '../../data/save-slots-utils.mjs';
+import { buildDefaultSlotName, normalizeSlotName, parseSaveSlots, removeSaveSlot, stringifySaveSlots, upsertSaveSlot } from '../../data/save-slots-utils.mjs';
 
-test('normalizeSlotName trims input and falls back to Quick Save', () => {
+test('buildDefaultSlotName formats a stable session label from the creation date', () => {
+  assert.equal(buildDefaultSlotName(new Date('2026-04-17T15:42:00.000Z')), 'New Session - 2026-04-17');
+});
+
+test('normalizeSlotName trims input and falls back to the default session name', () => {
   assert.equal(normalizeSlotName('  Round 3 start  '), 'Round 3 start');
-  assert.equal(normalizeSlotName('   '), 'Quick Save');
+  assert.equal(normalizeSlotName('   '), buildDefaultSlotName());
 });
 
 test('upsertSaveSlot replaces an existing slot and keeps newest first', () => {
