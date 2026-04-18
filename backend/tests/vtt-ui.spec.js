@@ -1612,14 +1612,12 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
 });
 
 test('map controls update the map pill and drag mode label', async ({ page }) => {
-  await openDetails(page, '#sessionSection');
-  await page.locator('#showBoardStatus').check();
   await openDetails(page, '#mapSection');
+  await page.locator('#showBoardStatus').check();
   await page.locator('#calibrationGridSize').fill('72');
   await page.locator('#horizontalNudgePx').fill('48');
   await page.locator('#verticalNudgePx').fill('24');
 
-  await openDetails(page, '#sessionSection');
   await page.getByRole('button', { name: 'Drag: Tokens' }).click();
   await expect(page.getByRole('button', { name: 'Drag: Map' })).toBeVisible();
   await expect(page.locator('#gridPill')).toContainText('72px');
@@ -1628,9 +1626,8 @@ test('map controls update the map pill and drag mode label', async ({ page }) =>
 
 test('calibration offset fields directly update map offsets and survive redraw', async ({ page }) => {
   await uploadTestMap(page);
-  await openDetails(page, '#sessionSection');
-  await page.locator('#showBoardStatus').check();
   await openDetails(page, '#mapSection');
+  await page.locator('#showBoardStatus').check();
 
   await page.locator('#horizontalNudgePx').fill('36');
   await page.locator('#verticalNudgePx').fill('-18');
@@ -1644,7 +1641,6 @@ test('calibration offset fields directly update map offsets and survive redraw',
   await page.locator('#verticalNudgePx').fill('8');
   await expect(page.locator('#mapPill')).toContainText('off(12,8)');
 
-  await openDetails(page, '#sessionSection');
   await page.getByRole('button', { name: 'Drag: Tokens' }).click();
   await expect(page.getByRole('button', { name: 'Drag: Map' })).toBeVisible();
   await expect(page.locator('#mapPill')).toContainText('off(12,8)');
