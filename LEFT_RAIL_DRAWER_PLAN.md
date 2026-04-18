@@ -8,6 +8,43 @@ The goal is to:
 - collapse menus by default
 - expand controls in an intuitive, predictable way
 
+## Recent User Feedback To Fold Into The Shared Plan
+
+Recent user feedback surfaced four different classes of work:
+
+1. reliability and recovery
+- autosave does not work
+- session naming is unclear
+- there should be an obvious delete path
+
+2. data import and interoperability
+- import a D&D Beyond character sheet into the VTT
+
+3. authored encounter content
+- tactical map encounter portfolio
+- built-in maps
+- built-in monster rosters per encounter
+- separate biomes
+
+4. collaboration and community
+- join someone else's instance
+- create and rank difficult encounters
+- public-domain art and maps
+- leaderboard encounters
+- livestream and upload related content
+
+These should not all be treated as one implementation slice.
+
+For OSS, the shared-product priorities are:
+
+- autosave reliability
+- clear session naming defaults
+- delete/archive behavior for saved encounters or sessions
+- import normalization seams for external character data
+- encounter/portfolio data structures if the same authored content model should exist in both OSS and SaaS
+
+Hosted-only layers such as public leaderboards, hosted discovery, uploads, and livestream surfaces belong in SaaS planning, not in the shared VTT shell plan.
+
 ## Current Implementation Seam
 
 The smallest clean seam already exists:
@@ -227,6 +264,39 @@ If AI remains floating in phase 1, do not break those tests.
 6. Validate manually in OSS
 7. Only then mirror into SaaS
 
+## Shared Follow-On Work Triggered By The Feedback
+
+After the rail/drawer work is stable, the next shared-product follow-on items should be:
+
+1. autosave and recovery hardening
+- verify autosave writes reliably
+- verify restore is obvious and trustworthy
+- add explicit delete coverage for saved sessions/encounters
+
+2. session naming lifecycle
+- default session names should be human-readable
+- rename must be obvious
+- delete must be obvious
+
+3. external character import seam
+- define an import contract for third-party character data
+- decide what minimum normalized shape the tactical runtime needs
+- keep import parsing separate from the core tactical rules
+
+4. encounter portfolio model
+- define a reusable encounter record shape:
+  - map
+  - biome
+  - roster
+  - difficulty/notes
+  - authored metadata
+- keep this model shared if both OSS and SaaS will use it
+
+5. collaboration seam planning
+- joining someone else's live instance is not a pure UI feature
+- it requires session membership and sync semantics
+- the tactical core should expose stable session-join and presence seams without owning hosted auth
+
 ## SaaS Mirror Plan
 
 After the OSS shell works, mirror the structure into `DrowVTT-SaaS`.
@@ -242,6 +312,40 @@ Rules for the SaaS mirror:
 - prefer the OSS structure when there is a layout decision
 - keep hosted-only account/billing navigation out of the tactical drawer
 - preserve the current hosted product shell outside `/app`
+
+The recent user feedback also implies these parity questions:
+
+- session naming and delete affordances should feel the same unless SaaS has an intentional hosted exception
+- autosave/recovery behavior should align unless the storage layer is intentionally different
+- if encounter portfolio records exist in both products, their schema should be shared
+- import normalization logic should be shared where possible, with SaaS-only auth/storage concerns kept outside the shared runtime
+
+## Test Plan Additions From The Feedback
+
+Beyond the shell regression tests, add or expand tests for:
+
+### Unit tests
+
+- default session naming rules
+- save/delete slot lifecycle rules
+- autosave enabled/disabled behavior
+- autosave restore normalization
+- encounter portfolio record normalization once that model exists
+- external character import normalization once that seam exists
+
+### UI tests
+
+- autosave recovery remains visible and usable from the new `Session` section
+- session rename and delete affordances are discoverable
+- `Map` owns viewport and board tools
+- `Session` owns naming and recovery controls
+
+### OSS/SaaS parity checks
+
+- shared section ownership (`Session` vs `Map`)
+- autosave and restore behavior where expected
+- session naming defaults
+- any future shared encounter-portfolio or import contracts
 
 ## Recommended First Slice
 
