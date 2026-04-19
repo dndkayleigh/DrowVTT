@@ -1,25 +1,89 @@
 const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
-  <aside class="sidebar">
-    <div class="brandMark" aria-label="DrowVTT logo">
-      <div class="brandLine">
-        <div class="brandSigil" aria-hidden="true">
-          <svg viewBox="0 0 64 64" role="img" aria-hidden="true">
-            <polygon points="32,4 51,14 60,32 51,50 32,60 13,50 4,32 13,14" fill="rgba(90,169,255,.14)" stroke="rgba(188,225,255,.9)" stroke-width="2.5" />
-            <polyline points="32,4 32,60" fill="none" stroke="rgba(188,225,255,.7)" stroke-width="2" />
-            <polyline points="13,14 51,14 60,32 51,50 13,50 4,32 13,14" fill="none" stroke="rgba(188,225,255,.45)" stroke-width="1.7" />
-            <polyline points="13,14 32,32 51,14" fill="none" stroke="rgba(188,225,255,.55)" stroke-width="1.7" />
-            <polyline points="13,50 32,32 51,50" fill="none" stroke="rgba(188,225,255,.55)" stroke-width="1.7" />
-            <circle cx="32" cy="32" r="2.8" fill="rgba(231,244,255,.92)" />
-          </svg>
+  <aside class="leftRail" aria-label="Board tools">
+    <nav class="railNav" aria-label="Control sections">
+      <button type="button" class="railButton" data-sidebar-section-target="session" aria-controls="sessionSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">S</span>
+        <span class="railButtonLabel">Session</span>
+      </button>
+      <button type="button" class="railButton" data-sidebar-section-target="map" aria-controls="mapSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">M</span>
+        <span class="railButtonLabel">Map</span>
+      </button>
+      <button type="button" class="railButton" data-sidebar-section-target="tokens" aria-controls="tokensSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">T</span>
+        <span class="railButtonLabel">Tokens</span>
+      </button>
+      <button type="button" class="railButton" data-sidebar-section-target="turn" aria-controls="turnSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">R</span>
+        <span class="railButtonLabel">Turn</span>
+      </button>
+      <button type="button" class="railButton" data-sidebar-section-target="ai" aria-controls="aiSection" aria-pressed="false">
+        <span class="railButtonGlyph" aria-hidden="true">A</span>
+        <span class="railButtonLabel">Tactics</span>
+      </button>
+    </nav>
+  </aside>
+
+  <aside class="contextDrawer" id="contextDrawer" data-open="false" aria-label="Board controls">
+    <div class="contextDrawerFrame">
+      <div class="contextDrawerHeader">
+        <div class="contextDrawerTitleBlock">
+          <div class="subtleLabel">Controls</div>
+          <div class="contextDrawerTitle" id="contextDrawerTitle">Session</div>
         </div>
-        <div class="brandWordmark">
-          <strong>DrowVTT</strong>
-          <span>Tactical Encounter Table</span>
-        </div>
+        <button type="button" class="contextDrawerClose" id="contextDrawerClose" aria-label="Close controls">Close</button>
       </div>
-    </div>
-    __SIDEBAR_AFTER_BRAND_HTML__
-    <details class="panelSection" id="mapSection" open>
+      <div class="sidebar contextDrawerPanels">
+        __SIDEBAR_AFTER_BRAND_HTML__
+        <details class="panelSection drawerSection" id="sessionSection" data-sidebar-section="session" open>
+          <summary><h2>Session</h2></summary>
+          <div class="card">
+            <div class="saveSlotGrid legacySaveSlotsUi" aria-hidden="true">
+              <div>
+                <label for="saveSlotSelect">Saved boards</label>
+                <select id="saveSlotSelect">
+                  <option value="">(no saves yet)</option>
+                </select>
+              </div>
+            </div>
+            <div class="saveSlotActions legacySaveSlotsUi" aria-hidden="true">
+              <button id="saveSlotBtn">Save Slot</button>
+              <button id="loadSlotBtn">Load Slot</button>
+              <button id="deleteSlotBtn" class="danger">Delete Slot</button>
+            </div>
+            <div class="checkRow legacySaveSlotsUi" style="margin-top:10px" aria-hidden="true">
+              <input id="autosaveEnabled" type="checkbox" />
+              <label for="autosaveEnabled" style="margin:0;color:var(--muted)">Autosave changes</label>
+            </div>
+            <div class="subcard">
+              <div class="subtleLabel">Session Name</div>
+              <label for="saveSlotName">Session name</label>
+              <input id="saveSlotName" type="text" value="" maxlength="48" />
+            </div>
+            <div class="saveSlotActions">
+              <button id="exportBoardBtn">Download Save</button>
+              <button id="importBoardBtn">Open Save</button>
+            </div>
+            <div class="autosaveRow">
+              <div>
+                <label for="autosaveSelect">Autosave history</label>
+                <select id="autosaveSelect">
+                  <option value="">(no autosaves yet)</option>
+                </select>
+              </div>
+              <div class="saveSlotActions">
+                <button id="restoreAutosaveBtn">Recover</button>
+                <button id="clearAutosavesBtn" class="danger">Clear</button>
+              </div>
+            </div>
+            <input id="importBoardFile" type="file" accept="application/json,.json" hidden />
+            <div class="pill saveStatus" id="saveStateStatus" style="margin-top:10px">Save slot empty</div>
+            <div class="sectionNote">
+              Name the current session here. Download Save remains the primary way to keep a board, and autosave keeps a rolling local recovery history in this browser.
+            </div>
+          </div>
+        </details>
+        <details class="panelSection drawerSection" id="mapSection" data-sidebar-section="map" open>
       <summary><h2>Map & Grid</h2></summary>
       <div class="card">
         <div class="row">
@@ -74,9 +138,9 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
           <div class="subcard">
             <div class="subtleLabel">Board Tools</div>
             <div class="mapToolbar">
-              <button id="fitMap" class="primary">Fit map</button>
               <button id="resetView">Reset view</button>
               <button id="dragModeBtn" class="primary">Drag: Tokens</button>
+              <button id="fitMap" class="primary">Fit map</button>
             </div>
             <div class="checkRow" style="margin-top:10px">
               <input id="showBoardStatus" type="checkbox" />
@@ -116,7 +180,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
       </div>
     </details>
 
-    <details class="panelSection" id="tokensSection">
+    <details class="panelSection drawerSection" id="tokensSection" data-sidebar-section="tokens">
       <summary><h2>Tokens</h2></summary>
       <div class="card">
         <div class="tokenFormRow">
@@ -160,16 +224,16 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
           <button id="clearTokens" class="danger">Clear all</button>
         </div>
         <div class="btnbar" style="margin-top:8px;">
-          <button id="setAiGroup">Set Group From Selection</button>
+          <button id="mobileGroupSelectBtn" type="button">Group Select</button>
           <button id="clearAiGroup">Clear Group</button>
         </div>
 
         <div class="list" id="tokenList"></div>
-        <div class="footerNote" id="tokenSelectionNote">Single modes use one selected monster. Group mode uses an explicit monster group.</div>
+        <div class="footerNote" id="tokenSelectionNote">Single modes use one selected monster. Group mode uses the selected monster group.</div>
       </div>
     </details>
 
-    <details class="panelSection" id="turnSection">
+    <details class="panelSection drawerSection" id="turnSection" data-sidebar-section="turn">
       <summary><h2>Turn</h2></summary>
       <div class="card">
         <div class="compactRow">
@@ -252,69 +316,9 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
       </div>
     </details>
 
-    <details class="panelSection" id="saveSection">
-      <summary><h2>Save States</h2></summary>
+    <details class="panelSection drawerSection aiSection" id="aiSection" data-sidebar-section="ai">
+      <summary><h2>Tactics Director</h2></summary>
       <div class="card">
-        <div class="saveSlotGrid legacySaveSlotsUi" aria-hidden="true">
-          <div>
-            <label for="saveSlotName">Save slot</label>
-            <input id="saveSlotName" type="text" value="Quick Save" maxlength="48" />
-          </div>
-          <div>
-            <label for="saveSlotSelect">Saved boards</label>
-            <select id="saveSlotSelect">
-              <option value="">(no saves yet)</option>
-            </select>
-          </div>
-        </div>
-        <div class="saveSlotActions legacySaveSlotsUi" aria-hidden="true">
-          <button id="saveSlotBtn">Save Slot</button>
-          <button id="loadSlotBtn">Load Slot</button>
-          <button id="deleteSlotBtn" class="danger">Delete Slot</button>
-        </div>
-        <div class="saveSlotActions">
-          <button id="exportBoardBtn">Download Save</button>
-          <button id="importBoardBtn">Open Save</button>
-        </div>
-        <div class="checkRow legacySaveSlotsUi" style="margin-top:10px" aria-hidden="true">
-          <input id="autosaveEnabled" type="checkbox" />
-          <label for="autosaveEnabled" style="margin:0;color:var(--muted)">Autosave changes</label>
-        </div>
-        <div class="autosaveRow">
-          <div>
-            <label for="autosaveSelect">Autosave history</label>
-            <select id="autosaveSelect">
-              <option value="">(no autosaves yet)</option>
-            </select>
-          </div>
-          <div class="saveSlotActions">
-            <button id="restoreAutosaveBtn">Recover</button>
-            <button id="clearAutosavesBtn" class="danger">Clear</button>
-          </div>
-        </div>
-        <input id="importBoardFile" type="file" accept="application/json,.json" hidden />
-        <div class="pill saveStatus" id="saveStateStatus" style="margin-top:10px">Save slot empty</div>
-        <div class="sectionNote">Download Save is the primary way to keep a board. Autosave quietly keeps a rolling local history of recent changes in this browser.</div>
-      </div>
-    </details>
-
-  </aside>
-
-  <main class="stageWrap">
-    <div class="topbar" id="boardStatusBar" hidden>
-      <span class="pill" id="viewPill">Zoom: 100% • Pan: (0,0)</span>
-      <span class="pill" id="gridPill">Grid: 64px</span>
-      <span class="pill" id="mapPill">Map: off(0,0) scale 1 rot 0°</span>
-      <span class="hint">Grid combat, map alignment, and AI-assisted turns.</span>
-    </div>
-    <details class="aiDrawer" id="aiDrawer" open>
-      <summary>
-        <span class="drawerSummaryLabel">
-          <span>Tactics Director</span>
-          <span class="drawerModeBadge" id="aiStrategyBadge">Single (Tactical)</span>
-        </span>
-      </summary>
-      <div class="drawerContent">
         <div class="drawerLead">Run Tactics Director, review its plan, adjust settings, and check the log here.</div>
         <div class="drawerActions">
           <button id="sendState" class="primary">Run AI</button>
@@ -382,7 +386,35 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
         </div>
       </div>
     </details>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stageWrap">
+    <div class="topbar" id="boardStatusBar" hidden>
+      <span class="pill" id="viewPill">Zoom: 100% • Pan: (0,0)</span>
+      <span class="pill" id="gridPill">Grid: 64px</span>
+      <span class="pill" id="mapPill">Map: off(0,0) scale 1 rot 0°</span>
+      <span class="hint">Grid combat, map alignment, and AI-assisted turns.</span>
+    </div>
+    <div class="mobileCanvasToolbar" id="mobileCanvasToolbar" hidden aria-label="Mobile canvas controls">
+      <button type="button" class="mobileCanvasModeBtn" id="mobileCanvasNavigateBtn" data-canvas-mode="navigate" aria-pressed="true">Navigate</button>
+      <button type="button" class="mobileCanvasModeBtn" id="mobileCanvasMoveBtn" data-canvas-mode="move" aria-pressed="false">Move</button>
+    </div>
     <canvas id="stage"></canvas>
+    <div class="stageWatermark" aria-label="DrowVTT watermark">
+      <div class="brandSigil stageWatermarkSigil" aria-hidden="true">
+        <svg viewBox="0 0 64 64" role="img" aria-hidden="true">
+          <polygon points="32,4 51,14 60,32 51,50 32,60 13,50 4,32 13,14" fill="rgba(90,169,255,.14)" stroke="rgba(188,225,255,.9)" stroke-width="2.5" />
+          <polyline points="32,4 32,60" fill="none" stroke="rgba(188,225,255,.7)" stroke-width="2" />
+          <polyline points="13,14 51,14 60,32 51,50 13,50 4,32 13,14" fill="none" stroke="rgba(188,225,255,.45)" stroke-width="1.7" />
+          <polyline points="13,14 32,32 51,14" fill="none" stroke="rgba(188,225,255,.55)" stroke-width="1.7" />
+          <polyline points="13,50 32,32 51,50" fill="none" stroke="rgba(188,225,255,.55)" stroke-width="1.7" />
+          <circle cx="32" cy="32" r="2.8" fill="rgba(231,244,255,.92)" />
+        </svg>
+      </div>
+      <div class="stageWatermarkWordmark">DrowVTT</div>
+    </div>
   </main>
 </div>
 <div class="contextMenu" id="tokenContextMenu" hidden>

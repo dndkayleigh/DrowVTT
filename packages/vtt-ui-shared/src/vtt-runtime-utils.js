@@ -6,8 +6,8 @@ export function buildTokenSelectionNote({
 } = {}) {
   if (strategyId === 'group_tactical') {
     return groupCount
-      ? `${strategyLabel} will use ${groupCount} grouped AI-controlled token${groupCount === 1 ? '' : 's'}. Use Pick or ctrl/cmd-click eligible tokens, then click Set Group From Selection.`
-      : `${strategyLabel} needs an explicit AI-controlled group. Use Pick or ctrl/cmd-click eligible rows, then click Set Group From Selection.`;
+      ? `${strategyLabel} will use ${groupCount} grouped AI-controlled token${groupCount === 1 ? '' : 's'}. Use ctrl/cmd-click on desktop or Group Select on mobile to build the group.`
+      : `${strategyLabel} needs an explicit AI-controlled group. Use ctrl/cmd-click on desktop or Group Select on mobile to build the group.`;
   }
   return `${strategyLabel} uses exactly one selected monster. Current selection: ${selectedCount || 0}.`;
 }
@@ -257,7 +257,7 @@ export function computeAiGroupAssignment({
   if (!controlledIds.length) {
     return {
       ok: false,
-      note: 'Select one or more AI-controlled rows with Pick before creating a tactical group.'
+      note: 'Select one or more AI-controlled rows to build a tactical group.'
     };
   }
   return {

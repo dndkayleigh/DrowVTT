@@ -54,7 +54,19 @@ test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.equal(getAiTurnStrategy('group_tactical')?.model, 'gpt-5');
   assert.equal(resolveAiStrategyIdForSelection('single_fast', ['a', 'b']), 'group_tactical');
   assert.match(renderOssVttShell(), /<div class="app">/);
-  assert.match(renderOssVttShell(), /id="aiDrawer"/);
+  assert.match(renderOssVttShell(), /class="leftRail"/);
+  assert.match(renderOssVttShell(), /id="contextDrawer"/);
+  assert.match(renderOssVttShell(), /data-sidebar-section-target="map"/);
+  assert.match(renderOssVttShell(), /id="sessionSection"/);
+  assert.match(renderOssVttShell(), /data-sidebar-section-target="ai"/);
+  assert.match(renderOssVttShell(), /id="aiSection"/);
+  assert.doesNotMatch(renderOssVttShell(), /data-sidebar-section-target="save"/);
+  assert.match(renderOssVttShell(), /id="mobileGroupSelectBtn"/);
+  assert.match(renderOssVttShell(), /id="mobileCanvasToolbar"/);
+  assert.match(renderOssVttShell(), /id="mobileCanvasNavigateBtn"/);
+  assert.match(renderOssVttShell(), /id="mobileCanvasMoveBtn"/);
+  assert.match(renderOssVttShell(), /class="stageWatermark"/);
+  assert.match(renderOssVttShell(), />Tactics</);
 });
 
 test('shared VTT shell supports host-specific sidebar and settings seams', () => {
@@ -102,7 +114,7 @@ test('shared VTT runtime helpers expose selection note and context menu state', 
       strategyLabel: 'Group (Tactical)',
       groupCount: 2
     }),
-    'Group (Tactical) will use 2 grouped AI-controlled tokens. Use Pick or ctrl/cmd-click eligible tokens, then click Set Group From Selection.'
+    'Group (Tactical) will use 2 grouped AI-controlled tokens. Use ctrl/cmd-click on desktop or Group Select on mobile to build the group.'
   );
 
   assert.deepEqual(
@@ -406,7 +418,7 @@ test('shared VTT runtime helpers orchestrate group assignment and token-list int
     }),
     {
       ok: false,
-      note: 'Select one or more AI-controlled rows with Pick before creating a tactical group.'
+      note: 'Select one or more AI-controlled rows to build a tactical group.'
     }
   );
 
