@@ -111,7 +111,7 @@ test('shared VTT runtime helpers expose selection note and context menu state', 
       strategyLabel: 'Group (Tactical)',
       groupCount: 2
     }),
-    'Group (Tactical) will use 2 grouped AI-controlled tokens. Use ctrl/cmd-click on desktop or Group Select on mobile, then click Set Group From Selection.'
+    'Group (Tactical) will use 2 grouped AI-controlled tokens. Use ctrl/cmd-click on desktop or Group Select on mobile to build the group.'
   );
 
   assert.deepEqual(
@@ -415,7 +415,7 @@ test('shared VTT runtime helpers orchestrate group assignment and token-list int
     }),
     {
       ok: false,
-      note: 'Select one or more AI-controlled rows before creating a tactical group.'
+      note: 'Select one or more AI-controlled rows to build a tactical group.'
     }
   );
 

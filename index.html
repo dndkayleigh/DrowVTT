@@ -716,7 +716,6 @@ import {
   const tokColorSelect = document.getElementById('tokColor');
   const monsterAutocomplete = document.getElementById('monsterAutocomplete');
   const mobileGroupSelectBtn = document.getElementById('mobileGroupSelectBtn');
-  const setAiGroupBtn = document.getElementById('setAiGroup');
   const clearAiGroupBtn = document.getElementById('clearAiGroup');
   const tokenSelectionNote = document.getElementById('tokenSelectionNote');
 
@@ -2436,23 +2435,6 @@ import {
     syncTokenSelectionUi();
   });
 
-  setAiGroupBtn.addEventListener('click', () => {
-    const result = computeAiGroupAssignment({
-      controlledIds: getSelectedAiControlledIds(),
-      currentTurnTokenId: state.currentTurnTokenId
-    });
-    if (!result.ok) {
-      tokenSelectionNote.textContent = result.note;
-      return;
-    }
-    state.aiGroupTokenIds = result.aiGroupTokenIds;
-    state.currentTurnTokenId = result.currentTurnTokenId;
-    draw();
-    renderTokenList();
-    syncTokenSelectionUi();
-    refreshExport();
-  });
-
   clearAiGroupBtn.addEventListener('click', () => {
     state.aiGroupTokenIds = [];
     draw();
@@ -3170,7 +3152,7 @@ import {
     const autoApply = document.getElementById('autoApplyAI').checked;
     const strategy = getSelectedAiStrategy();
     if (strategy?.id === 'group_tactical' && getAiGroupTokenIds().length === 0) {
-      status.textContent = 'Create a monster group first with Set Group From Selection.';
+      status.textContent = 'Create a monster group by selecting monsters first.';
       return;
     }
     const userContext = authAdapter.requireAuthenticatedUser();

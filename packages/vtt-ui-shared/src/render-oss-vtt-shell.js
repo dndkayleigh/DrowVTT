@@ -225,12 +225,11 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
         </div>
         <div class="btnbar" style="margin-top:8px;">
           <button id="mobileGroupSelectBtn" type="button">Group Select</button>
-          <button id="setAiGroup">Set Group From Selection</button>
           <button id="clearAiGroup">Clear Group</button>
         </div>
 
         <div class="list" id="tokenList"></div>
-        <div class="footerNote" id="tokenSelectionNote">Single modes use one selected monster. Group mode uses an explicit monster group.</div>
+        <div class="footerNote" id="tokenSelectionNote">Single modes use one selected monster. Group mode uses the selected monster group.</div>
       </div>
     </details>
 
