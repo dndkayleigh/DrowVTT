@@ -1236,9 +1236,15 @@ test('saving with another slot name reuses that named slot instead of failing', 
 
   await setHiddenInputValue(page, '#saveSlotName', 'Round 1');
   await clickHiddenElement(page, '#saveSlotBtn');
+  await expect.poll(async () => (
+    await page.evaluate(() => window.__VTT_DEBUG__.getSaveSlots().map((slot) => slot.name))
+  )).toEqual(['Round 1']);
 
   await setHiddenInputValue(page, '#saveSlotName', 'Round 2');
   await clickHiddenElement(page, '#saveSlotBtn');
+  await expect.poll(async () => (
+    await page.evaluate(() => window.__VTT_DEBUG__.getSaveSlots().map((slot) => slot.name))
+  )).toEqual(['Round 2', 'Round 1']);
 
   await selectHiddenOptionByLabel(page, '#saveSlotSelect', 'Round 1');
   await expect.poll(async () => (
