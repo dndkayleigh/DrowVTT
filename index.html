@@ -914,7 +914,7 @@ import {
       groupCount: getAiGroupTokenIds().length
     });
     if (mobileGroupSelectBtn) {
-      const mobileMode = window.innerWidth <= 900;
+      const mobileMode = shouldShowMobileTouchUi();
       mobileGroupSelectBtn.hidden = !mobileMode;
       mobileGroupSelectBtn.textContent = state.mobileGroupSelectMode ? 'Done' : 'Group Select';
       mobileGroupSelectBtn.setAttribute('aria-pressed', state.mobileGroupSelectMode ? 'true' : 'false');
@@ -922,13 +922,24 @@ import {
     syncMobileCanvasUi();
   }
 
+  function isCoarsePointerMobileUi() {
+    try {
+      if (window.matchMedia?.('(pointer: coarse)').matches) return true;
+    } catch {}
+    return Number(navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+  }
+
   function isMobileCanvasLayout() {
     return window.innerWidth <= 900;
   }
 
+  function shouldShowMobileTouchUi() {
+    return isMobileCanvasLayout() && isCoarsePointerMobileUi();
+  }
+
   function syncMobileCanvasUi() {
     if (!mobileCanvasToolbar) return;
-    const mobileMode = isMobileCanvasLayout();
+    const mobileMode = shouldShowMobileTouchUi();
     mobileCanvasToolbar.hidden = !mobileMode;
     if (mobileCanvasNavigateBtn) {
       mobileCanvasNavigateBtn.setAttribute('aria-pressed', state.mobileCanvasMode === 'navigate' ? 'true' : 'false');

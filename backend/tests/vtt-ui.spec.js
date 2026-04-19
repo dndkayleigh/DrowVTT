@@ -56,6 +56,35 @@ async function closeDrawer(page) {
   }
 }
 
+async function enableTouchUi(page) {
+  const install = () => {
+    Object.defineProperty(navigator, 'maxTouchPoints', {
+      configurable: true,
+      get() {
+        return 5;
+      }
+    });
+    const originalMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => {
+      if (query === '(pointer: coarse)') {
+        return {
+          matches: true,
+          media: query,
+          onchange: null,
+          addListener() {},
+          removeListener() {},
+          addEventListener() {},
+          removeEventListener() {},
+          dispatchEvent() { return false; }
+        };
+      }
+      return originalMatchMedia(query);
+    };
+  };
+  await page.addInitScript(install);
+  await page.evaluate(install);
+}
+
 async function clearTokens(page) {
   await openDetails(page, '#tokensSection');
   await page.getByRole('button', { name: 'Clear all' }).click();
@@ -1019,6 +1048,7 @@ test('multi-selecting monsters auto-switches tactics director to group tactical'
 });
 
 test('mobile group select mode supports grouped selection without ctrl-click', async ({ page }) => {
+  await enableTouchUi(page);
   await page.setViewportSize({ width: 900, height: 1200 });
   await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
   await addToken(page, { name: 'Goblin B', size: 1, type: 'Monster' });
@@ -1055,6 +1085,15 @@ test('mobile group select mode supports grouped selection without ctrl-click', a
   await page.locator('#mobileGroupSelectBtn').click();
   await expect(page.locator('#mobileGroupSelectBtn')).toHaveText('Group Select');
   await expect(page.locator('#mobileGroupSelectBtn')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('narrow desktop viewport keeps mobile-only canvas controls hidden', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1200 });
+  await closeDrawer(page);
+
+  await expect(page.locator('#mobileCanvasToolbar')).toBeHidden();
+  await openDetails(page, '#tokensSection');
+  await expect(page.locator('#mobileGroupSelectBtn')).toBeHidden();
 });
 
 test('new duplicate creature names auto-increment by letter', async ({ page }) => {
