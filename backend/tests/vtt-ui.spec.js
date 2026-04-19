@@ -1022,6 +1022,16 @@ test('mobile group select mode supports grouped selection without ctrl-click', a
   await page.setViewportSize({ width: 900, height: 1200 });
   await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
   await addToken(page, { name: 'Goblin B', size: 1, type: 'Monster' });
+  await closeDrawer(page);
+
+  await expect(page.locator('#mobileCanvasToolbar')).toBeVisible();
+  await expect(page.locator('#mobileCanvasNavigateBtn')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#mobileCanvasMoveBtn')).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('#mobileCanvasMoveBtn').click();
+  await expect(page.locator('#mobileCanvasNavigateBtn')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#mobileCanvasMoveBtn')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#mobileCanvasNavigateBtn').click();
+  await expect(page.locator('#mobileCanvasNavigateBtn')).toHaveAttribute('aria-pressed', 'true');
 
   await openDetails(page, '#tokensSection');
   await expect(page.locator('#mobileGroupSelectBtn')).toBeVisible();

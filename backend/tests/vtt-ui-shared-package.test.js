@@ -62,6 +62,9 @@ test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.match(renderOssVttShell(), /id="aiSection"/);
   assert.doesNotMatch(renderOssVttShell(), /data-sidebar-section-target="save"/);
   assert.match(renderOssVttShell(), /id="mobileGroupSelectBtn"/);
+  assert.match(renderOssVttShell(), /id="mobileCanvasToolbar"/);
+  assert.match(renderOssVttShell(), /id="mobileCanvasNavigateBtn"/);
+  assert.match(renderOssVttShell(), /id="mobileCanvasMoveBtn"/);
   assert.match(renderOssVttShell(), /class="stageWatermark"/);
   assert.match(renderOssVttShell(), />Tactics</);
 });

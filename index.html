@@ -656,7 +656,10 @@ import {
     round: 1,
     log: [],
     aiOverlay: { paths: [], summary: '' },
-    mobileGroupSelectMode: false
+    mobileGroupSelectMode: false,
+    mobileCanvasMode: 'navigate',
+    touchGesture: null,
+    touchLongPressTimer: null
   };
 
   // ---------- Helpers ----------
@@ -710,6 +713,9 @@ import {
   const verticalNudgePxInput = document.getElementById('verticalNudgePx');
   const boardStatusBar = document.getElementById('boardStatusBar');
   const showBoardStatusCheckbox = document.getElementById('showBoardStatus');
+  const mobileCanvasToolbar = document.getElementById('mobileCanvasToolbar');
+  const mobileCanvasNavigateBtn = document.getElementById('mobileCanvasNavigateBtn');
+  const mobileCanvasMoveBtn = document.getElementById('mobileCanvasMoveBtn');
   const tokNameInput = document.getElementById('tokName');
   const tokTypeSelect = document.getElementById('tokType');
   const tokSizeSelect = document.getElementById('tokSize');
@@ -913,6 +919,99 @@ import {
       mobileGroupSelectBtn.textContent = state.mobileGroupSelectMode ? 'Done' : 'Group Select';
       mobileGroupSelectBtn.setAttribute('aria-pressed', state.mobileGroupSelectMode ? 'true' : 'false');
     }
+    syncMobileCanvasUi();
+  }
+
+  function isMobileCanvasLayout() {
+    return window.innerWidth <= 900;
+  }
+
+  function syncMobileCanvasUi() {
+    if (!mobileCanvasToolbar) return;
+    const mobileMode = isMobileCanvasLayout();
+    mobileCanvasToolbar.hidden = !mobileMode;
+    if (mobileCanvasNavigateBtn) {
+      mobileCanvasNavigateBtn.setAttribute('aria-pressed', state.mobileCanvasMode === 'navigate' ? 'true' : 'false');
+    }
+    if (mobileCanvasMoveBtn) {
+      mobileCanvasMoveBtn.setAttribute('aria-pressed', state.mobileCanvasMode === 'move' ? 'true' : 'false');
+    }
+  }
+
+  function setMobileCanvasMode(mode = 'navigate') {
+    state.mobileCanvasMode = mode === 'move' ? 'move' : 'navigate';
+    syncMobileCanvasUi();
+  }
+
+  function clearTouchLongPress() {
+    if (!state.touchLongPressTimer) return;
+    clearTimeout(state.touchLongPressTimer);
+    state.touchLongPressTimer = null;
+  }
+
+  function getTouchPos(touch) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+  }
+
+  function touchDistance(a, b) {
+    const dx = a.clientX - b.clientX;
+    const dy = a.clientY - b.clientY;
+    return Math.hypot(dx, dy);
+  }
+
+  function touchMidpoint(a, b) {
+    return {
+      clientX: (a.clientX + b.clientX) / 2,
+      clientY: (a.clientY + b.clientY) / 2
+    };
+  }
+
+  function finishDraggedToken(token) {
+    if (!token) return;
+    const targetCell = gridCoords(token);
+    const result = moveTokenToCell(token, targetCell, {
+      source: 'Drag',
+      fromCell: state.dragOriginCell || gridCoords(token),
+      manualOverride: true
+    });
+    const dragOutcome = resolveDragComplete({
+      result,
+      token,
+      targetCell,
+      fallbackCell: state.dragOriginCell || gridCoords(token)
+    });
+    clearAiPathForToken(token.id);
+    if (!dragOutcome.ok) {
+      const snapped = centerFromGridCell(dragOutcome.resetToCell.x, dragOutcome.resetToCell.y, token.sizeCells);
+      token.x = snapped.x;
+      token.y = snapped.y;
+      pushLog(dragOutcome.logMessage);
+    } else {
+      pushLog(dragOutcome.logMessage);
+    }
+    state.dragOriginCell = null;
+    draw(); renderTokenList(); refreshExport(); loadCurrentTurnTokenToEditor();
+  }
+
+  function moveCurrentTokenToWorldPoint(worldPoint, source = 'Tap') {
+    const token = getCurrentTurnToken();
+    if (!token) return false;
+    const targetCell = gridCellFromWorldPoint(worldPoint.x, worldPoint.y, token.sizeCells);
+    const result = moveTokenToCell(token, targetCell, {
+      source,
+      fromCell: gridCoords(token),
+      manualOverride: true
+    });
+    clearAiPathForToken(token.id);
+    if (!result.ok) {
+      pushLog(result.reason);
+      draw(); renderTokenList(); refreshExport(); loadCurrentTurnTokenToEditor();
+      return false;
+    }
+    pushLog(result.reason);
+    draw(); renderTokenList(); refreshExport(); loadCurrentTurnTokenToEditor();
+    return true;
   }
 
   function normalizeTokenArt(art = {}) {
@@ -2395,6 +2494,7 @@ import {
       state.mobileGroupSelectMode = false;
       syncTokenSelectionUi();
     }
+    syncMobileCanvasUi();
     if (!monsterAutocomplete.hidden) renderMonsterAutocomplete();
   });
 
@@ -2447,6 +2547,8 @@ import {
     state.mobileGroupSelectMode = !state.mobileGroupSelectMode;
     syncTokenSelectionUi();
   });
+  mobileCanvasNavigateBtn?.addEventListener('click', () => setMobileCanvasMode('navigate'));
+  mobileCanvasMoveBtn?.addEventListener('click', () => setMobileCanvasMode('move'));
 
   function gridCoords(token) {
     return gridCellFromWorldPoint(token.x, token.y, token.sizeCells);
@@ -3379,6 +3481,149 @@ import {
     canvas.classList.add('dragging');
   });
 
+  canvas.addEventListener('touchstart', (e) => {
+    if (!isMobileCanvasLayout()) return;
+    if (!tokenContextMenu.hidden) hideTokenContextMenu();
+    clearTouchLongPress();
+
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const midpoint = touchMidpoint(e.touches[0], e.touches[1]);
+      const midpointMouse = getTouchPos(midpoint);
+      state.touchGesture = {
+        kind: 'pinch',
+        startDistance: touchDistance(e.touches[0], e.touches[1]),
+        startZoom: state.view.zoom,
+        anchorWorld: screenToWorld(midpointMouse.x, midpointMouse.y)
+      };
+      return;
+    }
+
+    const touch = e.touches[0];
+    if (!touch) return;
+    e.preventDefault();
+    const m = getTouchPos(touch);
+    const world = screenToWorld(m.x, m.y);
+    const hit = tokenHitTest(world.x, world.y);
+    const gesture = {
+      kind: state.mobileCanvasMode === 'move'
+        ? (hit ? 'move-token' : 'tap-move')
+        : 'navigate',
+      startMouse: m,
+      lastMouse: m,
+      tokenId: hit?.id || null,
+      moved: false,
+      menuOpened: false
+    };
+
+    if (hit) {
+      state.touchLongPressTimer = setTimeout(() => {
+        gesture.menuOpened = true;
+        setCurrentTurnTokenId(hit.id);
+        openTokenContextMenu(hit.id, touch.clientX, touch.clientY);
+      }, 450);
+    }
+
+    if (gesture.kind === 'move-token' && hit) {
+      setCurrentTurnTokenId(hit.id);
+      state.draggingToken = hit;
+      state.dragOffset.x = world.x - hit.x;
+      state.dragOffset.y = world.y - hit.y;
+      state.dragOriginCell = gridCoords(hit);
+    }
+
+    state.touchGesture = gesture;
+  }, { passive:false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (!isMobileCanvasLayout()) return;
+    if (!state.touchGesture) return;
+    e.preventDefault();
+
+    if (e.touches.length === 2) {
+      clearTouchLongPress();
+      if (state.touchGesture.kind !== 'pinch') {
+        const midpoint = touchMidpoint(e.touches[0], e.touches[1]);
+        const midpointMouse = getTouchPos(midpoint);
+        state.touchGesture = {
+          kind: 'pinch',
+          startDistance: touchDistance(e.touches[0], e.touches[1]),
+          startZoom: state.view.zoom,
+          anchorWorld: screenToWorld(midpointMouse.x, midpointMouse.y)
+        };
+      }
+      const midpoint = touchMidpoint(e.touches[0], e.touches[1]);
+      const midpointMouse = getTouchPos(midpoint);
+      const zoomFactor = touchDistance(e.touches[0], e.touches[1]) / Math.max(1, state.touchGesture.startDistance);
+      state.view.zoom = clamp(state.touchGesture.startZoom * zoomFactor, 0.15, 6);
+      state.view.panX = midpointMouse.x - (state.touchGesture.anchorWorld.x * state.view.zoom);
+      state.view.panY = midpointMouse.y - (state.touchGesture.anchorWorld.y * state.view.zoom);
+      draw();
+      return;
+    }
+
+    const touch = e.touches[0];
+    if (!touch) return;
+    const m = getTouchPos(touch);
+    const dx = m.x - state.touchGesture.lastMouse.x;
+    const dy = m.y - state.touchGesture.lastMouse.y;
+    state.touchGesture.lastMouse = m;
+
+    if (!state.touchGesture.moved && Math.hypot(m.x - state.touchGesture.startMouse.x, m.y - state.touchGesture.startMouse.y) > 8) {
+      state.touchGesture.moved = true;
+      clearTouchLongPress();
+    }
+
+    if (state.touchGesture.kind === 'navigate') {
+      state.view.panX += dx;
+      state.view.panY += dy;
+      draw();
+      return;
+    }
+
+    if (state.touchGesture.kind === 'move-token' && state.draggingToken) {
+      const world = screenToWorld(m.x, m.y);
+      const t = state.draggingToken;
+      t.x = world.x - state.dragOffset.x;
+      t.y = world.y - state.dragOffset.y;
+      const snapped = snapWorldPoint(t.x, t.y, t.sizeCells);
+      t.x = snapped.x;
+      t.y = snapped.y;
+      draw(); renderTokenList(); refreshExport();
+    }
+  }, { passive:false });
+
+  canvas.addEventListener('touchend', (e) => {
+    if (!isMobileCanvasLayout()) return;
+    const gesture = state.touchGesture;
+    clearTouchLongPress();
+    if (!gesture) return;
+    e.preventDefault();
+
+    if (e.touches.length > 0) return;
+
+    if (gesture.kind === 'navigate' && !gesture.moved && gesture.tokenId && !gesture.menuOpened) {
+      setCurrentTurnTokenId(gesture.tokenId);
+    } else if (gesture.kind === 'move-token' && state.draggingToken) {
+      const t = state.draggingToken;
+      state.draggingToken = null;
+      if (!gesture.menuOpened) finishDraggedToken(t);
+      else state.dragOriginCell = null;
+    } else if (gesture.kind === 'tap-move' && !gesture.moved && !gesture.menuOpened) {
+      const world = screenToWorld(gesture.lastMouse.x, gesture.lastMouse.y);
+      moveCurrentTokenToWorldPoint(world, 'Tap');
+    }
+
+    state.touchGesture = null;
+  }, { passive:false });
+
+  canvas.addEventListener('touchcancel', () => {
+    clearTouchLongPress();
+    state.touchGesture = null;
+    state.draggingToken = null;
+    state.dragOriginCell = null;
+  }, { passive:false });
+
   window.addEventListener('mouseup', () => {
     if (state.draggingArtPreview) {
       state.draggingArtPreview = false;
@@ -3386,30 +3631,8 @@ import {
     }
     if (state.draggingToken) {
       const t = state.draggingToken;
-      const targetCell = gridCoords(t);
-      const result = moveTokenToCell(t, targetCell, {
-        source: 'Drag',
-        fromCell: state.dragOriginCell || gridCoords(t),
-        manualOverride: true
-      });
-      const dragOutcome = resolveDragComplete({
-        result,
-        token: t,
-        targetCell,
-        fallbackCell: state.dragOriginCell || gridCoords(t)
-      });
-      clearAiPathForToken(t.id);
-      if (!dragOutcome.ok) {
-        const snapped = centerFromGridCell(dragOutcome.resetToCell.x, dragOutcome.resetToCell.y, t.sizeCells);
-        t.x = snapped.x;
-        t.y = snapped.y;
-        pushLog(dragOutcome.logMessage);
-      } else {
-        pushLog(dragOutcome.logMessage);
-      }
       state.draggingToken = null;
-      state.dragOriginCell = null;
-      draw(); renderTokenList(); refreshExport(); loadCurrentTurnTokenToEditor();
+      finishDraggedToken(t);
     }
     if (state.draggingMap) { state.draggingMap = false; draw(); }
     if (state.draggingPan) { state.draggingPan = false; canvas.classList.remove('dragging'); draw(); }

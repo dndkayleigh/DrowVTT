@@ -397,6 +397,10 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
       <span class="pill" id="mapPill">Map: off(0,0) scale 1 rot 0°</span>
       <span class="hint">Grid combat, map alignment, and AI-assisted turns.</span>
     </div>
+    <div class="mobileCanvasToolbar" id="mobileCanvasToolbar" hidden aria-label="Mobile canvas controls">
+      <button type="button" class="mobileCanvasModeBtn" id="mobileCanvasNavigateBtn" data-canvas-mode="navigate" aria-pressed="true">Navigate</button>
+      <button type="button" class="mobileCanvasModeBtn" id="mobileCanvasMoveBtn" data-canvas-mode="move" aria-pressed="false">Move</button>
+    </div>
     <canvas id="stage"></canvas>
     <div class="stageWatermark" aria-label="DrowVTT watermark">
       <div class="brandSigil stageWatermarkSigil" aria-hidden="true">
