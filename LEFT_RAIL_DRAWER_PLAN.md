@@ -26,6 +26,7 @@ Recent user feedback surfaced four different classes of work:
 - built-in monster rosters per encounter
 - separate biomes
 - blocking edges so tokens cannot move through walls or impassable map boundaries
+- deterministic tactical AI for single-actor and coordinated multi-monster turns
 
 4. collaboration and community
 - join someone else's instance
@@ -44,8 +45,53 @@ For OSS, the shared-product priorities are:
 - import normalization seams for external character data
 - encounter/portfolio data structures if the same authored content model should exist in both OSS and SaaS
 - shared blocking-edge map data so movement, later line of sight, and future AI pathing all reference the same map constraints
+- deterministic legality, candidate generation, scoring, and coordinated multi-actor planning as shared tactical engine work
 
 Hosted-only layers such as public leaderboards, hosted discovery, uploads, and livestream surfaces belong in SaaS planning, not in the shared VTT shell plan.
+
+## Shared Tactical AI Roadmap
+
+This work is shared engine work. It should not be implemented as freeform LLM turn piloting.
+
+Required constraints:
+
+- legality and simulation must be deterministic and code-driven
+- LLM usage must be advisory only, never freeform turn piloting
+- battlefield must support blocking, difficult terrain, cover, elevation, hazards, and interactables
+- AI must support single-actor turns and coordinated multi-monster activations
+- multi-monster behavior must use group planning with reservation-aware candidate selection
+- all major decisions must emit structured debug logs
+- each phase must include tests and a small working demo path
+
+Planned phases:
+
+1. Combat domain schema and battlefield model
+2. Legality engine
+3. Candidate action generation
+4. Tactical scoring and stance system
+5. Monster tactics database and compiler
+6. LLM advisory ranker
+7. Group activation planner for simultaneous/coordinated monster actions
+8. Evaluation harness and replay tests
+
+Implementation details to preserve:
+
+- use bounded candidate generation
+- use beam search for group planning
+- include collision checks and reserved-tile planning
+- support activation modes: independent, coordinated sequential, simultaneous movement then actions, fully simultaneous
+- expose hooks for future SRD-derived monster overlays
+- prefer composable interfaces and pure functions where possible
+
+Expected deliverables:
+
+- types and interfaces
+- core modules
+- tests
+- example monster profiles
+- example encounter fixtures
+- decision logging format
+- README with architecture and extension points
 
 ## Current Implementation Seam
 
