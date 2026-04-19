@@ -25,6 +25,7 @@ Recent user feedback surfaced four different classes of work:
 - built-in maps
 - built-in monster rosters per encounter
 - separate biomes
+- blocking edges so tokens cannot move through walls or impassable map boundaries
 
 4. collaboration and community
 - join someone else's instance
@@ -42,6 +43,7 @@ For OSS, the shared-product priorities are:
 - delete/archive behavior for saved encounters or sessions
 - import normalization seams for external character data
 - encounter/portfolio data structures if the same authored content model should exist in both OSS and SaaS
+- shared blocking-edge map data so movement, later line of sight, and future AI pathing all reference the same map constraints
 
 Hosted-only layers such as public leaderboards, hosted discovery, uploads, and livestream surfaces belong in SaaS planning, not in the shared VTT shell plan.
 
