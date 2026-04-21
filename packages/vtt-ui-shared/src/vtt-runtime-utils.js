@@ -138,6 +138,21 @@ export function buildTurnEditorState(token, { normalizeSizeCells } = {}) {
   };
 }
 
+function syncTurnEditorStatblock(text, { ac, speed } = {}) {
+  let nextText = (text ?? '').trim();
+  if (!nextText) return nextText;
+
+  if (Number.isFinite(ac) && ac > 0) {
+    nextText = nextText.replace(/(^-\s*AC\s+)([^,\n]+)/m, `$1${ac}`);
+  }
+
+  if (Number.isFinite(speed) && speed >= 0) {
+    nextText = nextText.replace(/(\bSpeed\s+)(\d+\s*ft\.?)/m, `$1${speed} ft.`);
+  }
+
+  return nextText;
+}
+
 export function applyTurnEditorToToken(
   token,
   values,
@@ -150,13 +165,18 @@ export function applyTurnEditorToToken(
   if (!token) return null;
   const normalize = normalizeSizeCells || ((value) => value);
   const oldCell = gridCoords(token);
-  token.ac = Number(values.ac) || token.ac;
+  const nextAc = Number(values.ac) || token.ac;
+  const nextSpeed = Number(values.speed) || token.speed;
+  token.ac = nextAc;
   token.hp = (values.hp ?? '').trim();
   token.sizeCells = normalize(values.size);
   token.color = values.color || token.color;
-  token.speed = Number(values.speed) || token.speed;
+  token.speed = nextSpeed;
   token.notes = (values.notes ?? '').trim();
-  token.statblock = (values.statblock ?? '').trim();
+  token.statblock = syncTurnEditorStatblock((values.statblock ?? '').trim(), {
+    ac: nextAc,
+    speed: nextSpeed
+  });
   const snapped = centerFromGridCell(oldCell.x, oldCell.y, token.sizeCells);
   token.x = snapped.x;
   token.y = snapped.y;
