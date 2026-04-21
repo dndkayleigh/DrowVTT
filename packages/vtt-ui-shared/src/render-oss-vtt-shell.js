@@ -183,53 +183,60 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
     <details class="panelSection drawerSection" id="tokensSection" data-sidebar-section="tokens">
       <summary><h2>Tokens</h2></summary>
       <div class="card">
-        <div class="tokenFormRow">
-          <div>
-            <label>Name</label>
-            <div class="fieldStack">
-              <input id="tokName" type="text" value="Goblin" autocomplete="off" />
-              <div class="autocompleteMenu" id="monsterAutocomplete" hidden></div>
+        <div class="subcard">
+          <div class="subtleLabel">Add Token</div>
+          <div class="tokenFormRow">
+            <div>
+              <label>Name</label>
+              <div class="fieldStack">
+                <input id="tokName" type="text" value="Goblin" autocomplete="off" />
+                <div class="autocompleteMenu" id="monsterAutocomplete" hidden></div>
+              </div>
+            </div>
+            <div>
+              <label>Type</label>
+              <select id="tokType">
+                <option value="NPC">NPC</option>
+                <option value="Monster" selected>Monster</option>
+                <option value="PC">PC</option>
+              </select>
+            </div>
+            <div>
+              <label>Size (cells)</label>
+              <select id="tokSize">
+                <option value="1" selected>1×1</option>
+                <option value="2">2×2</option>
+                <option value="3">3×3</option>
+              </select>
+            </div>
+            <div>
+              <label>Color</label>
+              <select id="tokColor">
+                <option value="#5aa9ff">Blue</option>
+                <option value="#7dffb2">Green</option>
+                <option value="#ffd36a">Gold</option>
+                <option value="#ff5a7a" selected>Red</option>
+                <option value="#caa7ff">Purple</option>
+              </select>
             </div>
           </div>
-          <div>
-            <label>Type</label>
-            <select id="tokType">
-              <option value="NPC">NPC</option>
-              <option value="Monster" selected>Monster</option>
-              <option value="PC">PC</option>
-            </select>
-          </div>
-          <div>
-            <label>Size (cells)</label>
-            <select id="tokSize">
-              <option value="1" selected>1×1</option>
-              <option value="2">2×2</option>
-              <option value="3">3×3</option>
-            </select>
-          </div>
-          <div>
-            <label>Color</label>
-            <select id="tokColor">
-              <option value="#5aa9ff">Blue</option>
-              <option value="#7dffb2">Green</option>
-              <option value="#ffd36a">Gold</option>
-              <option value="#ff5a7a" selected>Red</option>
-              <option value="#caa7ff">Purple</option>
-            </select>
+
+          <div class="btnbar" style="margin-top:10px;">
+            <button id="addToken" class="primary">Add token</button>
           </div>
         </div>
 
-        <div class="btnbar" style="margin-top:10px;">
-          <button id="addToken" class="primary">Add token</button>
-          <button id="clearTokens" class="danger">Clear all</button>
+        <div class="subcard">
+          <div class="subtleLabel">Roster</div>
+          <div class="btnbar" style="margin-top:10px;">
+            <button id="deleteSelectedTokens" class="danger">Delete Selected</button>
+            <button id="clearTokens" class="danger">Clear all</button>
+            <button id="mobileGroupSelectBtn" type="button">Group Select</button>
+            <button id="clearAiGroup">Clear Group</button>
+          </div>
+          <div class="list" id="tokenList"></div>
+          <div class="footerNote" id="tokenSelectionNote">Single modes use one selected monster. Group mode uses the selected monster group.</div>
         </div>
-        <div class="btnbar" style="margin-top:8px;">
-          <button id="mobileGroupSelectBtn" type="button">Group Select</button>
-          <button id="clearAiGroup">Clear Group</button>
-        </div>
-
-        <div class="list" id="tokenList"></div>
-        <div class="footerNote" id="tokenSelectionNote">Single modes use one selected monster. Group mode uses the selected monster group.</div>
       </div>
     </details>
 
@@ -321,7 +328,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
       <div class="card">
         <div class="drawerLead">Run Tactics Director, review its plan, adjust settings, and check the log here.</div>
         <div class="drawerActions">
-          <button id="sendState" class="primary">Run AI</button>
+          <button id="sendState" class="primary">Run Tactics</button>
           <div class="checkRow">
             <input id="autoApplyAI" type="checkbox" checked />
             <label for="autoApplyAI" style="margin:0;color:var(--muted)">Autopilot</label>
