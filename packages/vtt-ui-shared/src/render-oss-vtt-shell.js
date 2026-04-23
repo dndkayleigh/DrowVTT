@@ -243,20 +243,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
     <details class="panelSection drawerSection" id="turnSection" data-sidebar-section="turn">
       <summary><h2>Turn</h2></summary>
       <div class="card">
-        <div class="compactRow">
-          <div>
-            <label>AI controls</label>
-            <select id="aiControls">
-              <option value="Monsters" selected>Monsters</option>
-              <option value="PCs">PCs</option>
-              <option value="Both">Both</option>
-              <option value="None">None</option>
-            </select>
-          </div>
-          <div>
-            <label>Round</label>
-            <input id="roundNum" type="number" min="1" step="1" value="1" />
-          </div>
+        <div class="row">
           <div>
             <label>Current token</label>
             <select id="turnToken"></select>
@@ -264,7 +251,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
         </div>
 
         <div class="turnTabs" role="tablist" aria-label="Current token details">
-          <button type="button" class="tabBtn active" data-turn-tab="stats">Stats</button>
+          <button type="button" class="tabBtn active" data-turn-tab="stats">Token Stats</button>
           <button type="button" class="tabBtn" data-turn-tab="notes">Notes</button>
           <button type="button" class="tabBtn" data-turn-tab="statblock">Statblock</button>
         </div>
