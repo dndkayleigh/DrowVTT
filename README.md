@@ -2,6 +2,14 @@
 
 A lightweight browser VTT for grid combat with an OpenAI-backed tactical turn loop.
 
+This repository is the open-source lightweight prototyping environment for DrowVTT. It is meant to be run locally on your own computer, and it is useful if you want to inspect the code, experiment with tactical VTT ideas, or contribute to the project.
+
+If you want to use the tool right now and are not interested in coding or local setup, use the full-service hosted environment instead:
+
+https://drowvtt-saas-production.onrender.com
+
+DrowVTT is currently in early alpha. If you are interested in joining the preview, please email dndkayleigh@gmail.com.
+
 The app is intentionally small:
 - a single-page frontend in [`index.html`](index.html)
 - a Node/Express backend in [`backend/server.js`](backend/server.js)
