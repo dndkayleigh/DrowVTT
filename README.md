@@ -199,21 +199,105 @@ This runs the benchmark scenario packet suite without starting Playwright.
 
 ## AI Modes
 
-The `Tactics Director` settings panel now exposes three AI modes:
+The `Tactics Director` has two families of AI modes:
 
-- `Single (Fast)`: `gpt-5.4-mini` with the `compact_moves5` packet. Use this when responsiveness matters more than matching the strongest tactical baseline.
-- `Single (Tactical)`: `gpt-5` with the `full` packet. This is the default and the strongest single-monster tactical read.
-- `Group (Tactical)`: `gpt-5` with the `full` packet. This keeps the strongest tactical read for coordinated group turns too.
+- LLM modes call the backend and use an OpenAI model to return a strict JSON turn plan.
+- Local controller modes run inside the browser through the portable tactical-controller layer and do not call OpenAI.
 
-The backend resolves these modes server-side, and the response timing block includes the selected strategy and packet variant.
+Every mode ultimately feeds the same VTT apply contract: a summary, zero or more token moves, zero or more actions, and an optional end-turn flag. This is intentional. The board should not need separate application logic for each tactical architecture.
+
+### LLM Modes
+
+`Single (Fast)`
+
+- Uses `gpt-5.4-mini`.
+- Sends the compact `compact_moves5` packet.
+- Acts on one current AI-controlled token.
+- Best for quick iteration, lower latency, and smoke-testing the turn loop.
+- Tradeoff: it has less battlefield context than the heavier tactical packets, so it is more likely to miss nuanced positioning.
+
+`Single (Tactical)`
+
+- Uses `gpt-5`.
+- Sends the full tactical packet.
+- Acts on one current AI-controlled token.
+- This is the default high-context single-actor LLM mode.
+- It gives the model the broadest board read, but the model is still generating the final turn plan directly.
+
+`Group (Tactical)`
+
+- Uses `gpt-5`.
+- Sends the full tactical packet plus active group context.
+- Acts on the selected AI-controlled group.
+- Use this when several monsters should coordinate in one activation.
+- The prompt includes the active tactical group and group-member statblocks, but this is still a direct LLM tactical plan rather than a deterministic candidate-ranking pass.
+
+`LLM Supervisor + Tactical (Single)`
+
+- Uses `gpt-5`.
+- Sends `full_moves5_attacks6`.
+- Acts on one current AI-controlled token.
+- Adds a deterministic `SUPERVISOR CANDIDATE SET` to the packet before the LLM is asked to choose.
+- The candidate set is filtered for movement budget, occupied final spaces, blocking movement edges, and ranged line of sight.
+- The LLM is instructed to rank the listed legal candidates, not invent a new move, target, attack, or path.
+- This is the preferred LLM mode when debugging legality and tactical quality together because the model’s job is narrower and easier to inspect.
+
+`LLM Supervisor + Tactical (Group)`
+
+- Uses `gpt-5`.
+- Sends `full_moves5_attacks6`.
+- Acts on the selected AI-controlled group.
+- Adds per-token legal candidate sections for the grouped actors.
+- The LLM supervisor ranks a combined group plan from those candidates and is told to avoid redundant crowding where alternatives exist.
+- This is the safest current LLM option for coordinated monster turns because deterministic code supplies the legal option space and the LLM chooses among those options.
+
+### Local Controller Modes
+
+`Scripted Baseline`
+
+- Runs locally with no model call.
+- Uses behavior rules and deterministic candidate generation.
+- Useful as a lower-bound tactical baseline: fast, repeatable, and easy to test.
+- It should prefer legal attacks when available, route around blocking edges, and avoid occupied final destinations.
+- Tradeoff: it is intentionally simple and can still make tactically bland decisions.
+
+`Utility Baseline`
+
+- Runs locally with no model call.
+- Generates bounded legal candidates and scores them with deterministic utility features.
+- Useful for inspecting whether the tactical features are pointing in the right direction.
+- It emits structured logs with the selected candidate and top alternatives, which makes it easier to debug why it attacked, moved, advanced, retreated, or held.
+- Tradeoff: the scoring model is hand-authored and will only be as good as the current features and weights.
+
+`Supervisor + Scripted (Single)`
+
+- Runs locally with no model call.
+- Generates scripted candidates, then passes them through a deterministic supervisor/ranker for one actor.
+- Intended as a bridge between simple scripted behavior and stronger tactical selection.
+- Useful when the baseline generator can produce a reasonable set of options but needs a better selection pass.
+
+`Supervisor + Scripted (Group)`
+
+- Runs locally with no model call.
+- Generates grouped scripted candidates and ranks them with a deterministic supervisor.
+- Uses group context and reservation-aware planning to reduce collisions and redundant destinations.
+- Intended for testing coordinated monster activations before relying on an LLM supervisor.
+
+`Human Controller`
+
+- Exists in the portable tactical-controller package for evaluation and replay parity.
+- It is not exposed as a normal OSS UI option because humans can already move tokens directly on the board.
+- Keeping it in the controller contract lets future replay/evaluation tooling compare human decisions and AI decisions through the same input/output shape.
 
 ### Selection Behavior
 
-- `Single (Fast)` and `Single (Tactical)` act on exactly one AI-controlled token.
+- Single modes act on exactly one AI-controlled token.
 - Clicking another AI-controlled token switches focus to that token.
-- `Ctrl`-click on Windows/Linux or `Cmd`-click on macOS adds or removes AI-controlled monsters from the active selection.
-- When more than one AI-controlled monster is selected, Tactics Director automatically switches to `Group (Tactical)`.
-- Clicking a non-AI-controlled token such as a PC clears the active monster group.
+- `Ctrl`-click on Windows/Linux or `Cmd`-click on macOS adds or removes AI-controlled tokens from the active selection.
+- On mobile/tablet, use `Group Select` in the token list when modifier-click is not available.
+- When more than one AI-controlled monster is selected from a non-group mode, Tactics Director automatically switches to `Group (Tactical)`.
+- If you are already in a group mode, such as `LLM Supervisor + Tactical (Group)` or `Supervisor + Scripted (Group)`, multi-selection preserves that selected group mode instead of switching away from it.
+- Clicking a non-AI-controlled token such as a PC clears the active monster group unless AI controls are configured to allow that token type.
 
 ### Group Workflow
 
@@ -222,7 +306,16 @@ You can build a group in either of these ways:
 1. `Ctrl`/`Cmd`-click multiple AI-controlled monsters on the board.
 2. Use `Pick` in the token list, then click `Set Group From Selection`.
 
-Once more than one valid monster is selected, `Run Tactics Director` applies the grouped turn to the active monster group instead of only the current single monster.
+Once more than one valid AI-controlled token is selected, group modes apply the turn to the active group instead of only the current single token. Group modes require an explicit group before running.
+
+### Legality, Blocking, And Debugging
+
+- Manual human movement is intentionally permissive so a GM can fix board state quickly.
+- Tactical/AI movement is constrained by speed, occupied final spaces, and blocking edges.
+- Ranged tactical attacks are blocked by blocking edges that cross line of sight.
+- The board draws movement trails and ranged line-of-sight debug overlays so illegal or suspicious choices can be inspected visually.
+- LLM supervisor packets include deterministic legal candidates; if an LLM supervisor returns something outside that candidate set, that is a model-following failure rather than a candidate-generation failure.
+- Local controller logs are structured and should explain the selected candidate plus top alternatives. These logs are the first place to look when the scripted or utility baseline makes a questionable choice.
 
 ## Benchmarking
 
