@@ -86,6 +86,7 @@ export function createBoardSnapshot(state, options = {}) {
         rot: clampNumber(state?.map?.rot, 0),
         opacity: clampNumber(state?.map?.opacity, 1)
       },
+      encounterDescription: String(state?.encounterDescription ?? ''),
       blockingEdges: {
         edgeKeys: normalizeBlockingEdgeKeys(state?.blockingEdges?.edgeKeys || state?.blockingEdges || [])
       },
@@ -128,6 +129,7 @@ export function parseBoardSnapshot(snapshot) {
         rot: clampNumber(state?.map?.rot, 0),
         opacity: clampNumber(state?.map?.opacity, 1)
       },
+      encounterDescription: String(state?.encounterDescription ?? ''),
       blockingEdges: {
         edgeKeys: normalizeBlockingEdgeKeys(state?.blockingEdges?.edgeKeys || state?.blockingEdges || [])
       },

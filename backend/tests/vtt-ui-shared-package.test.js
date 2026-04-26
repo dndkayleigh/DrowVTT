@@ -54,6 +54,7 @@ test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.equal(DEFAULT_AI_TURN_STRATEGY_ID, 'single_tactical');
   assert.equal(getAiTurnStrategy('group_tactical')?.model, 'gpt-5');
   assert.equal(resolveAiStrategyIdForSelection('single_fast', ['a', 'b']), 'group_tactical');
+  assert.equal(resolveAiStrategyIdForSelection('llm_supervisor_group', ['a', 'b']), 'llm_supervisor_group');
   assert.match(renderOssVttShell(), /<div class="app">/);
   assert.match(renderOssVttShell(), /class="leftRail"/);
   assert.match(renderOssVttShell(), /id="contextDrawer"/);
@@ -62,8 +63,12 @@ test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.match(renderOssVttShell(), /data-sidebar-section-target="ai"/);
   assert.match(renderOssVttShell(), /id="aiSection"/);
   assert.doesNotMatch(renderOssVttShell(), /value="controller_human"/);
+  assert.match(renderOssVttShell(), /value="llm_supervisor_single"/);
+  assert.match(renderOssVttShell(), /value="llm_supervisor_group"/);
   assert.match(renderOssVttShell(), /value="controller_scripted"/);
   assert.match(renderOssVttShell(), /value="controller_utility"/);
+  assert.match(renderOssVttShell(), /value="controller_supervisor_scripted_single"/);
+  assert.match(renderOssVttShell(), /value="controller_supervisor_scripted_group"/);
   assert.doesNotMatch(renderOssVttShell(), /data-sidebar-section-target="save"/);
   assert.match(renderOssVttShell(), /id="mobileGroupSelectBtn"/);
   assert.match(renderOssVttShell(), /id="mobileCanvasToolbar"/);
@@ -119,6 +124,15 @@ test('shared VTT runtime helpers expose selection note and context menu state', 
       groupCount: 2
     }),
     'Group (Tactical) will use 2 grouped AI-controlled tokens. Use ctrl/cmd-click on desktop or Group Select on mobile to build the group.'
+  );
+
+  assert.equal(
+    buildTokenSelectionNote({
+      strategyId: 'llm_supervisor_group',
+      strategyLabel: 'LLM Supervisor + Tactical (Group)',
+      groupCount: 2
+    }),
+    'LLM Supervisor + Tactical (Group) will use 2 grouped AI-controlled tokens. Use ctrl/cmd-click on desktop or Group Select on mobile to build the group.'
   );
 
   assert.deepEqual(
@@ -244,6 +258,41 @@ test('shared VTT runtime helpers validate and apply token movement', () => {
   assert.equal(manualDragAllowed.ok, true);
   assert.equal(manualDragAllowed.manualOverride, true);
 
+  const friendlyTokens = [
+    { id: 'p1', name: 'Hero', type: 'PC', speed: 30, sizeCells: 1, x: 96, y: 96 },
+    { id: 'n1', name: 'Guide', type: 'NPC', speed: 30, sizeCells: 1, x: 192, y: 96 }
+  ];
+  const friendlyPassThrough = validateTokenMove({
+    token: friendlyTokens[0],
+    toCell: { x: 3, y: 1 },
+    tokens: friendlyTokens,
+    isTokenControlledThisTurn: () => true,
+    gridCoords,
+    chebyshevDistanceCells,
+    cellsOccupiedAt
+  }, {
+    fromCell: { x: 2, y: 1 },
+    pathDestination: { x: 5, y: 1 },
+    ignoreSpeed: true
+  });
+  assert.equal(friendlyPassThrough.ok, true);
+
+  const friendlyFinalBlocked = validateTokenMove({
+    token: friendlyTokens[0],
+    toCell: { x: 3, y: 1 },
+    tokens: friendlyTokens,
+    isTokenControlledThisTurn: () => true,
+    gridCoords,
+    chebyshevDistanceCells,
+    cellsOccupiedAt
+  }, {
+    fromCell: { x: 2, y: 1 },
+    pathDestination: { x: 3, y: 1 },
+    ignoreSpeed: true
+  });
+  assert.equal(friendlyFinalBlocked.ok, false);
+  assert.match(friendlyFinalBlocked.reason, /space is occupied by Guide/);
+
   const aiBlockedByEdge = validateTokenMove({
     token: tokens[0],
     toCell: { x: 0, y: 1 },
@@ -328,6 +377,18 @@ test('shared VTT runtime helpers expose token-row, turn-dropdown, and editor sta
   );
 
   assert.deepEqual(
+    buildTokenRowState(token, {
+      gridCell: { x: 4, y: 5 },
+      isSelected: true,
+      isGrouped: true,
+      isCurrentTurn: true,
+      canPickForGroup: true,
+      strategyId: 'llm_supervisor_group'
+    }).pickButton,
+    { text: 'Picked', primary: true, disabled: false }
+  );
+
+  assert.deepEqual(
     buildTurnDropdownState({
       tokens: [
         { id: 'm1', type: 'Monster', name: 'Ghoul' },
@@ -398,7 +459,7 @@ test('shared VTT runtime helpers orchestrate current-turn and AI-controls state 
       currentTurnTokenId: 'm1',
       selectedTokenIds: ['m1', 'm2'],
       aiGroupTokenIds: ['m1', 'm2'],
-      strategyId: 'group_tactical',
+      strategyId: 'llm_supervisor_group',
       isAiControllableToken,
       resolveAiCurrentTurnTokenId,
       setSingleSelection,

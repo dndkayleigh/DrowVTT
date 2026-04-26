@@ -21,6 +21,8 @@ export const MONSTER_ARCHETYPES = {
   }
 };
 
+export { parseVisibleEncounterFixture } from './visible-fixture-loader.js';
+
 export const RULESET_PRESETS = {
   simple_grid: {
     id: 'simple_grid',
@@ -103,6 +105,12 @@ function parseStatblockAttacks(statblock = '', fallbackDamage = 5) {
     if (!name) return [];
     const ranged = line.match(/\brange\s+(\d+)/i);
     const melee = line.match(/\b(?:reach\s+)?(\d+)\s*ft\b/i);
+    if (/\bMelee or Ranged\b/i.test(line) && melee && ranged) {
+      return [
+        { name, attackKind: 'melee', rangeFt: Number(melee[1]), expectedDamage: fallbackDamage },
+        { name, attackKind: 'ranged', rangeFt: Number(ranged[1]), expectedDamage: fallbackDamage }
+      ];
+    }
     if (ranged) return [{ name, attackKind: 'ranged', rangeFt: Number(ranged[1]), expectedDamage: fallbackDamage }];
     if (melee && !/\brange\b/i.test(line)) return [{ name, attackKind: 'melee', rangeFt: Number(melee[1]), expectedDamage: fallbackDamage }];
     return [];

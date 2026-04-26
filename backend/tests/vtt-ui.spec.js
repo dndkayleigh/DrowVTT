@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { parseVisibleEncounterFixture } from '../../packages/tactical-ai-content/src/index.js';
 
 async function openDetails(page, selector) {
   const sectionMap = {
@@ -340,6 +341,7 @@ test('loads the VTT UI', async ({ page }) => {
   await expect(page.locator('.legacySaveSlotsUi')).toHaveCount(3);
   await expect(page.locator('.legacySaveSlotsUi').first()).toBeHidden();
   await expect(page.locator('#exportBoardBtn')).toContainText('Download Save');
+  await expect(page.locator('#exportTacticalFixtureBtn')).toContainText('Export Tactical Fixture');
   await expect(page.locator('#importBoardBtn')).toContainText('Open Save');
   await expect(page.locator('#restoreAutosaveBtn')).toContainText('Recover');
   await expect(page.locator('#clearAutosavesBtn')).toContainText('Clear');
@@ -376,7 +378,9 @@ test('session drawer owns session naming and save recovery controls', async ({ p
   await expect(page.locator('#contextDrawerTitle')).toHaveText('Session');
   await expect(page.locator('#saveSlotName')).toBeVisible();
   await expect(page.locator('#saveSlotName')).toHaveValue(new RegExp(`^New Session - \\d{4}-\\d{2}-\\d{2}$`));
+  await expect(page.locator('#encounterDescription')).toBeVisible();
   await expect(page.locator('#exportBoardBtn')).toBeVisible();
+  await expect(page.locator('#exportTacticalFixtureBtn')).toBeVisible();
   await expect(page.locator('#importBoardBtn')).toBeVisible();
   await expect(page.locator('#autosaveSelect')).toBeVisible();
   await expect(page.locator('#restoreAutosaveBtn')).toBeVisible();
@@ -821,6 +825,11 @@ test('AI drawer settings persist across tab changes', async ({ page }) => {
   await expect(page.locator('#aiStrategy')).toHaveValue('single_tactical');
   await expect(page.locator('#aiStrategyHint')).toContainText('gpt-5');
   await expect(page.locator('#aiStrategyHint')).toContainText('full');
+
+  await page.locator('#aiStrategy').selectOption('llm_supervisor_single');
+  await expect(page.locator('#aiStrategyHint')).toContainText('LLM tactical path');
+  await openDrawerTab(page, 'packet');
+  await expect(page.locator('#aiExport')).toHaveValue(/LLM SUPERVISOR MODE/);
 });
 
 test('local tactical controllers hot-swap through the same VTT apply contract', async ({ page }) => {
@@ -843,6 +852,15 @@ test('local tactical controllers hot-swap through the same VTT apply contract', 
   expect(plan._controller.id).toBe('utility_baseline');
   expect(Array.isArray(plan.moves)).toBe(true);
   expect(Array.isArray(plan.actions)).toBe(true);
+
+  await openDrawerTab(page, 'settings');
+  await page.locator('#aiStrategy').selectOption('controller_supervisor_scripted_single');
+  await expect(page.locator('#aiStrategyHint')).toContainText('supervisor ranks candidate actions');
+  await page.getByRole('button', { name: 'Run Tactics' }).click();
+  await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted');
+  await openDrawerTab(page, 'apply');
+  const supervisedPlan = await page.evaluate(() => JSON.parse(document.querySelector('#applyJson')?.value || '{}'));
+  expect(supervisedPlan._controller.id).toBe('supervisor_scripted_single');
 });
 
 test('AI rail item opens the unified drawer instead of a floating draggable panel', async ({ page }) => {
@@ -1100,6 +1118,54 @@ test('multi-selecting monsters auto-switches tactics director to group tactical'
   await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
   await expect(tokenRow(page, 'Goblin B')).toContainText('Grouped');
   await expect(page.locator('#tokenSelectionNote')).toContainText('2 grouped AI-controlled tokens');
+});
+
+test('LLM supervisor group mode preserves ctrl-click grouping and sends group strategy', async ({ page }) => {
+  let requestPayload = null;
+  await page.route('http://localhost:3000/api/vtt', async (route) => {
+    requestPayload = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        summary: 'No-op supervised group plan.',
+        moves: [],
+        actions: [],
+        end_turn: false,
+        _timing: { total: 1, openai: 1, prep: 0, parse: 0, model: 'gpt-5', strategy: 'llm_supervisor_group', packet: 'full_moves5_attacks6' }
+      })
+    });
+  });
+
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await addToken(page, { name: 'Goblin B', size: 1, type: 'Monster' });
+
+  await clickTokenOnStage(page, 'Goblin A');
+  await openDrawerTab(page, 'settings');
+  await page.locator('#aiStrategy').selectOption('llm_supervisor_group');
+  await expect(page.locator('#aiStrategy')).toHaveValue('llm_supervisor_group');
+
+  await closeDrawer(page);
+  await clickTokenOnStage(page, 'Goblin B', ['Control']);
+
+  await openDrawerTab(page, 'settings');
+  await expect(page.locator('#aiStrategy')).toHaveValue('llm_supervisor_group');
+  await openDetails(page, '#tokensSection');
+  await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
+  await expect(tokenRow(page, 'Goblin B')).toContainText('Grouped');
+  await expect(page.locator('#tokenSelectionNote')).toContainText('LLM Supervisor + Tactical (Group) will use 2 grouped AI-controlled tokens');
+  await expect(page.locator('#aiExport')).toHaveValue(/ACTIVE TACTICAL GROUP/);
+  await expect(page.locator('#aiExport')).toHaveValue(/SUPERVISOR CANDIDATE SET/);
+
+  await openDrawerTab(page, 'settings');
+  await page.getByRole('button', { name: 'Run Tactics' }).click();
+
+  await expect.poll(() => requestPayload?.strategy).toBe('llm_supervisor_group');
+  expect(requestPayload.model).toBe('gpt-5');
+  expect(requestPayload.aiExport).toContain('LLM SUPERVISOR MODE');
+  expect(requestPayload.aiExport).toContain('ACTIVE TACTICAL GROUP');
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('AI strategy selected: llm_supervisor_group packet=full_moves5_attacks6');
 });
 
 test('mobile group select mode supports grouped selection without ctrl-click', async ({ page }) => {
@@ -1392,8 +1458,10 @@ test('board snapshots can be exported and imported as json files', async ({ page
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 6, cellY: 4 });
   await setRound(page, '5');
   await openDetails(page, '#saveSection');
+  await page.locator('#encounterDescription').fill('A mage tests snapshot persistence.');
 
   const exported = await page.evaluate(() => JSON.stringify(window.__VTT_DEBUG__.getBoardSnapshot()));
+  expect(JSON.parse(exported).state.encounterDescription).toBe('A mage tests snapshot persistence.');
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download Save' }).click();
   const download = await downloadPromise;
@@ -1414,6 +1482,38 @@ test('board snapshots can be exported and imported as json files', async ({ page
   await expectRound(page, '5');
   await openDetails(page, '#saveSection');
   await expect(page.locator('#saveStateStatus')).toContainText('Imported JSON');
+  await expect(page.locator('#encounterDescription')).toHaveValue('A mage tests snapshot persistence.');
+});
+
+test('OSS can export the current board as a visible tactical fixture yaml', async ({ page }) => {
+  await clearTokens(page);
+  await addToken(page, { name: 'Orc', size: 1, type: 'Monster' });
+  await addToken(page, { name: 'Aria', size: 1, type: 'PC' });
+  await page.evaluate(() => {
+    window.__VTT_DEBUG__.setBlockingEdges(['v:6,1', 'v:6,2', 'v:6,3']);
+  });
+  await setCurrentTurnToken(page, 'Orc');
+  await openDetails(page, '#sessionSection');
+  await page.locator('#saveSlotName').fill('Long Barrier Export');
+  await page.locator('#encounterDescription').fill('Orc should route to a legal javelin lane and avoid the occupied goblin lane.');
+
+  const yaml = await page.evaluate(() => window.__VTT_DEBUG__.getTacticalFixtureYaml());
+  const fixture = parseVisibleEncounterFixture(yaml);
+
+  expect(yaml).toContain('title: Long Barrier Export');
+  expect(yaml).toContain('  Orc should route to a legal javelin lane and avoid the occupied goblin lane.');
+  expect(yaml).toContain('blockingEdges:');
+  expect(yaml).toContain('length: 3');
+  expect(fixture.id).toBe('long_barrier_export');
+  expect(fixture.encounter.activeActorId).toBeTruthy();
+  expect(fixture.encounter.actors.map((actor) => actor.name)).toEqual(expect.arrayContaining(['Orc', 'Aria']));
+  expect(fixture.encounter.battlefield.edges).toHaveLength(3);
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export Tactical Fixture' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('long-barrier-export.yaml');
+  await expect(page.locator('#saveStateStatus')).toContainText('Exported tactical fixture');
 });
 
 test('autosave history can restore a recent board snapshot', async ({ page }) => {

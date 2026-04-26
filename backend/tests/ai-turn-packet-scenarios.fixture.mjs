@@ -1,11 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
 
 const GRID_SIZE = 64;
+const FIXTURE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(FIXTURE_DIR, '..', '..');
 
 function loadSrdMonsters() {
-  const filePath = path.resolve(process.cwd(), '..', 'data', 'srd-monsters.js');
+  const filePath = path.resolve(REPO_ROOT, 'data', 'srd-monsters.js');
   const code = fs.readFileSync(filePath, 'utf8');
   const context = { window: {} };
   vm.createContext(context);

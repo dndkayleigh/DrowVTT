@@ -1,0 +1,979 @@
+id: pillar_room_crossfire
+title: Pillar Room Crossfire
+category: pillar ranged skirmish
+description: |
+  ideal_behavior:
+    summary: >
+      Bandits should preserve the room advantage instead of rushing into the
+      hallway. One bandit should contest or guard the doorway, several should
+      spread into crossbow firing positions, one should use the table or room
+      geometry defensively, and one should remain flexible as a reserve or
+      flanker. The bandits should force the PCs to enter the room under
+      crossbow fire.
+  
+    statblock_assumptions:
+      creature: "Bandit"
+      role: "fragile humanoid skirmisher"
+      armor_class: 12
+      hit_points: 11
+      speed_ft: 30
+      melee_attack: "Scimitar"
+      ranged_attack: "Light Crossbow"
+      tactical_implication: >
+        Bandits are not durable melee brutes. They should prefer ranged attacks,
+        spacing, and defensive positioning unless an enemy is already adjacent.
+  
+    round_1_priorities:
+      - "Identify visible enemies through the open doorway."
+      - "Avoid entering the hallway unless there is a compelling tactical reason."
+      - "Use Light Crossbow attacks when line of sight exists."
+      - "Avoid clustering around the doorway."
+      - "Avoid blocking allied movement or allied firing lanes."
+      - "Use the room, table, and doorway as defensive geometry."
+  
+    preferred_roles:
+      door_guard:
+        count: 1
+        behavior: >
+          The bandit closest to the door should move to or hold a position just
+          inside the doorway. If a PC enters melee reach, attack with Scimitar.
+          Otherwise, avoid stepping into the hallway and use a Light Crossbow if
+          a visible target is available.
+        preferred_actions:
+          - "Hold doorway-adjacent position inside the room."
+          - "Attack adjacent PC with Scimitar."
+          - "Shoot visible PC with Light Crossbow if not in melee."
+        avoid:
+          - "Move into the hallway on round 1."
+          - "Block all allied lines of fire through the doorway."
+  
+      crossbow_bandits:
+        count: 3
+        behavior: >
+          These bandits should spread into non-congested firing lanes with line
+          of sight to the doorway or the first exposed PC. They should prefer
+          Light Crossbow attacks over closing into melee.
+        preferred_actions:
+          - "Move laterally or diagonally to gain line of sight."
+          - "Shoot the PC who opened the door or the most exposed visible PC."
+          - "Maintain spacing from allies."
+        avoid:
+          - "Cluster directly behind the door guard."
+          - "Choose Scimitar when a safer crossbow shot is available."
+          - "Path through the table or other blocked furniture."
+  
+      table_defender:
+        count: 1
+        behavior: >
+          This bandit should prefer a defensive firing position near or behind
+          the table relative to the doorway, if that position still has line of
+          sight. If cover is not explicitly modeled, this behavior can be scored
+          as a preference for table-adjacent defensive geometry.
+        preferred_actions:
+          - "Move to a table-side firing position."
+          - "Use Light Crossbow against a visible PC."
+          - "Avoid becoming adjacent to PCs unless forced."
+        avoid:
+          - "Abandon defensive room position without tactical benefit."
+          - "Stand where the table blocks its own line of sight."
+  
+      reserve_or_flanker:
+        count: 1
+        behavior: >
+          This bandit should avoid contributing to doorway congestion. If another
+          exit or flank route exists, move toward it. Otherwise, take a side-angle
+          firing position or hold back as a reserve.
+        preferred_actions:
+          - "Move laterally to a side-angle firing lane."
+          - "Move toward a flank or escape route if available."
+          - "Hold reserve position if no useful shot or movement exists."
+        avoid:
+          - "Join a traffic jam at the doorway."
+          - "Enter the hallway alone."
+  
+    target_selection:
+      preferred_targets:
+        - "PC who opened the door, if visible and exposed."
+        - "Nearest visible PC in or adjacent to the doorway."
+        - "Wounded visible PC, if focus fire is tactically safe."
+        - "PC inside the room and isolated from allies."
+      avoid_targeting:
+        - "Targets with no line of sight."
+        - "Targets that require moving into the hallway on round 1."
+        - "Targets that force the bandit to block allied movement or shots."
+  
+    movement_preferences:
+      prefer:
+        - "Stay inside the room during the initial response."
+        - "Move to non-congested firing positions."
+        - "Maintain line of sight to the doorway or exposed PCs."
+        - "Maintain distance from melee threats when using crossbows."
+        - "Use the table and room geometry defensively."
+        - "Keep at least one bandit near the doorway as a blocker."
+      avoid:
+        - "Entering the hallway on round 1."
+        - "All bandits moving toward the same doorway square."
+        - "Ending movement on occupied or illegal squares."
+        - "Moving through blocked furniture or table tiles."
+        - "Taking a longer path that creates no tactical benefit."
+        - "Blocking allied firing lanes."
+  
+    action_preferences:
+      if_adjacent_to_enemy:
+        preferred_action: "Scimitar"
+        notes: >
+          If already adjacent to a PC, the bandit should usually attack with
+          Scimitar unless retreating or repositioning is clearly safer.
+      if_visible_enemy_at_range:
+        preferred_action: "Light Crossbow"
+        notes: >
+          If not adjacent to an enemy and a visible PC is available, the bandit
+          should usually fire a Light Crossbow rather than rush into melee.
+      if_no_visible_enemy:
+        preferred_action: "Reposition or hold"
+        notes: >
+          Move to a side-angle firing lane, defensive position, or reserve
+          position. Do not blindly rush the doorway.
+  
+    phase_behavior:
+      door_opens:
+        goals:
+          - "Recognize the hallway threat."
+          - "Preserve room advantage."
+          - "Prepare crossbow fire through the doorway."
+        avoid:
+          - "Single-file charge into the hallway."
+  
+      pcs_remain_in_hallway:
+        goals:
+          - "Hold the room."
+          - "Use crossbow fire through the doorway."
+          - "Force PCs to spend movement entering the room."
+        avoid:
+          - "Pursuing PCs into the hallway without advantage."
+  
+      first_pc_enters_room:
+        goals:
+          - "Door guard engages with Scimitar."
+          - "Nearby bandits focus attacks on the exposed PC."
+          - "Backline bandits maintain crossbow spacing."
+        avoid:
+          - "All bandits collapsing into melee if it causes congestion."
+  
+      pcs_breach_room:
+        goals:
+          - "Maintain spacing where possible."
+          - "Use melee only when PCs are adjacent or isolated."
+          - "Wounded bandits retreat or reposition if morale is modeled."
+        avoid:
+          - "Standing still in obviously losing melee positions."
+  
+    scoring_hints:
+      reward:
+        - "Uses Light Crossbow when line of sight exists and no enemy is adjacent."
+        - "Keeps most bandits inside the room during round 1."
+        - "Moves to a legal firing lane."
+        - "Avoids blocking allied movement."
+        - "Avoids blocking allied line of sight."
+        - "Maintains spacing between bandits."
+        - "Uses doorway as a chokepoint."
+        - "Uses table-adjacent defensive positioning when useful."
+        - "Focuses fire on exposed or isolated PCs."
+      penalize:
+        - "All bandits rush the doorway."
+        - "Bandit enters hallway alone on round 1."
+        - "Bandit chooses melee when a safe crossbow shot is available."
+        - "Bandit ends movement on an occupied square."
+        - "Bandit paths through blocked table or wall tiles."
+        - "Bandit blocks multiple allies without tactical reason."
+        - "Bandit ignores a visible exposed PC."
+        - "Bandit clusters tightly with other bandits near the doorway."
+  
+    hard_constraints:
+      - "Bandits must not move through blocked wall tiles."
+      - "Bandits must not path through blocked table tiles if the table is marked impassable."
+      - "Bandits must not end movement on occupied squares."
+      - "Bandits must not exceed their movement budget."
+      - "Bandits must use legal attacks only."
+      - "Bandits must respect line of sight if line of sight is modeled."
+  
+    success_criteria:
+      - "At least one bandit holds or contests a doorway-adjacent room position."
+      - "At least three bandits attempt to use Light Crossbow attacks if line of sight exists."
+      - "No more than one bandit voluntarily enters the hallway in round 1."
+      - "Bandits distribute across multiple legal positions instead of clustering at the doorway."
+      - "The table or room geometry influences at least one bandit's positioning."
+      - "No emitted move crosses blocked wall or table tiles."
+      - "No emitted move ends on an illegal occupied square."
+      - "Movement outputs include destination, path, movement cost, and legality."
+
+controllers:
+  - scripted_baseline
+  - utility_baseline
+
+battlefield:
+  width: 12
+  height: 12
+  gridSize: 64
+  blockingEdges:
+    - orientation: h
+      x: 6
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 6
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 7
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 7
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 9
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 9
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 10
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 10
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 11
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 11
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 2
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 13
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 13
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 14
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 14
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 2
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 16
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 16
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 17
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 17
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 2
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 19
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 19
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 20
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 20
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 2
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 22
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 22
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 23
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 23
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 24
+      y: -1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 24
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 6
+      y: -1
+      length: 11
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 12
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 12
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 12
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 12
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 13
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 13
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 13
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 13
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 15
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 15
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 15
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 15
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 16
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 16
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 16
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 16
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 18
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 18
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 18
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 18
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 19
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 19
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 19
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 19
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 21
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 21
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 21
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 21
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 22
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 22
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 22
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 22
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 25
+      y: -1
+      length: 11
+      blocksMovement: true
+      blocksLineOfSight: true
+
+activeActor: l1enmq26
+
+actors:
+  - id: "7w168l58"
+    name: Aria
+    side: heroes
+    position: [22, 1]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: l1enmq26
+    name: Bandit
+    side: monsters
+    position: [11, 3]
+    speed: 30
+    attacks:
+      - name: Scimitar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Light Crossbow
+        kind: ranged
+        rangeFt: 80
+        expectedDamage: 5
+  - id: c77agqwo
+    name: Bandit A
+    side: monsters
+    position: [14, 5]
+    speed: 30
+    attacks:
+      - name: Scimitar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Light Crossbow
+        kind: ranged
+        rangeFt: 80
+        expectedDamage: 5
+  - id: pl5nppl3
+    name: Bandit B
+    side: monsters
+    position: [14, 7]
+    speed: 30
+    attacks:
+      - name: Scimitar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Light Crossbow
+        kind: ranged
+        rangeFt: 80
+        expectedDamage: 5
+  - id: cscr16vf
+    name: Bandit C
+    side: monsters
+    position: [14, 1]
+    speed: 30
+    attacks:
+      - name: Scimitar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Light Crossbow
+        kind: ranged
+        rangeFt: 80
+        expectedDamage: 5
+  - id: gaf0no3g
+    name: Bandit D
+    side: monsters
+    position: [12, 0]
+    speed: 30
+    attacks:
+      - name: Scimitar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Light Crossbow
+        kind: ranged
+        rangeFt: 80
+        expectedDamage: 5
+  - id: a8vjh9xc
+    name: Bandit E
+    side: monsters
+    position: [11, 7]
+    speed: 30
+    attacks:
+      - name: Scimitar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Light Crossbow
+        kind: ranged
+        rangeFt: 80
+        expectedDamage: 5
+  - id: "2suzpv7d"
+    name: Babe
+    side: heroes
+    position: [23, 3]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: dszxik43
+    name: Crim
+    side: heroes
+    position: [22, 7]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: r04wfuky
+    name: Dirk
+    side: heroes
+    position: [22, 5]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+
+expected:
+  must:
+    - actionType: dodge
+    - noMove: true
+    - noOccupiedDestination: true
+    - moveDoesNotCrossBlocking: true
+  mustNot:
+    - actionType: disengage

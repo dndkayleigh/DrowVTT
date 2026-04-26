@@ -1,4 +1,5 @@
 import {
+  findBlockedEdgeCrossing,
   findBlockedLineCrossing,
   normalizeBlockingEdgeKeys
 } from './vtt-runtime-utils.js';
@@ -92,6 +93,11 @@ function getBlockingEdgeKeys(state) {
   return normalizeBlockingEdgeKeys(state?.blockingEdges?.edgeKeys || state?.blockingEdges || []);
 }
 
+function summarizeBlockingEdges(state) {
+  const edges = getBlockingEdgeKeys(state);
+  return edges.length ? edges.join(', ') : 'none';
+}
+
 function tokenAimPoint(state, token, fromCellOverride = null) {
   const cell = fromCellOverride || gridCoordsFromToken(state, token);
   const size = normalizeSizeCells(token?.sizeCells);
@@ -105,6 +111,24 @@ function hasBlockedRangedLine(state, attacker, target, fromCellOverride = null) 
   return !!findBlockedLineCrossing({
     fromPoint: tokenAimPoint(state, attacker, fromCellOverride),
     toPoint: tokenAimPoint(state, target),
+    blockingEdges: getBlockingEdgeKeys(state)
+  });
+}
+
+function isWithinBattlefieldBounds(state, token, cell) {
+  const widthCells = Math.floor((Number(state?.map?.w) || 0) / (Number(state?.gridSize) || 64));
+  const heightCells = Math.floor((Number(state?.map?.h) || 0) / (Number(state?.gridSize) || 64));
+  const footprint = normalizeSizeCells(token?.sizeCells);
+  if (cell.x < 0 || cell.y < 0) return false;
+  if (widthCells > 0 && cell.x + footprint > widthCells) return false;
+  if (heightCells > 0 && cell.y + footprint > heightCells) return false;
+  return true;
+}
+
+function hasBlockedMovementStep(state, fromCell, toCell) {
+  return !!findBlockedEdgeCrossing({
+    fromCell,
+    toCell,
     blockingEdges: getBlockingEdgeKeys(state)
   });
 }
@@ -164,6 +188,8 @@ function legalMoveDestinations(state, token, limit = 24) {
       visited.add(key);
 
       const stepCount = current.steps + 1;
+      if (!isWithinBattlefieldBounds(state, token, next)) continue;
+      if (hasBlockedMovementStep(state, current.cell, next)) continue;
       if (!canTraverseCell(state, token, next, occupiedMap)) continue;
       if (!canOccupyCell(state, token, next, occupiedMap)) continue;
 
@@ -186,6 +212,22 @@ export function parseAttackProfiles(statblockText) {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line.startsWith('- ')) continue;
+    const meleeOrRangedMatch = line.match(/^- ([^:]+):\s*Melee or Ranged\b.*?\+\d+\s+to\s+hit,\s*reach\s+(\d+)\s*ft\.?\s+or\s+range\s+(\d+)(?:\s*ft\.)?(?:\/\d+)?/i);
+    if (meleeOrRangedMatch) {
+      profiles.push({
+        name: meleeOrRangedMatch[1],
+        attackKind: 'melee',
+        rangeFt: Number(meleeOrRangedMatch[2]),
+        raw: line
+      });
+      profiles.push({
+        name: meleeOrRangedMatch[1],
+        attackKind: 'ranged',
+        rangeFt: Number(meleeOrRangedMatch[3]),
+        raw: line
+      });
+      continue;
+    }
     const meleeMatch = line.match(/^- ([^:]+): Melee .*?\+(\d+) to hit, reach (\d+) ft\./i);
     if (meleeMatch) {
       profiles.push({
@@ -473,6 +515,45 @@ function appendLegalMoveAndAttackSections(lines, state, turnTok, options = {}) {
   lines.push('');
 }
 
+function appendSupervisorCandidateSections(lines, state, tokens, options = {}) {
+  const candidateTokens = Array.isArray(tokens) ? tokens.filter(Boolean) : [];
+  const moveCandidateLimit = Math.max(1, Number(options.moveCandidateLimit) || 5);
+  const attackOpportunityLimit = Math.max(1, Number(options.attackOpportunityLimit) || 6);
+
+  lines.push('SUPERVISOR CANDIDATE SET:');
+  lines.push('- The deterministic rules layer has already filtered these candidates for movement budget, occupied final spaces, blocking movement edges, and ranged line of sight.');
+  lines.push('- Select from these candidates. Do not invent attacks, targets, or destinations outside this section.');
+  lines.push('');
+
+  if (!candidateTokens.length) {
+    lines.push('- none');
+    lines.push('');
+    return;
+  }
+
+  for (const token of candidateTokens) {
+    const enemies = (state.tokens || []).filter((entry) => entry.id !== token.id && !areFriendlyTokens(entry, token));
+    const moveCandidates = chooseMoveCandidates(state, token, enemies, moveCandidateLimit);
+    const attackOpportunities = computeAttackOpportunities(state, token, moveCandidates, enemies, attackOpportunityLimit);
+    lines.push(`TOKEN "${token.name}" CANDIDATES:`);
+    if (!moveCandidates.length) {
+      lines.push('- legal_moves: none');
+    } else {
+      for (const move of moveCandidates) {
+        lines.push(`- legal_move to=(${move.x},${move.y}) steps=${move.steps} nearest_enemy_cells=${move.nearestEnemyCells}`);
+      }
+    }
+    if (!attackOpportunities.length) {
+      lines.push('- legal_attacks: none from listed move candidates');
+    } else {
+      for (const option of attackOpportunities) {
+        lines.push(`- legal_attack attack="${option.attack}" kind=${option.attackKind} target="${option.target}" range_ft=${option.rangeFt} from=(${option.from.x},${option.from.y}) move_steps=${option.moveSteps} distance_cells=${option.distanceCells}`);
+      }
+    }
+    lines.push('');
+  }
+}
+
 export function buildAiTurnPacketFromState(state) {
   return buildAiTurnPacketVerboseConstrainedFromState(state, {});
 }
@@ -519,6 +600,8 @@ export function buildAiTurnPacketVerboseConstrainedFromState(state, options = {}
   lines.push(`- Grid size px (visual): ${state.gridSize}`);
   lines.push(`- Map transform (for reference): offX=${Math.round(state.map.offX)}, offY=${Math.round(state.map.offY)}, scale=${state.map.scale.toFixed(2)}, rotDeg=${((state.map.rot * 180) / Math.PI).toFixed(2)}`);
   lines.push('- Blocked cells: []');
+  lines.push(`- Blocking edges: ${summarizeBlockingEdges(state)}`);
+  lines.push('- Blocking edges block both movement and ranged line of sight unless otherwise specified.');
   lines.push('- Difficult terrain: []');
   lines.push('');
   lines.push('RELATIONSHIP MODEL:');
@@ -572,6 +655,7 @@ export function buildAiTurnPacketCompactFromState(state, options = {}) {
   lines.push('');
   lines.push(`AI=${state.aiControls} ROUND=${state.round} TURN=${turnTok ? `${turnTok.type} "${turnTok.name}"` : '(none)'}`);
   lines.push(`MAP grid_px=${state.gridSize} transform=off(${Math.round(state.map.offX)},${Math.round(state.map.offY)}) scale=${state.map.scale.toFixed(2)} rotDeg=${((state.map.rot * 180) / Math.PI).toFixed(2)}`);
+  lines.push(`BLOCKING_EDGES=${summarizeBlockingEdges(state)}; blocking edges block movement and ranged line of sight.`);
   lines.push('');
   lines.push('TOKENS:');
   if (!state.tokens.length) {
@@ -643,10 +727,44 @@ function buildGroupTacticalPacket(packet, state) {
     .replace(/STATBLOCK \(current turn token\):/, `${groupStatblocks.join('\n')}\n\nSTATBLOCK (current turn token):`);
 }
 
+function buildLlmSupervisorPacket(packet, strategy = {}) {
+  const isGroup = Boolean(strategy?.requiresGroup) || strategy?.id === 'llm_supervisor_group';
+  const supervisorLines = [
+    '',
+    'LLM SUPERVISOR MODE:',
+    '- Treat this as supervised candidate ranking, not freeform turn piloting.',
+    '- The deterministic rules layer has already filtered the listed candidate moves and attack windows for core legality.',
+    '- Do not perform independent legality repair. Do not invent a new target, destination, attack, or path outside the candidate set.',
+    '- Select the candidate or candidate combination with the best tactical value: target pressure, survival, spacing, positioning, and ally coordination.',
+    '- Return only the final selected plan using the existing JSON contract.',
+    '- In each move/action rationale, include the main reason this candidate beat the closest alternative.'
+  ];
+  if (isGroup) {
+    supervisorLines.splice(
+      supervisorLines.length - 1,
+      0,
+      '- For grouped turns, rank the combined group plan from the listed per-token candidates and avoid redundant crowding where multiple legal options are available.'
+    );
+  }
+  return `${packet}\n${supervisorLines.join('\n')}`;
+}
+
 export function buildAiTurnPacketForStrategy(state, strategy = {}) {
-  const packet = buildAiTurnPacketByVariant(state, strategy?.packetVariant || 'compact_moves5');
-  if (strategy?.id === 'group_tactical') {
-    return buildGroupTacticalPacket(packet, state);
+  let packet = buildAiTurnPacketByVariant(state, strategy?.packetVariant || 'compact_moves5');
+  if (strategy?.id === 'group_tactical' || strategy?.id === 'llm_supervisor_group') {
+    packet = buildGroupTacticalPacket(packet, state);
+  }
+  if (strategy?.supervisor === 'llm') {
+    const lines = [packet, ''];
+    const supervisorTokens = strategy?.id === 'llm_supervisor_group'
+      ? getActiveAiGroupTokens(state)
+      : [getCurrentTurnToken(state)].filter(Boolean);
+    appendSupervisorCandidateSections(lines, state, supervisorTokens, {
+      moveCandidateLimit: 5,
+      attackOpportunityLimit: 6
+    });
+    packet = lines.join('\n');
+    packet = buildLlmSupervisorPacket(packet, strategy);
   }
   return packet;
 }

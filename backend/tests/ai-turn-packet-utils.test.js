@@ -31,6 +31,30 @@ test('parseAttackProfiles supports shorthand seed-style melee and ranged attack 
   );
 });
 
+test('parseAttackProfiles splits SRD melee-or-ranged attacks into both legal profiles', () => {
+  const profiles = parseAttackProfiles(
+    [
+      'Orc (SRD 5.1)',
+      '- Actions:',
+      '  - Greataxe: Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 9 (1d12 + 3) slashing damage.',
+      '  - Javelin: Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 6 (1d6 + 3) piercing damage.'
+    ].join('\n')
+  );
+
+  assert.deepEqual(
+    profiles.map((profile) => ({
+      name: profile.name,
+      attackKind: profile.attackKind,
+      rangeFt: profile.rangeFt
+    })),
+    [
+      { name: 'Greataxe', attackKind: 'melee', rangeFt: 5 },
+      { name: 'Javelin', attackKind: 'melee', rangeFt: 5 },
+      { name: 'Javelin', attackKind: 'ranged', rangeFt: 30 }
+    ]
+  );
+});
+
 test('compact move5 packet still includes legal attacks for the seeded goblin demo statblock format', () => {
   const state = {
     gridSize: 64,
@@ -157,4 +181,135 @@ test('group tactical packet includes explicit grouped-monster context', () => {
   assert.match(packet, /GROUP MEMBER STATBLOCKS:/);
   assert.match(packet, /Goblin A statblock/);
   assert.match(packet, /Goblin B statblock/);
+});
+
+test('LLM supervisor tactical packets keep existing LLM path and add supervisor instructions', () => {
+  const state = {
+    gridSize: 64,
+    snapMode: 'center',
+    view: { zoom: 1, panX: 0, panY: 0 },
+    map: { src: '', w: 2048, h: 1536, offX: 0, offY: 0, scale: 1, rot: 0, opacity: 1 },
+    aiControls: 'Monsters',
+    round: 1,
+    currentTurnTokenId: 'goblin-a',
+    aiGroupTokenIds: ['goblin-a', 'goblin-b'],
+    tokens: [
+      {
+        id: 'goblin-a',
+        name: 'Goblin A',
+        type: 'Monster',
+        sizeCells: 1,
+        color: '#ff5a7a',
+        x: 64 * 4.5,
+        y: 64 * 4.5,
+        ac: 15,
+        hp: '7/7',
+        speed: 30,
+        notes: '',
+        statblock: 'Goblin A statblock',
+        art: null
+      },
+      {
+        id: 'goblin-b',
+        name: 'Goblin B',
+        type: 'Monster',
+        sizeCells: 1,
+        color: '#ff5a7a',
+        x: 64 * 5.5,
+        y: 64 * 4.5,
+        ac: 15,
+        hp: '7/7',
+        speed: 30,
+        notes: '',
+        statblock: 'Goblin B statblock',
+        art: null
+      }
+    ]
+  };
+
+  const singlePacket = buildAiTurnPacketForStrategy(state, {
+    id: 'llm_supervisor_single',
+    packetVariant: 'full',
+    supervisor: 'llm'
+  });
+  assert.match(singlePacket, /LLM SUPERVISOR MODE:/);
+  assert.match(singlePacket, /SUPERVISOR CANDIDATE SET:/);
+  assert.match(singlePacket, /deterministic rules layer has already filtered/);
+  assert.match(singlePacket, /Do not perform independent legality repair/);
+  assert.doesNotMatch(singlePacket, /Reject candidates that cross blocked movement/);
+  assert.doesNotMatch(singlePacket, /ACTIVE TACTICAL GROUP:/);
+
+  const groupPacket = buildAiTurnPacketForStrategy(state, {
+    id: 'llm_supervisor_group',
+    packetVariant: 'full',
+    supervisor: 'llm',
+    requiresGroup: true
+  });
+  assert.match(groupPacket, /ACTIVE TACTICAL GROUP:/);
+  assert.match(groupPacket, /LLM SUPERVISOR MODE:/);
+  assert.match(groupPacket, /TOKEN "Goblin A" CANDIDATES:/);
+  assert.match(groupPacket, /TOKEN "Goblin B" CANDIDATES:/);
+  assert.match(groupPacket, /avoid redundant crowding/);
+});
+
+test('LLM supervisor candidates exclude out-of-bounds and blocked-edge moves', () => {
+  const state = {
+    gridSize: 64,
+    snapMode: 'center',
+    view: { zoom: 1, panX: 0, panY: 0 },
+    map: { src: '', w: 64 * 4, h: 64 * 4, offX: 0, offY: 0, scale: 1, rot: 0, opacity: 1 },
+    blockingEdges: ['h:1,1'],
+    aiControls: 'Monsters',
+    round: 1,
+    currentTurnTokenId: 'archer',
+    tokens: [
+      {
+        id: 'archer',
+        name: 'Archer',
+        type: 'Monster',
+        sizeCells: 1,
+        color: '#ff5a7a',
+        x: 64 * 1.5,
+        y: 64 * 0.5,
+        ac: 12,
+        hp: '7/7',
+        speed: 30,
+        notes: '',
+        statblock: [
+          'Archer',
+          '- Speed 30 ft',
+          '- Actions:',
+          '  - Bow: +4 to hit, range 80/320, 1d6+2 piercing'
+        ].join('\n'),
+        art: null
+      },
+      {
+        id: 'hero',
+        name: 'Hero',
+        type: 'PC',
+        sizeCells: 1,
+        color: '#5aa9ff',
+        x: 64 * 1.5,
+        y: 64 * 3.5,
+        ac: 15,
+        hp: '18/18',
+        speed: 30,
+        notes: '',
+        statblock: '',
+        art: null
+      }
+    ]
+  };
+
+  const packet = buildAiTurnPacketForStrategy(state, {
+    id: 'llm_supervisor_single',
+    packetVariant: 'full_moves5_attacks6',
+    supervisor: 'llm'
+  });
+
+  assert.match(packet, /Blocking edges: h:1,1/);
+  assert.doesNotMatch(packet, /to=\([^)]*,-/);
+  assert.doesNotMatch(packet, /to=\(-/);
+  assert.doesNotMatch(packet, /legal_move to=\(1,1\)/);
+  assert.doesNotMatch(packet, /from=\(1,1\)/);
 });

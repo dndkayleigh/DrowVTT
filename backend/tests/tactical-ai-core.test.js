@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   HumanController,
@@ -8,6 +11,8 @@ import {
   PathfindingService,
   ScriptedController,
   SimpleGridRulesAdapter,
+  SupervisorScriptedController,
+  SupervisorScriptedGroupController,
   UtilityController,
   comparePathfindingAdapters,
   createControllerRegistry,
@@ -25,9 +30,16 @@ import {
 import {
   EXAMPLE_MONSTER_PROFILES,
   SAMPLE_ENCOUNTER_FIXTURES,
-  normalizeMonsterProfile
+  normalizeMonsterProfile,
+  parseVisibleEncounterFixture
 } from '../../packages/tactical-ai-content/src/index.js';
-import { compareControllers } from '../../packages/tactical-ai-devtools/src/index.js';
+import {
+  compareControllers,
+  evaluateTacticalFixtureExpectations,
+  runControllerFixture
+} from '../../packages/tactical-ai-devtools/src/index.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function encounterWithBlocking() {
   return normalizeEncounterState({
@@ -181,6 +193,58 @@ test('human scripted and utility controllers share one output contract', async (
     assert.equal(typeof plan.end_turn, 'boolean');
     assert.ok(plan._controller.id);
   }
+});
+
+test('supervisor scripted single ranks scripted candidates through the same output contract', async () => {
+  const encounter = SAMPLE_ENCOUNTER_FIXTURES[0].encounter;
+  const output = await new SupervisorScriptedController().chooseAction({ encounter });
+  const plan = tacticalOutputToVttPlan(output);
+
+  assert.equal(output.controllerId, 'supervisor_scripted_single');
+  assert.equal(plan._controller.id, 'supervisor_scripted_single');
+  assert.equal(plan.actions[0].type, 'attack');
+  assert.ok(output.logs[0].data.supervisor.testedCandidateCount > 0);
+  assert.match(output.logs[0].message, /Supervisor \+ Scripted selected/);
+});
+
+test('supervisor scripted group emits one combined VTT plan for grouped actors', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'supervisor-group',
+    round: 1,
+    activeActorId: 'goblin-a',
+    activationGroups: [{
+      id: 'group',
+      actorIds: ['goblin-a', 'goblin-b'],
+      activationMode: 'coordinated_sequential'
+    }],
+    battlefield: { gridSize: 64, width: 10, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'goblin-a',
+        name: 'Goblin A',
+        side: 'monsters',
+        cell: { x: 1, y: 1 },
+        speed: 30,
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      {
+        id: 'goblin-b',
+        name: 'Goblin B',
+        side: 'monsters',
+        cell: { x: 1, y: 3 },
+        speed: 30,
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 2 }, speed: 30, attacks: [] }
+    ]
+  });
+  const output = await new SupervisorScriptedGroupController().chooseAction({ encounter });
+  const plan = tacticalOutputToVttPlan(output);
+
+  assert.equal(output.controllerId, 'supervisor_scripted_group');
+  assert.equal(plan.actions.length, 2);
+  assert.equal(plan._controller.id, 'supervisor_scripted_group');
+  assert.match(output.logs[0].message, /supervised 2 grouped activations/);
 });
 
 test('scripted baseline prefers a legal ranged attack over retreating', async () => {
@@ -368,6 +432,99 @@ test('move-and-attack candidates emit routed paths instead of direct blocked pat
   assert.equal(hasBlockedMovementPath(encounter, { x: 0, y: 1 }, { x: 1, y: 1 }), false);
 });
 
+test('ranged move-and-attack preserves distance on equal-cost shots', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'ranged-distance-tie',
+    round: 1,
+    activeActorId: 'archer',
+    battlefield: {
+      gridSize: 64,
+      width: 8,
+      height: 8,
+      edges: [{ orientation: 'v', x: 3, y: 2, blocksMovement: false, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'archer',
+        name: 'Archer',
+        side: 'monsters',
+        cell: { x: 2, y: 2 },
+        speed: 10,
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 4, y: 4 }, speed: 30, attacks: [] }
+    ]
+  });
+  const output = await new ScriptedController().chooseAction({ encounter });
+  const selectedMove = output.plan.moves[0];
+
+  assert.match(output.selectedCandidateId, /^move_and_attack:/);
+  assert.equal(selectedMove.path.length, 1);
+  const selectedDistance = Math.max(Math.abs(selectedMove.to[0] - 4), Math.abs(selectedMove.to[1] - 4));
+  assert.ok(selectedDistance >= 2);
+  assert.notDeepEqual(selectedMove.to, [3, 1]);
+  assert.match(output.logs[0].message, /move_and_attack@\(/);
+});
+
+test('long barrier encounter lets an orc route to an open javelin lane without occupying an ally cell', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'long-barrier-ranged-pressure',
+    round: 1,
+    activeActorId: 'orc',
+    battlefield: {
+      gridSize: 64,
+      width: 12,
+      height: 12,
+      edges: Array.from({ length: 10 }, (_, index) => ({
+        orientation: 'v',
+        x: 6,
+        y: index + 1,
+        blocksMovement: true,
+        blocksLineOfSight: true
+      })),
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'orc',
+        name: 'Orc',
+        side: 'monsters',
+        cell: { x: 4, y: 6 },
+        speed: 30,
+        attacks: [
+          { name: 'Greataxe', attackKind: 'melee', rangeFt: 5, expectedDamage: 9 },
+          { name: 'Javelin', attackKind: 'ranged', rangeFt: 30, expectedDamage: 6 }
+        ]
+      },
+      {
+        id: 'goblin',
+        name: 'Goblin A',
+        side: 'monsters',
+        cell: { x: 7, y: 0 },
+        speed: 30,
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      { id: 'aria', name: 'Aria', side: 'heroes', cell: { x: 8, y: 0 }, speed: 30, attacks: [] }
+    ]
+  });
+  const output = await new ScriptedController().chooseAction({ encounter });
+
+  assert.match(output.selectedCandidateId, /^move_and_attack:/);
+  assert.equal(output.plan.actions[0].type, 'attack');
+  assert.equal(output.plan.actions[0].details, 'Javelin');
+  assert.equal(output.plan.actions[0].attack_kind, 'ranged');
+  assert.notDeepEqual(output.plan.moves[0].to, [7, 0]);
+  assert.equal(hasLineOfSight(encounter, encounter.actors[0], encounter.actors[2], {
+    x: output.plan.moves[0].to[0],
+    y: output.plan.moves[0].to[1]
+  }), true);
+  assert.equal(output.logs[0].data.selected.pathLength, output.plan.moves[0].path.length);
+  assert.match(output.logs[0].message, /move_and_attack@\(/);
+});
+
 test('tactical candidates do not choose occupied final destinations', async () => {
   const encounter = normalizeEncounterState({
     id: 'occupied-destination',
@@ -445,6 +602,45 @@ test('content normalization tracks provenance for missing custom monster fields'
   assert.equal(profile.speed, 30);
   assert.equal(profile.provenance.speed.source, 'archetype_default');
   assert.equal(profile.attacks[0].attackKind, 'ranged');
+});
+
+test('content normalization preserves both modes for melee-or-ranged attacks', () => {
+  const profile = normalizeMonsterProfile({
+    id: 'orc',
+    name: 'Orc',
+    statblock: '- Javelin: Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 6 (1d6 + 3) piercing damage.'
+  }, { archetype: 'brute' });
+
+  assert.deepEqual(
+    profile.attacks.map((attack) => ({ name: attack.name, attackKind: attack.attackKind, rangeFt: attack.rangeFt })),
+    [
+      { name: 'Javelin', attackKind: 'melee', rangeFt: 5 },
+      { name: 'Javelin', attackKind: 'ranged', rangeFt: 30 }
+    ]
+  );
+});
+
+test('visible YAML encounter fixture asserts long barrier tactical behavior', async () => {
+  const fixturePaths = [
+    '../../packages/tactical-ai-content/encounters/long-barrier-ranged-pressure.yaml',
+    '../../packages/tactical-ai-content/encounters/files/bandit-doorway-ambush-2026-04-26.yaml',
+    '../../packages/tactical-ai-content/encounters/files/pillar-room-crossfire-2026-04-26.yaml'
+  ];
+
+  for (const fixturePath of fixturePaths) {
+    const source = fs.readFileSync(path.resolve(__dirname, fixturePath), 'utf8');
+    const fixture = parseVisibleEncounterFixture(source);
+
+    assert.ok(fixture.id);
+    assert.ok(fixture.encounter.battlefield.edges.length > 0);
+    assert.deepEqual(fixture.controllers, ['scripted_baseline', 'utility_baseline']);
+
+    for (const controllerId of fixture.controllers) {
+      const report = await runControllerFixture({ controllerId, fixture });
+      const evaluation = evaluateTacticalFixtureExpectations({ fixture, report });
+      assert.equal(evaluation.ok, true, `${fixture.id} ${controllerId} failed: ${evaluation.failures.join(', ')}`);
+    }
+  }
 });
 
 test('devtools comparison harness runs controllers over shared fixtures', async () => {

@@ -24,6 +24,23 @@ export const AI_TURN_STRATEGIES = [
     packetVariant: 'full'
   },
   {
+    id: 'llm_supervisor_single',
+    label: 'LLM Supervisor + Tactical (Single)',
+    description: 'Uses the same LLM tactical path, but explicitly supervises and ranks candidate actions for one monster.',
+    model: 'gpt-5',
+    packetVariant: 'full_moves5_attacks6',
+    supervisor: 'llm'
+  },
+  {
+    id: 'llm_supervisor_group',
+    label: 'LLM Supervisor + Tactical (Group)',
+    description: 'Uses the same LLM tactical path, but explicitly supervises coordinated grouped candidate actions.',
+    model: 'gpt-5',
+    packetVariant: 'full_moves5_attacks6',
+    supervisor: 'llm',
+    requiresGroup: true
+  },
+  {
     id: 'single_fast',
     label: 'Single (Fast)',
     description: 'Lowest-latency speed mode for one monster taking a quick turn.',
@@ -53,6 +70,23 @@ export const AI_TURN_STRATEGIES = [
     model: 'none',
     packetVariant: 'controller',
     controllerId: 'utility_baseline'
+  },
+  {
+    id: 'controller_supervisor_scripted_single',
+    label: 'Supervisor + Scripted (Single)',
+    description: 'Runs scripted candidate generation, then a deterministic supervisor ranks candidate actions for one actor.',
+    model: 'none',
+    packetVariant: 'controller',
+    controllerId: 'supervisor_scripted_single'
+  },
+  {
+    id: 'controller_supervisor_scripted_group',
+    label: 'Supervisor + Scripted (Group)',
+    description: 'Runs grouped scripted candidate generation with reservation-aware supervisor selection.',
+    model: 'none',
+    packetVariant: 'controller',
+    controllerId: 'supervisor_scripted_group',
+    requiresGroup: true
   }
 ];
 
@@ -66,6 +100,12 @@ const AI_TURN_STRATEGY_ALIASES = new Map([
   ['single_tactical', 'single_tactical'],
   ['single-tactical', 'single_tactical'],
   ['tactical', 'single_tactical'],
+  ['llm_supervisor', 'llm_supervisor_single'],
+  ['llm-supervisor', 'llm_supervisor_single'],
+  ['llm_supervisor_single', 'llm_supervisor_single'],
+  ['llm-supervisor-single', 'llm_supervisor_single'],
+  ['llm_supervisor_group', 'llm_supervisor_group'],
+  ['llm-supervisor-group', 'llm_supervisor_group'],
   ['human', 'controller_human'],
   ['controller_human', 'controller_human'],
   ['controller-human', 'controller_human'],
@@ -75,6 +115,12 @@ const AI_TURN_STRATEGY_ALIASES = new Map([
   ['utility', 'controller_utility'],
   ['controller_utility', 'controller_utility'],
   ['controller-utility', 'controller_utility'],
+  ['supervisor_scripted', 'controller_supervisor_scripted_single'],
+  ['supervisor-scripted', 'controller_supervisor_scripted_single'],
+  ['supervisor_scripted_single', 'controller_supervisor_scripted_single'],
+  ['controller_supervisor_scripted_single', 'controller_supervisor_scripted_single'],
+  ['supervisor_scripted_group', 'controller_supervisor_scripted_group'],
+  ['controller_supervisor_scripted_group', 'controller_supervisor_scripted_group'],
   ['group', 'group_tactical'],
   ['group_strategy', 'group_tactical'],
   ['group-strategy', 'group_tactical'],

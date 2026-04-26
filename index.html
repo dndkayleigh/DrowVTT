@@ -567,6 +567,7 @@ import {
   getAiGroupTokenIds as getAiGroupTokenIdsState,
   getSelectedAiControlledIds as getSelectedAiControlledIdsState,
   getSelectedMonsterIds as getSelectedMonsterIdsState,
+  isAiGroupStrategyId,
   isAiTurnActorAllowed as isAiTurnActorAllowedState,
   isAiControllableToken,
   resolveAiCurrentTurnTokenId as resolveAiCurrentTurnTokenIdState,
@@ -643,6 +644,7 @@ import {
     snapMode: 'center',
     view: { zoom: 1, panX: 0, panY: 0 },
     map: { img: null, src: '', w: 0, h: 0, offX: 0, offY: 0, scale: 1, rot: 0, opacity: 1 },
+    encounterDescription: '',
     blockingEdges: { edgeKeys: [], mode: 'off', paint: null },
 
     tokens: [],
@@ -704,6 +706,7 @@ import {
   const cancelTokenArtBtn = document.getElementById('cancelTokenArt');
   const saveTokenArtBtn = document.getElementById('saveTokenArt');
   const saveSlotNameInput = document.getElementById('saveSlotName');
+  const encounterDescriptionInput = document.getElementById('encounterDescription');
   const saveSlotSelect = document.getElementById('saveSlotSelect');
   const saveSlotBtn = document.getElementById('saveSlotBtn');
   const loadSlotBtn = document.getElementById('loadSlotBtn');
@@ -713,6 +716,7 @@ import {
   const restoreAutosaveBtn = document.getElementById('restoreAutosaveBtn');
   const clearAutosavesBtn = document.getElementById('clearAutosavesBtn');
   const exportBoardBtn = document.getElementById('exportBoardBtn');
+  const exportTacticalFixtureBtn = document.getElementById('exportTacticalFixtureBtn');
   const importBoardBtn = document.getElementById('importBoardBtn');
   const importBoardFileInput = document.getElementById('importBoardFile');
   const saveStateStatus = document.getElementById('saveStateStatus');
@@ -909,7 +913,7 @@ import {
       aiStrategySelect.value = nextStrategyId;
       syncAiStrategyUi();
     }
-    if (nextStrategyId === 'group_tactical') {
+    if (isAiGroupStrategyId(nextStrategyId)) {
       state.aiGroupTokenIds = getSelectedAiControlledIds();
     }
   }
@@ -1559,6 +1563,7 @@ import {
     state.map.scale = next.map.scale;
     state.map.rot = next.map.rot;
     state.map.opacity = next.map.opacity;
+    state.encounterDescription = String(next.encounterDescription || '');
     state.blockingEdges = {
       edgeKeys: normalizeBlockingEdgeKeys(next.blockingEdges?.edgeKeys || next.blockingEdges || []),
       mode: 'off',
@@ -1587,6 +1592,7 @@ import {
     document.getElementById('mapOpacity').value = String(state.map.opacity);
     const aiControlsEl = document.getElementById('aiControls');
     if (aiControlsEl) aiControlsEl.value = state.aiControls;
+    encounterDescriptionInput.value = state.encounterDescription;
     const roundNumEl = document.getElementById('roundNum');
     if (roundNumEl) roundNumEl.value = String(state.round);
     stopCalibration();
@@ -1617,6 +1623,7 @@ import {
   }
 
   function buildSerializableBoardSnapshot() {
+    state.encounterDescription = String(encounterDescriptionInput.value || '');
     return createBoardSnapshot(state);
   }
 
@@ -1912,6 +1919,43 @@ import {
     }).filter(Boolean);
   }
 
+  function blockingEdgeSegmentsForFixture() {
+    const edges = getBlockingEdgeKeys()
+      .map((edgeKey) => parseBlockingEdgeKey(edgeKey))
+      .filter(Boolean)
+      .sort((left, right) =>
+        left.orientation.localeCompare(right.orientation) ||
+        left.x - right.x ||
+        left.y - right.y
+      );
+    const segments = [];
+    for (const edge of edges) {
+      const previous = segments[segments.length - 1];
+      const extendsPrevious = previous &&
+        previous.orientation === edge.orientation &&
+        previous.blocksMovement === true &&
+        previous.blocksLineOfSight === true &&
+        (
+          edge.orientation === 'v'
+            ? previous.x === edge.x && previous.y + previous.length === edge.y
+            : previous.y === edge.y && previous.x + previous.length === edge.x
+        );
+      if (extendsPrevious) {
+        previous.length += 1;
+        continue;
+      }
+      segments.push({
+        orientation: edge.orientation,
+        x: edge.x,
+        y: edge.y,
+        length: 1,
+        blocksMovement: true,
+        blocksLineOfSight: true
+      });
+    }
+    return segments;
+  }
+
   function actorSideFromToken(token) {
     return token?.type === 'Monster' ? 'monsters' : token?.type === 'NPC' ? 'neutral' : 'heroes';
   }
@@ -1964,7 +2008,7 @@ import {
       activationGroups: [{
         id: 'current-selection',
         actorIds: getAiGroupTokenIds().length ? getAiGroupTokenIds() : [state.currentTurnTokenId].filter(Boolean),
-        activationMode: getSelectedAiStrategy()?.id === 'group_tactical' ? 'coordinated_sequential' : 'independent'
+        activationMode: isAiGroupStrategyId(getSelectedAiStrategy()?.id) ? 'coordinated_sequential' : 'independent'
       }],
       objectives: [],
       actors,
@@ -1982,6 +2026,118 @@ import {
         selectedTokenIds: [...state.selectedTokenIds]
       }
     };
+  }
+
+  function slugifyFixtureName(name) {
+    const slug = String(name || 'tactical-fixture')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return slug || 'tactical-fixture';
+  }
+
+  function yamlScalar(value) {
+    const text = String(value ?? '');
+    if (!text) return "''";
+    if (/^[A-Za-z0-9_. -]+$/.test(text) && !/^(true|false|null|\d)/i.test(text)) return text;
+    return JSON.stringify(text);
+  }
+
+  function buildTacticalFixtureYaml() {
+    const encounter = buildEncounterStateFromBoard();
+    const sessionName = normalizeSlotName(saveSlotNameInput.value);
+    const fixtureId = slugifyFixtureName(sessionName).replace(/-/g, '_');
+    const descriptionLines = String(encounterDescriptionInput.value || 'Describe the intended tactical behavior here.')
+      .split('\n')
+      .map((line) => `  ${line || ''}`);
+    const lines = [
+      `id: ${fixtureId}`,
+      `title: ${yamlScalar(sessionName)}`,
+      'category: custom',
+      'description: |',
+      ...descriptionLines,
+      '',
+      'controllers:',
+      `  - ${getSelectedAiStrategy()?.controllerId || 'scripted_baseline'}`,
+      '  - utility_baseline',
+      '',
+      'battlefield:',
+      `  width: ${encounter.battlefield.width || 12}`,
+      `  height: ${encounter.battlefield.height || 12}`,
+      `  gridSize: ${encounter.battlefield.gridSize || 64}`
+    ];
+    const segments = blockingEdgeSegmentsForFixture();
+    if (segments.length) {
+      lines.push('  blockingEdges:');
+      for (const edge of segments) {
+        lines.push(
+          `    - orientation: ${edge.orientation}`,
+          `      x: ${edge.x}`,
+          `      y: ${edge.y}`,
+          `      length: ${edge.length}`,
+          `      blocksMovement: ${edge.blocksMovement}`,
+          `      blocksLineOfSight: ${edge.blocksLineOfSight}`
+        );
+      }
+    } else {
+      lines.push('  blockingEdges: []');
+    }
+
+    lines.push(
+      '',
+      `activeActor: ${yamlScalar(encounter.activeActorId || '')}`,
+      '',
+      'actors:'
+    );
+    for (const actor of encounter.actors) {
+      lines.push(
+        `  - id: ${yamlScalar(actor.id)}`,
+        `    name: ${yamlScalar(actor.name)}`,
+        `    side: ${yamlScalar(actor.side)}`,
+        `    position: [${actor.cell.x}, ${actor.cell.y}]`,
+        `    speed: ${Number(actor.speed) || 30}`
+      );
+      if (actor.attacks?.length) {
+        lines.push('    attacks:');
+        for (const attack of actor.attacks) {
+          lines.push(
+            `      - name: ${yamlScalar(attack.name)}`,
+            `        kind: ${yamlScalar(attack.attackKind || 'melee')}`,
+            `        rangeFt: ${Number(attack.rangeFt) || 5}`,
+            `        expectedDamage: ${Number(attack.expectedDamage) || 0}`
+          );
+        }
+      } else {
+        lines.push('    attacks: []');
+      }
+    }
+
+    lines.push(
+      '',
+      'expected:',
+      '  must:',
+      '    - noOccupiedDestination: true',
+      '    - moveDoesNotCrossBlocking: true',
+      '  mustNot: []',
+      ''
+    );
+    return lines.join('\n');
+  }
+
+  function exportTacticalFixtureToFile() {
+    const yaml = buildTacticalFixtureYaml();
+    const filename = `${slugifyFixtureName(saveSlotNameInput.value || 'tactical-fixture')}.yaml`;
+    const blob = new Blob([yaml], { type: 'text/yaml' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    return { yaml, filename };
   }
 
   function pathCellsBetween(fromCell, toCell) {
@@ -2113,6 +2269,7 @@ import {
       const result = validateTokenMove(token, step, {
         source,
         fromCell: previous,
+        pathDestination: toCell,
         ignoreSpeed: true
       });
       if (!result.ok) {
@@ -2739,6 +2896,20 @@ import {
       setSaveStatus('Export failed', true);
       pushLog(`Export failed: ${err.message || err}`);
     }
+  });
+  exportTacticalFixtureBtn.addEventListener('click', () => {
+    try {
+      const fixture = exportTacticalFixtureToFile();
+      setSaveStatus('Exported tactical fixture');
+      pushLog(`Exported tactical fixture "${fixture.filename}".`);
+    } catch (err) {
+      setSaveStatus('Fixture export failed', true);
+      pushLog(`Fixture export failed: ${err.message || err}`);
+    }
+  });
+  encounterDescriptionInput.addEventListener('input', () => {
+    state.encounterDescription = String(encounterDescriptionInput.value || '');
+    scheduleAutosave();
   });
   importBoardBtn.addEventListener('click', () => importBoardFileInput.click());
   importBoardFileInput.addEventListener('change', async (e) => {
@@ -3512,6 +3683,14 @@ import {
         return 'Running scripted tactical baseline locally...';
       case 'controller_utility':
         return 'Scoring legal tactical candidates locally...';
+      case 'controller_supervisor_scripted_single':
+        return 'Supervising scripted tactical candidates locally...';
+      case 'controller_supervisor_scripted_group':
+        return 'Supervising grouped scripted tactical candidates locally...';
+      case 'llm_supervisor_single':
+        return 'Asking the LLM supervisor to rank single-monster tactical options...';
+      case 'llm_supervisor_group':
+        return 'Asking the LLM supervisor to rank grouped tactical options...';
       case 'single_fast':
         return 'Running a quick single-monster turn...';
       case 'group_tactical':
@@ -3534,6 +3713,9 @@ import {
   function refreshExport() { exportBox.value = buildAiTurnPacket(); }
   aiStrategySelect.addEventListener('change', () => {
     enforceAiSelectionForStrategy(aiStrategySelect.value);
+    if (isAiGroupStrategyId(aiStrategySelect.value)) {
+      state.aiGroupTokenIds = getSelectedAiControlledIds();
+    }
     syncAiStrategyUi();
     syncTokenSelectionUi();
     refreshExport();
@@ -3718,7 +3900,7 @@ import {
     const status = document.getElementById('sendStatus');
     const autoApply = document.getElementById('autoApplyAI').checked;
     const strategy = getSelectedAiStrategy();
-    if (strategy?.id === 'group_tactical' && getAiGroupTokenIds().length === 0) {
+    if ((strategy?.id === 'group_tactical' || strategy?.requiresGroup) && getAiGroupTokenIds().length === 0) {
       status.textContent = 'Create a monster group by selecting monsters first.';
       return;
     }
@@ -3738,6 +3920,7 @@ import {
         const output = await controller.chooseAction({
           encounter: validation.encounter,
           actorId: state.currentTurnTokenId,
+          activationGroup: validation.encounter.activationGroups?.[0],
           candidateLimit: 24,
           stance: 'opportunistic'
         });
@@ -3771,6 +3954,7 @@ import {
       strategy: strategy?.id || DEFAULT_AI_TURN_STRATEGY_ID,
       model: strategy?.model || 'gpt-5'
     };
+    pushLog(`AI strategy selected: ${payload.strategy} packet=${strategy?.packetVariant || '?'}`);
 
     const t1 = nowMs(); // payload built
 
@@ -4290,7 +4474,17 @@ import {
     getAiOverlay: () => JSON.parse(JSON.stringify(state.aiOverlay)),
     getAiTurnPacket: () => buildAiTurnPacket(),
     getAiTurnPacketFull: () => buildAiTurnPacketFull(),
+    getAiStrategy: () => getSelectedAiStrategy(),
+    setAiStrategy: (value) => {
+      aiStrategySelect.value = value;
+      enforceAiSelectionForStrategy(aiStrategySelect.value);
+      syncAiStrategyUi();
+      syncTokenSelectionUi();
+      refreshExport();
+      return getSelectedAiStrategy();
+    },
     getBoardSnapshot: () => buildSerializableBoardSnapshot(),
+    getTacticalFixtureYaml: () => buildTacticalFixtureYaml(),
     importBoardSnapshotText: async (text) => await hydrateBoardState(parseBoardSnapshotText(text)),
     getAuthContext: () => authAdapter.getCurrentUserContext(),
     getAutosaves: () => loadAutosaveHistoryFromStorage().map((entry) => ({ id: entry.id, savedAt: entry.savedAt })),

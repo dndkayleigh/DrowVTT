@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAiTurnPacketCompactFromState, buildAiTurnPacketFromState, buildAiTurnPacketVerboseConstrainedFromState } from '../../data/ai-turn-packet-utils.mjs';
+import {
+  buildAiTurnPacketCompactFromState,
+  buildAiTurnPacketForStrategy,
+  buildAiTurnPacketFromState,
+  buildAiTurnPacketVerboseConstrainedFromState
+} from '../../data/ai-turn-packet-utils.mjs';
 import { AI_PACKET_SCENARIOS } from './ai-turn-packet-scenarios.fixture.mjs';
 
 function packetMetrics(packet, scenario) {
@@ -82,6 +87,53 @@ test('verbose constrained packet keeps the full prompt style while adding explic
     const fullBytes = Buffer.byteLength(buildAiTurnPacketFromState(scenario.state), 'utf8');
     const hybridBytes = Buffer.byteLength(packet, 'utf8');
     assert.ok(hybridBytes >= fullBytes, `${scenario.id} hybrid packet should be at least as large as full`);
+  }
+});
+
+test('LLM supervisor modes build board-aware packets for every encounter board', () => {
+  for (const scenario of AI_PACKET_SCENARIOS) {
+    const monsterIds = scenario.state.tokens
+      .filter((token) => token.type === 'Monster')
+      .map((token) => token.id);
+    const groupState = {
+      ...scenario.state,
+      aiGroupTokenIds: monsterIds.slice(0, 2)
+    };
+
+    const singlePacket = buildAiTurnPacketForStrategy(scenario.state, {
+      id: 'llm_supervisor_single',
+      packetVariant: 'full',
+      supervisor: 'llm'
+    });
+    assert.match(singlePacket, /SYSTEM: You are the tactical controller/);
+    assert.match(singlePacket, /TOKENS:/);
+    assert.match(singlePacket, /OCCUPIED SPACES:/);
+    assert.match(singlePacket, /LLM SUPERVISOR MODE:/);
+    assert.match(singlePacket, /SUPERVISOR CANDIDATE SET:/);
+    assert.match(singlePacket, /deterministic rules layer has already filtered/);
+    assert.doesNotMatch(singlePacket, /Reject candidates that cross blocked movement/);
+    assert.doesNotMatch(singlePacket, /ACTIVE TACTICAL GROUP:/);
+    assert.ok(
+      singlePacket.includes(scenario.state.tokens.find((token) => token.id === scenario.state.currentTurnTokenId)?.name || ''),
+      `${scenario.id} single supervisor packet should include current actor name`
+    );
+
+    const groupPacket = buildAiTurnPacketForStrategy(groupState, {
+      id: 'llm_supervisor_group',
+      packetVariant: 'full',
+      supervisor: 'llm',
+      requiresGroup: true
+    });
+    assert.match(groupPacket, /SYSTEM: You are the tactical controller/);
+    assert.match(groupPacket, /ACTIVE TACTICAL GROUP:/);
+    assert.match(groupPacket, /GROUP MEMBER STATBLOCKS:/);
+    assert.match(groupPacket, /LLM SUPERVISOR MODE:/);
+    assert.match(groupPacket, /SUPERVISOR CANDIDATE SET:/);
+    assert.match(groupPacket, /avoid redundant crowding/);
+    for (const tokenId of groupState.aiGroupTokenIds) {
+      const token = groupState.tokens.find((entry) => entry.id === tokenId);
+      assert.ok(token && groupPacket.includes(`"${token.name}"`), `${scenario.id} group packet should include ${token?.name}`);
+    }
   }
 });
 

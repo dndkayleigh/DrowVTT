@@ -7,6 +7,7 @@ import {
   getAiGroupTokenIds,
   getSelectedAiControlledIds,
   getSelectedMonsterIds,
+  isAiGroupStrategyId,
   isAiTurnActorAllowed,
   isAiControllableToken,
   resolveAiCurrentTurnTokenId,
@@ -131,6 +132,18 @@ test('enforceAiSelectionForStrategy keeps multi-select for group tactical and co
 
   assert.deepEqual(
     enforceAiSelectionForStrategy(TOKENS, {
+      strategyId: 'llm_supervisor_group',
+      currentTurnTokenId: 'goblin-a',
+      selectedTokenIds: ['goblin-a', 'goblin-b']
+    }),
+    {
+      selectedTokenIds: ['goblin-a', 'goblin-b'],
+      selectedTokenId: 'goblin-a'
+    }
+  );
+
+  assert.deepEqual(
+    enforceAiSelectionForStrategy(TOKENS, {
       strategyId: 'single_tactical',
       currentTurnTokenId: 'goblin-b',
       selectedTokenIds: ['goblin-a', 'goblin-b']
@@ -184,6 +197,22 @@ test('resolveAiStrategyIdForSelection switches to group tactical only for multi-
   assert.equal(resolveAiStrategyIdForSelection('single_tactical', ['goblin-a']), 'single_tactical');
   assert.equal(resolveAiStrategyIdForSelection('single_fast', ['goblin-a', 'goblin-b']), 'group_tactical');
   assert.equal(resolveAiStrategyIdForSelection('group_tactical', ['goblin-a', 'goblin-b']), 'group_tactical');
+  assert.equal(
+    resolveAiStrategyIdForSelection('controller_supervisor_scripted_group', ['goblin-a', 'goblin-b']),
+    'controller_supervisor_scripted_group'
+  );
+  assert.equal(
+    resolveAiStrategyIdForSelection('llm_supervisor_group', ['goblin-a', 'goblin-b']),
+    'llm_supervisor_group'
+  );
+});
+
+test('group strategy detection includes LLM supervisor group mode', () => {
+  assert.equal(isAiGroupStrategyId('group_tactical'), true);
+  assert.equal(isAiGroupStrategyId('llm_supervisor_group'), true);
+  assert.equal(isAiGroupStrategyId('controller_supervisor_scripted_group'), true);
+  assert.equal(isAiGroupStrategyId('llm_supervisor_single'), false);
+  assert.equal(isAiGroupStrategyId('single_tactical'), false);
 });
 
 test('isAiTurnActorAllowed allows grouped actors during group tactical turns', () => {
@@ -206,5 +235,12 @@ test('isAiTurnActorAllowed allows grouped actors during group tactical turns', (
     tokenId: 'goblin-a',
     currentTurnTokenId: 'goblin-a',
     aiGroupTokenIds: []
+  }), true);
+
+  assert.equal(isAiTurnActorAllowed({
+    strategyId: 'llm_supervisor_group',
+    tokenId: 'goblin-b',
+    currentTurnTokenId: 'goblin-a',
+    aiGroupTokenIds: ['goblin-a', 'goblin-b']
   }), true);
 });

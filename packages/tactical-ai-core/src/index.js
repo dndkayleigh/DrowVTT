@@ -819,10 +819,25 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
         .filter((cell) => gridDistance(cell, actor.cell) > 0)
         .filter((cell) => gridDistance(cell, enemy.cell) <= rangeCells)
         .filter((cell) => resolvedRulesAdapter.lineOfSight(encounter, actor, enemy, cell))
-        .sort((left, right) =>
-          (left.steps || 0) - (right.steps || 0) ||
-          gridDistance(left, enemy.cell) - gridDistance(right, enemy.cell)
-        )
+        .sort((left, right) => {
+          const stepDelta = (left.steps || 0) - (right.steps || 0);
+          if (stepDelta) return stepDelta;
+          const leftRange = gridDistance(left, enemy.cell);
+          const rightRange = gridDistance(right, enemy.cell);
+          const rangeDelta = attack.attackKind === 'ranged'
+            ? rightRange - leftRange
+            : leftRange - rightRange;
+          if (rangeDelta) return rangeDelta;
+          if (attack.attackKind === 'ranged') {
+            const targetVector = { x: Math.sign(enemy.cell.x - actor.cell.x), y: Math.sign(enemy.cell.y - actor.cell.y) };
+            const leftMove = { x: Math.sign(left.x - actor.cell.x), y: Math.sign(left.y - actor.cell.y) };
+            const rightMove = { x: Math.sign(right.x - actor.cell.x), y: Math.sign(right.y - actor.cell.y) };
+            const leftRetreatScore = -(leftMove.x * targetVector.x + leftMove.y * targetVector.y);
+            const rightRetreatScore = -(rightMove.x * targetVector.x + rightMove.y * targetVector.y);
+            return rightRetreatScore - leftRetreatScore;
+          }
+          return 0;
+        })
         .slice(0, 6);
       for (const cell of moveAttackCells) {
         candidates.push(attackAction(actor, enemy, attack, cell, 'move_and_attack', cell.steps, {
@@ -899,15 +914,26 @@ export function extractScoringFeatures(encounterInput, candidate) {
   const actor = encounter.actors.find((entry) => entry.id === candidate.actorId);
   const target = encounter.actors.find((entry) => candidate.targetIds?.includes(entry.id));
   const allies = actor ? alliesFor(encounter, actor) : [];
+  const actorHasLongRangedAttack = actor?.attacks?.some((attack) =>
+    attack.attackKind === 'ranged' && Number(attack.rangeFt) >= 60
+  ) || false;
   const nearestEnemyDistance = actor
     ? Math.min(...enemiesFor(encounter, actor).map((enemy) => gridDistance(candidate.fromCell || actor.cell, enemy.cell)), Infinity)
+    : Infinity;
+  const currentNearestEnemyDistance = actor
+    ? Math.min(...enemiesFor(encounter, actor).map((enemy) => gridDistance(actor.cell, enemy.cell)), Infinity)
     : Infinity;
   return {
     expectedDamage: normalizeNumber(candidate.expectedDamage, 0),
     attackValue: candidate.action?.type === 'attack' ? 1 : 0,
     rangedAttackValue: candidate.action?.type === 'attack' && candidate.action?.attackKind === 'ranged' ? 1 : 0,
+    longRangedAttackValue: candidate.action?.type === 'attack' && candidate.action?.attackKind === 'ranged' && Number(candidate.action?.rangeFt) >= 60 ? 1 : 0,
     currentPositionValue: candidate.family === 'attack_from_current' ? 1 : 0,
     repositionValue: candidate.family === 'move_and_attack' || candidate.family === 'advance_to_attack' ? 1 : 0,
+    meleeClosingPenalty: actorHasLongRangedAttack &&
+      candidate.family === 'move_and_attack' &&
+      candidate.action?.attackKind === 'melee' &&
+      currentNearestEnemyDistance > 1 ? 1 : 0,
     killChance: target && String(target.hp).match(/^\d+/)
       ? Math.min(1, normalizeNumber(candidate.expectedDamage, 0) / Math.max(1, Number(String(target.hp).match(/^\d+/)?.[0])))
       : 0,
@@ -928,12 +954,12 @@ export function extractScoringFeatures(encounterInput, candidate) {
 
 export function scoreCandidate(encounter, candidate, { stance = 'opportunistic' } = {}) {
   const weightsByStance = {
-    aggressive: { expectedDamage: 2.2, attackValue: 4, rangedAttackValue: 0.4, currentPositionValue: 0.8, repositionValue: 0.4, killChance: 1.5, retaliationRisk: -0.4, holdPenalty: -3, retreatPenalty: -2 },
-    cautious: { expectedDamage: 1.2, attackValue: 3, rangedAttackValue: 0.8, currentPositionValue: 0.8, repositionValue: 0.3, defensiveValue: 0.8, retaliationRisk: -1.4, holdPenalty: -2, retreatPenalty: -1.2 },
-    evasive: { expectedDamage: 0.7, attackValue: 2, rangedAttackValue: 0.8, defensiveValue: 1.2, retaliationRisk: -2, holdPenalty: -1.5, retreatPenalty: -0.4 },
-    protective: { expectedDamage: 1, attackValue: 3, rangedAttackValue: 0.4, currentPositionValue: 0.6, allySupport: 1.8, formationValue: 1.2, holdPenalty: -2, retreatPenalty: -1 },
-    desperate: { expectedDamage: 2.4, attackValue: 5, currentPositionValue: 0.8, killChance: 2, retaliationRisk: -0.1, holdPenalty: -4, retreatPenalty: -3 },
-    opportunistic: { expectedDamage: 1.6, attackValue: 4, rangedAttackValue: 0.6, currentPositionValue: 0.8, repositionValue: 0.4, killChance: 1.2, defensiveValue: 0.2, retaliationRisk: -0.8, holdPenalty: -2.5, retreatPenalty: -1.5 }
+    aggressive: { expectedDamage: 2.2, attackValue: 4, rangedAttackValue: 0.4, longRangedAttackValue: 0.6, currentPositionValue: 0.8, repositionValue: 0.4, killChance: 1.5, retaliationRisk: -0.4, meleeClosingPenalty: -1.2, holdPenalty: -3, retreatPenalty: -2 },
+    cautious: { expectedDamage: 1.2, attackValue: 3, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.3, defensiveValue: 0.8, retaliationRisk: -1.4, meleeClosingPenalty: -1.8, holdPenalty: -2, retreatPenalty: -1.2 },
+    evasive: { expectedDamage: 0.7, attackValue: 2, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, defensiveValue: 1.2, retaliationRisk: -2, meleeClosingPenalty: -2, holdPenalty: -1.5, retreatPenalty: -0.4 },
+    protective: { expectedDamage: 1, attackValue: 3, rangedAttackValue: 0.4, longRangedAttackValue: 0.8, currentPositionValue: 0.6, allySupport: 1.8, formationValue: 1.2, meleeClosingPenalty: -1.4, holdPenalty: -2, retreatPenalty: -1 },
+    desperate: { expectedDamage: 2.4, attackValue: 5, currentPositionValue: 0.8, killChance: 2, retaliationRisk: -0.1, meleeClosingPenalty: -0.8, holdPenalty: -4, retreatPenalty: -3 },
+    opportunistic: { expectedDamage: 1.6, attackValue: 4, rangedAttackValue: 0.6, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.4, killChance: 1.2, defensiveValue: 0.2, retaliationRisk: -0.8, meleeClosingPenalty: -1.6, holdPenalty: -1, retreatPenalty: -2.5 }
   };
   const features = extractScoringFeatures(encounter, candidate);
   const weights = weightsByStance[stance] || weightsByStance.opportunistic;
@@ -949,6 +975,8 @@ function summarizeCandidate(candidate, scored = null) {
     actionType: candidate.action?.type || null,
     attackKind: candidate.action?.attackKind || null,
     targetIds: candidate.targetIds || [],
+    moveTo: candidate.move?.to || null,
+    pathLength: candidate.move?.path?.length ?? 0,
     moveSteps: candidate.moveSteps || 0,
     expectedDamage: normalizeNumber(candidate.expectedDamage, 0),
     futureAttackCell: candidate.metadata?.futureAttackCell || null,
@@ -978,13 +1006,75 @@ function candidateFamilyCounts(candidates = []) {
   }, {});
 }
 
+function scriptedAttackPriority(encounter, actor, candidate) {
+  const actorHasLongRangedAttack = actor?.attacks?.some((attack) =>
+    attack.attackKind === 'ranged' && Number(attack.rangeFt) >= 60
+  ) || false;
+  const currentNearestEnemyDistance = actor
+    ? Math.min(...enemiesFor(encounter, actor).map((enemy) => gridDistance(actor.cell, enemy.cell)), Infinity)
+    : Infinity;
+  const longRangedBonus = candidate.action?.attackKind === 'ranged' && Number(candidate.action?.rangeFt) >= 60 ? 2 : 0;
+  const avoidUnforcedMelee = actorHasLongRangedAttack &&
+    candidate.family === 'move_and_attack' &&
+    candidate.action?.attackKind === 'melee' &&
+    currentNearestEnemyDistance > 1 ? -2 : 0;
+  return normalizeNumber(candidate.expectedDamage, 0) + longRangedBonus + avoidUnforcedMelee;
+}
+
+function supervisedCandidateScore(encounter, actor, candidate, { stance = 'opportunistic', reservedDestinations = new Set() } = {}) {
+  const scored = scoreCandidate(encounter, candidate, { stance });
+  const destination = candidate.move?.to || candidate.fromCell || actor?.cell;
+  const destinationKey = destination ? cellKey(destination) : '';
+  const currentEnemyDistance = actor
+    ? Math.min(...enemiesFor(encounter, actor).map((enemy) => gridDistance(actor.cell, enemy.cell)), Infinity)
+    : Infinity;
+  const safeRangedBonus = candidate.action?.attackKind === 'ranged' && currentEnemyDistance > 1 ? 1.5 : 0;
+  const attackBonus = candidate.action?.type === 'attack' ? 2 : 0;
+  const holdWhenNoPressureBonus = candidate.family === 'hold_position' ? 0.4 : 0;
+  const retreatPenalty = candidate.family === 'disengage_retreat' ? -2 : 0;
+  const reservationPenalty = destinationKey && reservedDestinations.has(destinationKey) ? -100 : 0;
+  return {
+    ...scored,
+    score: scored.score + safeRangedBonus + attackBonus + holdWhenNoPressureBonus + retreatPenalty + reservationPenalty,
+    supervisorFeatures: {
+      safeRangedBonus,
+      attackBonus,
+      holdWhenNoPressureBonus,
+      retreatPenalty,
+      reservationPenalty
+    }
+  };
+}
+
+function selectSupervisedCandidate(encounter, actor, { candidateLimit = 36, stance = 'opportunistic', reservedDestinations = new Set() } = {}) {
+  const candidates = generateCandidateActions(encounter, actor, { limit: candidateLimit });
+  const scored = candidates.map((candidate) => ({
+    candidate,
+    ...supervisedCandidateScore(encounter, actor, candidate, { stance, reservedDestinations })
+  }));
+  scored.sort((left, right) =>
+    right.score - left.score ||
+    (left.candidate.moveSteps || 0) - (right.candidate.moveSteps || 0)
+  );
+  return {
+    candidates,
+    scored,
+    selected: scored[0]?.candidate || candidates[0] || null,
+    topCandidates: scored.slice(0, 5).map((entry) => summarizeCandidate(entry.candidate, entry))
+  };
+}
+
 function decisionSummary({ controllerLabel, selected, candidates, topCandidates = [] }) {
   if (!selected) return `${controllerLabel} found no legal candidates.`;
   const counts = candidateFamilyCounts(candidates);
   const attackCount = (counts.attack_from_current || 0) + (counts.move_and_attack || 0);
   const topLine = topCandidates
     .slice(0, 3)
-    .map((candidate) => `${candidate.family}${candidate.score == null ? '' : `=${candidate.score.toFixed(2)}`}`)
+    .map((candidate) => {
+      const destination = candidate.moveTo ? `@(${candidate.moveTo.x},${candidate.moveTo.y})` : '';
+      const score = candidate.score == null ? '' : `=${candidate.score.toFixed(2)}`;
+      return `${candidate.family}${destination}${score}`;
+    })
     .join(', ');
   return `${controllerLabel} selected ${selected.family} from ${candidates.length} candidates (${attackCount} attacks, ${counts.advance_to_attack || 0} advances, ${counts.disengage_retreat || 0} retreats, ${counts.hold_position || 0} holds). Top candidates: ${topLine || 'none'}.`;
 }
@@ -1071,13 +1161,14 @@ export class ScriptedController {
     const bestAttack = (family) => candidates
       .filter((candidate) => candidate.family === family)
       .sort((left, right) =>
-        normalizeNumber(right.expectedDamage, 0) - normalizeNumber(left.expectedDamage, 0) ||
+        scriptedAttackPriority(encounter, actor, right) - scriptedAttackPriority(encounter, actor, left) ||
         (left.moveSteps || 0) - (right.moveSteps || 0) ||
         (right.action?.attackKind === 'ranged' ? 1 : 0) - (left.action?.attackKind === 'ranged' ? 1 : 0)
       )[0];
     const selected = bestAttack('attack_from_current')
       || bestAttack('move_and_attack')
       || candidates.find((candidate) => candidate.family === 'advance_to_attack')
+      || candidates.find((candidate) => candidate.family === 'hold_position')
       || candidates.find((candidate) => candidate.family === 'disengage_retreat')
       || candidates[0];
     const topCandidates = topCandidateSummaries(encounter, candidates, { limit: 5 });
@@ -1086,7 +1177,7 @@ export class ScriptedController {
       actorId: actor?.id,
       message: decisionSummary({ controllerLabel: this.label, selected, candidates, topCandidates }),
       data: {
-        ruleOrder: ['best attack from current position', 'best move and attack', 'advance toward attack range', 'retreat only if no advance is possible', 'fallback'],
+        ruleOrder: ['best attack from current position', 'best move and attack', 'advance toward attack range', 'hold defensively if no pressure action is available', 'retreat only as fallback', 'fallback'],
         familyCounts: candidateFamilyCounts(candidates),
         selected: selected ? summarizeCandidate(selected) : null,
         topCandidates
@@ -1124,6 +1215,102 @@ export class UtilityController {
       }
     })];
     return outputFromCandidate({ encounter, controllerId: this.id, candidate: selected, candidates, logs, stance });
+  }
+}
+
+export class SupervisorScriptedController {
+  id = 'supervisor_scripted_single';
+  label = 'Supervisor + Scripted';
+  kind = 'hybrid';
+  supportsGroupPlanning = false;
+  supportsSimultaneousPlanning = false;
+
+  async chooseAction(input = {}) {
+    const encounter = normalizeEncounterState(input.encounter);
+    const actor = encounter.actors.find((entry) => entry.id === (input.actorId || encounter.activeActorId));
+    const stance = TACTICAL_STANCES.includes(input.stance) ? input.stance : 'opportunistic';
+    const { candidates, scored, selected, topCandidates } = selectSupervisedCandidate(encounter, actor, {
+      candidateLimit: input.candidateLimit || 36,
+      stance,
+      reservedDestinations: input.reservedDestinations || new Set()
+    });
+    const logs = [createDecisionLogEntry({
+      controllerId: this.id,
+      actorId: actor?.id,
+      message: decisionSummary({ controllerLabel: this.label, selected, candidates, topCandidates }),
+      data: {
+        supervisor: {
+          baseControllerId: 'scripted_baseline',
+          testedCandidateCount: candidates.length,
+          selectionMode: 'supervised_candidate_ranking'
+        },
+        familyCounts: candidateFamilyCounts(candidates),
+        selected: selected ? summarizeCandidate(selected, scored.find((entry) => entry.candidate.id === selected.id)) : null,
+        topCandidates
+      }
+    })];
+    return outputFromCandidate({ encounter, controllerId: this.id, candidate: selected, candidates, logs, stance });
+  }
+}
+
+export class SupervisorScriptedGroupController extends SupervisorScriptedController {
+  id = 'supervisor_scripted_group';
+  label = 'Supervisor + Scripted Group';
+  supportsGroupPlanning = true;
+
+  async chooseAction(input = {}) {
+    const encounter = normalizeEncounterState(input.encounter);
+    const group = input.activationGroup || encounter.activationGroups?.[0] || {
+      actorIds: [input.actorId || encounter.activeActorId].filter(Boolean),
+      activationMode: 'coordinated_sequential'
+    };
+    const actorIds = (group.actorIds || []).filter((actorId) =>
+      encounter.actors.some((actor) => actor.id === actorId)
+    );
+    const reservedDestinations = new Set();
+    const outputs = [];
+    for (const actorId of actorIds.length ? actorIds : [encounter.activeActorId].filter(Boolean)) {
+      const actor = encounter.actors.find((entry) => entry.id === actorId);
+      const output = await super.chooseAction({
+        ...input,
+        encounter,
+        actorId,
+        candidateLimit: input.candidateLimit || 36,
+        reservedDestinations
+      });
+      const moveDestination = output.plan?.moves?.[0]?.to;
+      if (moveDestination) reservedDestinations.add(`${moveDestination[0]},${moveDestination[1]}`);
+      else if (actor?.cell) reservedDestinations.add(cellKey(actor.cell));
+      outputs.push(output);
+    }
+    const moves = outputs.flatMap((output) => output.plan?.moves || []);
+    const actions = outputs.flatMap((output) => output.plan?.actions || []);
+    const logs = [
+      createDecisionLogEntry({
+        controllerId: this.id,
+        actorId: encounter.activeActorId,
+        message: `${this.label} supervised ${outputs.length} grouped activations with reservation-aware candidate selection.`,
+        data: {
+          activationGroup: group,
+          selectedCandidateIds: outputs.map((output) => output.selectedCandidateId).filter(Boolean),
+          reservedDestinations: [...reservedDestinations]
+        }
+      }),
+      ...outputs.flatMap((output) => output.logs || [])
+    ];
+    return {
+      controllerId: this.id,
+      actorId: encounter.activeActorId,
+      plan: { moves, actions, endTurn: true },
+      selectedCandidateId: outputs.map((output) => output.selectedCandidateId).filter(Boolean).join('|') || null,
+      candidates: outputs.flatMap((output) => output.candidates || []),
+      explanation: {
+        summary: `${this.label} selected ${actions.length} grouped actions.`,
+        features: { groupSize: outputs.length },
+        stance: input.stance || 'opportunistic'
+      },
+      logs
+    };
   }
 }
 
@@ -1182,6 +1369,8 @@ export function createControllerRegistry() {
     new HumanController(),
     new ScriptedController(),
     new UtilityController(),
+    new SupervisorScriptedController(),
+    new SupervisorScriptedGroupController(),
     new PureLLMController(),
     new HybridController(),
     new PerMonsterAgentController(),

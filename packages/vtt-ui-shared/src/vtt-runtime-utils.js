@@ -4,12 +4,20 @@ export function buildTokenSelectionNote({
   selectedCount = 0,
   groupCount = 0
 } = {}) {
-  if (strategyId === 'group_tactical') {
+  if (isAiGroupStrategyId(strategyId)) {
     return groupCount
       ? `${strategyLabel} will use ${groupCount} grouped AI-controlled token${groupCount === 1 ? '' : 's'}. Use ctrl/cmd-click on desktop or Group Select on mobile to build the group.`
       : `${strategyLabel} needs an explicit AI-controlled group. Use ctrl/cmd-click on desktop or Group Select on mobile to build the group.`;
   }
   return `${strategyLabel} uses exactly one selected monster. Current selection: ${selectedCount || 0}.`;
+}
+
+function isAiGroupStrategyId(strategyId = 'single_tactical') {
+  const id = String(strategyId || 'single_tactical');
+  return id === 'group_tactical'
+    || id.endsWith('_group')
+    || id.includes('_group_')
+    || id.includes('group');
 }
 
 export function shouldFloatAIDrawer(viewportWidth = 0) {
@@ -58,7 +66,7 @@ export function buildTokenRowState(
     pickButton: {
       text: isSelected ? 'Picked' : 'Pick',
       primary: isSelected,
-      disabled: strategyId === 'group_tactical' && !canPickForGroup
+      disabled: isAiGroupStrategyId(strategyId) && !canPickForGroup
     }
   };
 }
@@ -217,7 +225,7 @@ export function computeCurrentTurnSelectionState(
     preferredTokenIds: requestedId ? [requestedId] : selectedTokenIds
   });
 
-  if (strategyId === 'group_tactical' && nextCurrentTurnTokenId) {
+  if (isAiGroupStrategyId(strategyId) && nextCurrentTurnTokenId) {
     return {
       currentTurnTokenId: nextCurrentTurnTokenId,
       aiGroupTokenIds: [],
@@ -249,7 +257,7 @@ export function computeAiControlsState(
   const nextAiGroupTokenIds = getAiGroupTokenIds(tokens, aiGroupTokenIds, nextAiControls);
   const nextSelected = setSelectedTokenIds(
     tokens,
-    strategyId === 'group_tactical'
+    isAiGroupStrategyId(strategyId)
       ? getSelectedAiControlledIds(tokens, selectedTokenIds, nextAiControls)
       : selectedTokenIds
   );
@@ -613,7 +621,10 @@ export function validateTokenMove(
     const path = pathCellsBetween(fromCell, toCell);
     for (let i = 0; i < path.length; i += 1) {
       const step = path[i];
-      const isFinalStep = i === path.length - 1;
+      const destinationCell = options.pathDestination || toCell;
+      const isFinalStep = i === path.length - 1
+        && step.x === destinationCell.x
+        && step.y === destinationCell.y;
       const stepCells = cellsOccupiedAt(step.x, step.y, token.sizeCells);
       const blockedCell = stepCells.find((cell) => occupied.has(`${cell.x},${cell.y}`));
       if (!blockedCell) continue;

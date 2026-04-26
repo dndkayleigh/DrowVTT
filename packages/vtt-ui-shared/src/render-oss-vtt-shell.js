@@ -60,8 +60,14 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
               <label for="saveSlotName">Session name</label>
               <input id="saveSlotName" type="text" value="" maxlength="48" />
             </div>
+            <div class="subcard">
+              <div class="subtleLabel">Encounter Description</div>
+              <label for="encounterDescription">Encounter description and intended behavior</label>
+              <textarea id="encounterDescription" rows="5" placeholder="Describe the encounter and what tactically correct behavior should look like. This is exported into tactical fixtures."></textarea>
+            </div>
             <div class="saveSlotActions">
               <button id="exportBoardBtn">Download Save</button>
+              <button id="exportTacticalFixtureBtn">Export Tactical Fixture</button>
               <button id="importBoardBtn">Open Save</button>
             </div>
             <div class="autosaveRow">
@@ -363,8 +369,12 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
                 <option value="single_fast">Single (Fast)</option>
                 <option value="single_tactical">Single (Tactical)</option>
                 <option value="group_tactical">Group (Tactical)</option>
+                <option value="llm_supervisor_single">LLM Supervisor + Tactical (Single)</option>
+                <option value="llm_supervisor_group">LLM Supervisor + Tactical (Group)</option>
                 <option value="controller_scripted">Scripted Baseline</option>
                 <option value="controller_utility">Utility Baseline</option>
+                <option value="controller_supervisor_scripted_single">Supervisor + Scripted (Single)</option>
+                <option value="controller_supervisor_scripted_group">Supervisor + Scripted (Group)</option>
               </select>
               <div class="sectionNote" id="aiStrategyHint" style="margin-top:8px;"></div>
             </div>

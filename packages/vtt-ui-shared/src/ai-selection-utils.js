@@ -85,13 +85,21 @@ export function enforceAiSelectionForStrategy(tokens = [], {
   currentTurnTokenId = null,
   selectedTokenIds = []
 } = {}) {
-  if (strategyId === 'group_tactical') {
+  if (isAiGroupStrategyId(strategyId)) {
     return setSelectedTokenIds(tokens, selectedTokenIds);
   }
   const currentId = currentTurnTokenId && validIdSet(tokens).has(String(currentTurnTokenId))
     ? String(currentTurnTokenId)
     : getValidTokenIds(tokens, selectedTokenIds)[0] || null;
   return currentId ? setSingleSelection(tokens, currentId) : setSelectedTokenIds(tokens, []);
+}
+
+export function isAiGroupStrategyId(strategyId = 'single_tactical') {
+  const id = String(strategyId || 'single_tactical');
+  return id === 'group_tactical'
+    || id.endsWith('_group')
+    || id.includes('_group_')
+    || id.includes('group');
 }
 
 export function resolveAiCurrentTurnTokenId(tokens = [], {
@@ -109,9 +117,10 @@ export function resolveAiCurrentTurnTokenId(tokens = [], {
 }
 
 export function resolveAiStrategyIdForSelection(strategyId = 'single_tactical', selectedAiControlledIds = []) {
-  return Array.isArray(selectedAiControlledIds) && selectedAiControlledIds.length > 1
+  const currentStrategyId = String(strategyId || 'single_tactical');
+  return Array.isArray(selectedAiControlledIds) && selectedAiControlledIds.length > 1 && !isAiGroupStrategyId(currentStrategyId)
     ? 'group_tactical'
-    : String(strategyId || 'single_tactical');
+    : currentStrategyId;
 }
 
 export function isAiTurnActorAllowed({
@@ -122,7 +131,8 @@ export function isAiTurnActorAllowed({
 } = {}) {
   const actorId = tokenId == null ? null : String(tokenId);
   if (!actorId) return false;
-  if (String(strategyId || 'single_tactical') === 'group_tactical') {
+  const resolvedStrategyId = String(strategyId || 'single_tactical');
+  if (isAiGroupStrategyId(resolvedStrategyId)) {
     return new Set((Array.isArray(aiGroupTokenIds) ? aiGroupTokenIds : []).map((id) => String(id))).has(actorId)
       || (currentTurnTokenId != null && String(currentTurnTokenId) === actorId);
   }
