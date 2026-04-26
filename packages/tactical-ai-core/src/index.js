@@ -271,6 +271,174 @@ export function hasLineOfSight(encounter, fromActor, toActor, fromCell = null) {
   return true;
 }
 
+function isCellInsideBattlefield(encounter, cell) {
+  const normalized = normalizeCell(cell);
+  const width = Math.round(Number(encounter?.battlefield?.width) || 0);
+  const height = Math.round(Number(encounter?.battlefield?.height) || 0);
+  if (normalized.x < 0 || normalized.y < 0) return false;
+  if (width > 0 && normalized.x >= width) return false;
+  if (height > 0 && normalized.y >= height) return false;
+  return true;
+}
+
+function cellKey(cell) {
+  const normalized = normalizeCell(cell);
+  return `${normalized.x},${normalized.y}`;
+}
+
+function battlefieldSearchBounds(encounter) {
+  const width = Math.round(Number(encounter?.battlefield?.width) || 0);
+  const height = Math.round(Number(encounter?.battlefield?.height) || 0);
+  if (width > 0 && height > 0) {
+    return { minX: 0, minY: 0, maxX: width - 1, maxY: height - 1 };
+  }
+  const actorCells = (encounter?.actors || []).map((actor) => normalizeCell(actor.cell));
+  const maxActorX = Math.max(0, ...actorCells.map((cell) => cell.x));
+  const maxActorY = Math.max(0, ...actorCells.map((cell) => cell.y));
+  return { minX: 0, minY: 0, maxX: maxActorX + 12, maxY: maxActorY + 12 };
+}
+
+function neighborCells(encounter, cell) {
+  const current = normalizeCell(cell);
+  const directions = [
+    { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
+    { x: -1, y: 0 },                    { x: 1, y: 0 },
+    { x: -1, y: 1 },  { x: 0, y: 1 },  { x: 1, y: 1 }
+  ];
+  return directions
+    .map((direction) => ({ x: current.x + direction.x, y: current.y + direction.y }))
+    .filter((next) => isCellInsideBattlefield(encounter, next))
+    .filter((next) => !hasBlockedMovementPath(encounter, current, next));
+}
+
+export function findPath(encounterInput, fromCell, toCell, { maxExpanded = 3000 } = {}) {
+  const encounter = normalizeEncounterState(encounterInput);
+  const start = normalizeCell(fromCell);
+  const goal = normalizeCell(toCell);
+  if (!isCellInsideBattlefield(encounter, start) || !isCellInsideBattlefield(encounter, goal)) return null;
+  if (cellKey(start) === cellKey(goal)) return [];
+  const directPath = pathCellsBetween(start, goal);
+  let previous = start;
+  let directPathIsLegal = true;
+  for (const step of directPath) {
+    if (!isCellInsideBattlefield(encounter, step) || hasBlockedMovementPath(encounter, previous, step)) {
+      directPathIsLegal = false;
+      break;
+    }
+    previous = step;
+  }
+  if (directPathIsLegal) return directPath;
+  const queue = [{ cell: start, cost: 0, priority: gridDistance(start, goal) }];
+  const cameFrom = new Map([[cellKey(start), null]]);
+  const costSoFar = new Map([[cellKey(start), 0]]);
+  let expanded = 0;
+
+  while (queue.length && expanded < maxExpanded) {
+    queue.sort((left, right) => left.priority - right.priority || left.cost - right.cost);
+    const current = queue.shift();
+    expanded += 1;
+    if (!current) break;
+    if (cellKey(current.cell) === cellKey(goal)) {
+      const path = [];
+      let key = cellKey(goal);
+      while (key !== cellKey(start)) {
+        const cell = key.split(',').map(Number);
+        path.push({ x: cell[0], y: cell[1] });
+        key = cameFrom.get(key);
+        if (!key) return null;
+      }
+      return path.reverse();
+    }
+    for (const next of neighborCells(encounter, current.cell)) {
+      const nextKey = cellKey(next);
+      const newCost = current.cost + 1;
+      if (costSoFar.has(nextKey) && newCost >= costSoFar.get(nextKey)) continue;
+      costSoFar.set(nextKey, newCost);
+      cameFrom.set(nextKey, cellKey(current.cell));
+      queue.push({ cell: next, cost: newCost, priority: newCost + gridDistance(next, goal) });
+    }
+  }
+
+  return null;
+}
+
+export function findAttackPositions(encounterInput, actorInput, targetInput, attackInput, { limit = 80 } = {}) {
+  const encounter = normalizeEncounterState(encounterInput);
+  const actor = normalizeActor(actorInput);
+  const target = normalizeActor(targetInput);
+  const attack = normalizeAttackProfile(attackInput);
+  const bounds = battlefieldSearchBounds(encounter);
+  const rangeCells = Math.max(1, Math.ceil(attack.rangeFt / 5));
+  const positions = [];
+  for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
+    for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+      const cell = { x, y };
+      if (gridDistance(cell, target.cell) > rangeCells) continue;
+      if (!hasLineOfSight(encounter, actor, target, cell)) continue;
+      positions.push({
+        cell,
+        targetId: target.id,
+        attackName: attack.name,
+        attackKind: attack.attackKind,
+        rangeFt: attack.rangeFt,
+        distanceToTarget: gridDistance(cell, target.cell)
+      });
+      if (positions.length >= limit) return positions;
+    }
+  }
+  return positions;
+}
+
+export function rankApproachCells(encounterInput, actorInput, targetInput, attacksInput = [], { limit = 5 } = {}) {
+  const encounter = normalizeEncounterState(encounterInput);
+  const actor = normalizeActor(actorInput);
+  const target = normalizeActor(targetInput);
+  const maxSteps = Math.floor((Number(actor?.speed) || 0) / 5);
+  const attacks = attacksInput.length ? attacksInput.map(normalizeAttackProfile) : [normalizeAttackProfile({ name: 'Strike', attackKind: 'melee', rangeFt: 5 })];
+  const approaches = [];
+
+  for (const attack of attacks) {
+    for (const position of findAttackPositions(encounter, actor, target, attack, { limit: 120 })) {
+      const path = findPath(encounter, actor.cell, position.cell);
+      if (!path || path.length === 0) continue;
+      const movePath = path.slice(0, maxSteps);
+      const destination = movePath[movePath.length - 1];
+      if (!destination) continue;
+      approaches.push({
+        cell: destination,
+        path: movePath,
+        futureAttackCell: position.cell,
+        futureAttackDistance: path.length,
+        remainingDistance: Math.max(0, path.length - movePath.length),
+        laneDeviation: Math.abs(position.cell.y - actor.cell.y),
+        attackName: attack.name,
+        attackKind: attack.attackKind,
+        rangeFt: attack.rangeFt,
+        expectedDamage: attack.expectedDamage,
+        targetId: target.id
+      });
+    }
+  }
+
+  const bestByCell = new Map();
+  for (const approach of approaches) {
+    const key = cellKey(approach.cell);
+    const existing = bestByCell.get(key);
+    if (!existing || approach.futureAttackDistance < existing.futureAttackDistance || approach.expectedDamage > existing.expectedDamage) {
+      bestByCell.set(key, approach);
+    }
+  }
+
+  return [...bestByCell.values()]
+    .sort((left, right) =>
+      left.remainingDistance - right.remainingDistance ||
+      left.laneDeviation - right.laneDeviation ||
+      right.expectedDamage - left.expectedDamage ||
+      left.futureAttackDistance - right.futureAttackDistance
+    )
+    .slice(0, limit);
+}
+
 export class SimpleGridRulesAdapter {
   reachableTiles(encounterInput, actor, { limit = 24 } = {}) {
     const encounter = normalizeEncounterState(encounterInput);
@@ -292,6 +460,7 @@ export class SimpleGridRulesAdapter {
         const key = `${next.x},${next.y}`;
         if (visited.has(key)) continue;
         visited.add(key);
+        if (!isCellInsideBattlefield(encounter, next)) continue;
         if (hasBlockedMovementPath(encounter, current.cell, next)) continue;
         const entry = { ...next, steps: current.steps + 1 };
         reachable.push(entry);
@@ -362,13 +531,33 @@ function attackAction(actor, target, attack, fromCell, family, moveSteps = 0) {
   };
 }
 
+function advanceAction(actor, target, toCell, moveSteps = 0, metadata = {}) {
+  const path = metadata.path?.length ? metadata.path.map(normalizeCell) : pathCellsBetween(actor.cell, toCell);
+  return {
+    id: `advance_to_attack:${actor.id}:${target.id}:${toCell.x},${toCell.y}`,
+    family: 'advance_to_attack',
+    actorId: actor.id,
+    label: `${actor.name} advances toward ${target.name}`,
+    move: { actorId: actor.id, to: normalizeCell(toCell), path },
+    action: { type: 'dash', actorId: actor.id },
+    targetIds: [target.id],
+    fromCell: normalizeCell(toCell),
+    expectedDamage: 0,
+    moveSteps,
+    legal: true,
+    metadata
+  };
+}
+
 export function generateCandidateActions(encounterInput, actorInput, { rulesAdapter = new SimpleGridRulesAdapter(), limit = 24 } = {}) {
   const encounter = normalizeEncounterState(encounterInput);
   const actor = normalizeActor(actorInput || encounter.actors.find((entry) => entry.id === encounter.activeActorId));
   if (!actor?.id) return [];
   const enemies = enemiesFor(encounter, actor);
   const candidates = [];
-  const reachable = rulesAdapter.reachableTiles(encounter, actor, { limit: Math.max(limit * 3, limit) });
+  const maxSteps = Math.floor((Number(actor?.speed) || 0) / 5);
+  const movementEnvelopeLimit = Math.max(1, (maxSteps * 2 + 1) ** 2);
+  const reachable = rulesAdapter.reachableTiles(encounter, actor, { limit: Math.max(limit * 3, movementEnvelopeLimit) });
   const attacks = actor.attacks.length ? actor.attacks : [normalizeAttackProfile({ name: 'Strike', attackKind: 'melee', rangeFt: 5 })];
 
   for (const enemy of enemies) {
@@ -390,6 +579,20 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
     .map((enemy) => ({ enemy, distance: gridDistance(actor.cell, enemy.cell) }))
     .sort((left, right) => left.distance - right.distance)[0]?.enemy;
   if (nearestEnemy) {
+    const approach = rankApproachCells(encounter, actor, nearestEnemy, attacks, { limit: 1 })[0];
+    if (approach && gridDistance(approach.cell, actor.cell) > 0) {
+      candidates.push(advanceAction(actor, nearestEnemy, approach.cell, approach.path.length, {
+        path: approach.path,
+        futureAttackCell: approach.futureAttackCell,
+        futureAttackDistance: approach.futureAttackDistance,
+        remainingDistance: approach.remainingDistance,
+        laneDeviation: approach.laneDeviation,
+        attackName: approach.attackName,
+        attackKind: approach.attackKind,
+        targetId: approach.targetId
+      }));
+    }
+
     const retreat = reachable
       .slice()
       .sort((left, right) => gridDistance(right, nearestEnemy.cell) - gridDistance(left, nearestEnemy.cell))[0];
@@ -489,6 +692,11 @@ function summarizeCandidate(candidate, scored = null) {
     targetIds: candidate.targetIds || [],
     moveSteps: candidate.moveSteps || 0,
     expectedDamage: normalizeNumber(candidate.expectedDamage, 0),
+    futureAttackCell: candidate.metadata?.futureAttackCell || null,
+    futureAttackDistance: candidate.metadata?.futureAttackDistance ?? null,
+    remainingDistance: candidate.metadata?.remainingDistance ?? null,
+    laneDeviation: candidate.metadata?.laneDeviation ?? null,
+    approachAttack: candidate.metadata?.attackName || null,
     score: scored?.score ?? null,
     features: scored?.features || null
   };
@@ -517,7 +725,7 @@ function decisionSummary({ controllerLabel, selected, candidates, topCandidates 
     .slice(0, 3)
     .map((candidate) => `${candidate.family}${candidate.score == null ? '' : `=${candidate.score.toFixed(2)}`}`)
     .join(', ');
-  return `${controllerLabel} selected ${selected.family} from ${candidates.length} candidates (${attackCount} attacks, ${counts.disengage_retreat || 0} retreats, ${counts.hold_position || 0} holds). Top candidates: ${topLine || 'none'}.`;
+  return `${controllerLabel} selected ${selected.family} from ${candidates.length} candidates (${attackCount} attacks, ${counts.advance_to_attack || 0} advances, ${counts.disengage_retreat || 0} retreats, ${counts.hold_position || 0} holds). Top candidates: ${topLine || 'none'}.`;
 }
 
 function outputFromCandidate({ encounter, controllerId, candidate, candidates = [], logs = [], stance = 'opportunistic' }) {
@@ -608,6 +816,7 @@ export class ScriptedController {
       )[0];
     const selected = bestAttack('attack_from_current')
       || bestAttack('move_and_attack')
+      || candidates.find((candidate) => candidate.family === 'advance_to_attack')
       || candidates.find((candidate) => candidate.family === 'disengage_retreat')
       || candidates[0];
     const topCandidates = topCandidateSummaries(encounter, candidates, { limit: 5 });
@@ -616,7 +825,7 @@ export class ScriptedController {
       actorId: actor?.id,
       message: decisionSummary({ controllerLabel: this.label, selected, candidates, topCandidates }),
       data: {
-        ruleOrder: ['best attack from current position', 'best move and attack', 'retreat only if no legal attack', 'fallback'],
+        ruleOrder: ['best attack from current position', 'best move and attack', 'advance toward attack range', 'retreat only if no advance is possible', 'fallback'],
         familyCounts: candidateFamilyCounts(candidates),
         selected: selected ? summarizeCandidate(selected) : null,
         topCandidates

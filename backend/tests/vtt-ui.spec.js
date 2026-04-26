@@ -1812,6 +1812,33 @@ test('blocking edges block ranged tactics attacks through line of fire', async (
   await expect(page.locator('#logBox')).toContainText('blocking edge blocks line of fire');
 });
 
+test('AI movement applies a routed path around a blocking edge', async ({ page }) => {
+  await addToken(page, { name: 'Pathfinder', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 0, cellY: 0 });
+  await setAiControls(page, 'Both');
+  await setCurrentTurnToken(page, 'Pathfinder');
+  await page.evaluate(() => window.__VTT_DEBUG__.setBlockingEdges(['v:1,0']));
+
+  await openDrawerTab(page, 'apply');
+  await page.locator('#applyJson').fill(JSON.stringify({
+    summary: 'Pathfinder routes around the blocked edge.',
+    moves: [{
+      token: 'Pathfinder',
+      to: [1, 1],
+      path: [[0, 0], [0, 1], [1, 1]],
+      rationale: 'Avoid the blocked diagonal edge.'
+    }],
+    actions: [{ token: 'Pathfinder', type: 'dash', target: null, details: 'Route around.', rationale: 'Use the legal path.', attack_kind: null, range_ft: null }],
+    end_turn: true
+  }));
+  await page.locator('#applyBtn').click();
+
+  await expectTokenCell(page, 'Pathfinder', 1, 1);
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('Moved Pathfinder -> (1,1)');
+  await expect(page.locator('#logBox')).not.toContainText('blocking edge blocks the path');
+});
+
 test('ranged tactics attacks draw line-of-sight debug overlays', async ({ page }) => {
   await addToken(page, { name: 'Archer', size: 1, type: 'Monster' });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 0, cellY: 0 });

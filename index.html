@@ -2094,6 +2094,45 @@ import {
     return cells.filter((cell, index) => index === 0 || cell.x !== cells[index - 1].x || cell.y !== cells[index - 1].y);
   }
 
+  function applyTokenMoveAlongPath(token, toCell, movePath, { source = 'AI' } = {}) {
+    const fromCell = gridCoords(token);
+    const cells = normalizeMovePath(movePath, fromCell, toCell);
+    const maxCells = Math.floor((Number(token.speed) || 0) / 5);
+    const movementSteps = Math.max(0, cells.length - 1);
+    if (movementSteps > maxCells) {
+      return {
+        ok: false,
+        reason: `${token.name} cannot move to (${toCell.x},${toCell.y}); speed ${token.speed} ft allows ${maxCells} cells, not ${movementSteps}.`,
+        fromCell,
+        toCell
+      };
+    }
+
+    let previous = fromCell;
+    for (const step of cells.slice(1)) {
+      const result = validateTokenMove(token, step, {
+        source,
+        fromCell: previous,
+        ignoreSpeed: true
+      });
+      if (!result.ok) {
+        return { ...result, fromCell, toCell };
+      }
+      previous = step;
+    }
+
+    const snapped = centerFromGridCell(toCell.x, toCell.y, token.sizeCells);
+    token.x = snapped.x;
+    token.y = snapped.y;
+    publishBoardEvent('token.moved', {
+      tokenId: token.id,
+      name: token.name,
+      toCell: { x: toCell.x, y: toCell.y },
+      source
+    });
+    return { ok: true, fromCell, toCell, distanceCells: movementSteps, path: cells, source };
+  }
+
   function clearAiPaths() {
     state.aiOverlay.paths = [];
     state.aiOverlay.sightLines = [];
@@ -3578,13 +3617,13 @@ import {
       const gx = Number(to[0]), gy = Number(to[1]);
       if (!Number.isFinite(gx) || !Number.isFinite(gy)) continue;
 
-      const result = moveTokenToCell(t, { x: gx, y: gy }, { source });
+      const result = applyTokenMoveAlongPath(t, { x: gx, y: gy }, m?.path, { source });
       if (!result.ok) {
         pushLog(`Move ignored: ${result.reason}`);
         continue;
       }
 
-      const movePath = normalizeMovePath(m?.path, result.fromCell, result.toCell);
+      const movePath = result.path || normalizeMovePath(m?.path, result.fromCell, result.toCell);
       nextPaths.push({
         tokenId: t.id,
         name,
