@@ -11,6 +11,10 @@ import {
   minTokenDistanceCells,
   parseAttackProfiles
 } from '../data/ai-turn-packet-utils.mjs';
+import {
+  findBlockedLineCrossing,
+  normalizeBlockingEdgeKeys
+} from '../packages/vtt-ui-shared/src/vtt-runtime-utils.js';
 
 function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -63,6 +67,46 @@ function findTokenByName(state, name) {
 
 function isTokenControlledThisTurn(state, token) {
   return !!token && token.id === state.currentTurnTokenId;
+}
+
+function getBlockingEdgeKeys(state) {
+  return normalizeBlockingEdgeKeys(state?.blockingEdges?.edgeKeys || state?.blockingEdges || []);
+}
+
+function tokenAimPoint(state, token) {
+  const cell = gridCoordsFromToken(state, token);
+  const size = Math.max(1, Math.round(Number(token?.sizeCells) || 1));
+  return {
+    x: cell.x + (size / 2),
+    y: cell.y + (size / 2)
+  };
+}
+
+function resolveAttackProfileForAction(actor, action = {}) {
+  const explicitKind = action?.attack_kind == null ? '' : String(action.attack_kind).toLowerCase();
+  const explicitRange = Number(action?.range_ft);
+  const details = String(action?.details ?? '').toLowerCase();
+  const profiles = parseAttackProfiles(actor?.statblock || '');
+  const namedProfile = profiles.find((profile) => {
+    const name = String(profile.name || '').toLowerCase();
+    return name && details.includes(name);
+  });
+  const inferredProfile = namedProfile || profiles.find((profile) =>
+    Number.isFinite(explicitRange)
+      && Number(profile.rangeFt) === explicitRange
+      && (!explicitKind || String(profile.attackKind).toLowerCase() === explicitKind)
+  );
+  const kind = explicitKind === 'melee' || explicitKind === 'ranged'
+    ? explicitKind
+    : inferredProfile?.attackKind || '';
+  const rangeFt = Number.isFinite(explicitRange) && explicitRange > 0
+    ? explicitRange
+    : Number(inferredProfile?.rangeFt);
+  return {
+    attackKind: kind,
+    rangeFt,
+    profile: inferredProfile || null
+  };
 }
 
 function validateMoveShape(move, index) {
@@ -207,8 +251,6 @@ export function validateAction(state, action) {
   const tokenName = (action?.token ?? '').toString();
   const type = (action?.type ?? 'other').toString().toLowerCase();
   const targetName = action?.target == null ? null : String(action.target);
-  const attackKind = action?.attack_kind == null ? null : String(action.attack_kind).toLowerCase();
-  const rangeFt = action?.range_ft == null ? null : Number(action.range_ft);
   if (!tokenName) return { ok: false, reason: 'Action ignored: missing token name.' };
 
   const actor = findTokenByName(state, tokenName);
@@ -219,15 +261,15 @@ export function validateAction(state, action) {
 
   if (type !== 'attack') return { ok: true, actor, target: null, type };
   if (!targetName) return { ok: false, reason: `${tokenName} attack ignored: missing target.` };
+  const target = findTokenByName(state, targetName);
+  if (!target) return { ok: false, reason: `${tokenName} attack ignored: target not found (${targetName}).` };
+  const { attackKind, rangeFt } = resolveAttackProfileForAction(actor, action);
   if (!attackKind || !['melee', 'ranged'].includes(attackKind)) {
-    return { ok: false, reason: `${tokenName} attack ignored: invalid attack_kind (${attackKind ?? 'null'}).` };
+    return { ok: false, reason: `${tokenName} attack ignored: invalid attack_kind (${action?.attack_kind ?? 'null'}).` };
   }
   if (!Number.isFinite(rangeFt) || rangeFt <= 0) {
     return { ok: false, reason: `${tokenName} attack ignored: invalid range_ft (${action?.range_ft ?? 'null'}).` };
   }
-
-  const target = findTokenByName(state, targetName);
-  if (!target) return { ok: false, reason: `${tokenName} attack ignored: target not found (${targetName}).` };
 
   const maxCells = attackRangeCells(rangeFt);
   const actualCells = (() => {
@@ -246,6 +288,20 @@ export function validateAction(state, action) {
       ok: false,
       reason: `${tokenName} cannot make a ${attackKind} attack on ${targetName} from ${actualCells * 5} ft away; range ${rangeFt} ft requires within ${maxCells} cells.`
     };
+  }
+
+  if (attackKind === 'ranged') {
+    const blockedLine = findBlockedLineCrossing({
+      fromPoint: tokenAimPoint(state, actor),
+      toPoint: tokenAimPoint(state, target),
+      blockingEdges: getBlockingEdgeKeys(state)
+    });
+    if (blockedLine) {
+      return {
+        ok: false,
+        reason: `${tokenName} cannot make a ranged attack on ${targetName}; a blocking edge blocks line of fire.`
+      };
+    }
   }
 
   return { ok: true, actor, target, type, attackKind, rangeFt, actualCells };

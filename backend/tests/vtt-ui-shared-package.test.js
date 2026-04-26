@@ -22,6 +22,7 @@ import {
   normalizeMonsterName,
   sizeCellsFromSrdSize,
   createSrdMonstersByName,
+  findBlockedLineCrossing,
   resolveSrdMonsterTemplate,
   topMonsterMatches,
   SRD_MONSTERS,
@@ -60,6 +61,9 @@ test('shared VTT UI package exposes tactical interaction modules', () => {
   assert.match(renderOssVttShell(), /id="sessionSection"/);
   assert.match(renderOssVttShell(), /data-sidebar-section-target="ai"/);
   assert.match(renderOssVttShell(), /id="aiSection"/);
+  assert.match(renderOssVttShell(), /value="controller_human"/);
+  assert.match(renderOssVttShell(), /value="controller_scripted"/);
+  assert.match(renderOssVttShell(), /value="controller_utility"/);
   assert.doesNotMatch(renderOssVttShell(), /data-sidebar-section-target="save"/);
   assert.match(renderOssVttShell(), /id="mobileGroupSelectBtn"/);
   assert.match(renderOssVttShell(), /id="mobileCanvasToolbar"/);
@@ -239,6 +243,53 @@ test('shared VTT runtime helpers validate and apply token movement', () => {
   });
   assert.equal(manualDragAllowed.ok, true);
   assert.equal(manualDragAllowed.manualOverride, true);
+
+  const aiBlockedByEdge = validateTokenMove({
+    token: tokens[0],
+    toCell: { x: 0, y: 1 },
+    tokens,
+    isTokenControlledThisTurn: () => true,
+    gridCoords,
+    chebyshevDistanceCells,
+    cellsOccupiedAt,
+    blockingEdges: ['h:0,1']
+  }, {
+    fromCell: { x: 0, y: 0 },
+    source: 'Tactics'
+  });
+  assert.equal(aiBlockedByEdge.ok, false);
+  assert.match(aiBlockedByEdge.reason, /blocking edge blocks the path/);
+
+  const manualMoveAcrossEdge = validateTokenMove({
+    token: tokens[0],
+    toCell: { x: 0, y: 1 },
+    tokens,
+    isTokenControlledThisTurn: () => false,
+    gridCoords,
+    chebyshevDistanceCells,
+    cellsOccupiedAt,
+    blockingEdges: ['h:0,1']
+  }, {
+    fromCell: { x: 0, y: 0 },
+    source: 'Drag',
+    manualOverride: true
+  });
+  assert.equal(manualMoveAcrossEdge.ok, true);
+  assert.equal(manualMoveAcrossEdge.manualOverride, true);
+
+  const blockedLine = findBlockedLineCrossing({
+    fromPoint: { x: 0.5, y: 0.5 },
+    toPoint: { x: 0.5, y: 1.5 },
+    blockingEdges: ['h:0,1']
+  });
+  assert.equal(blockedLine.edgeKey, 'h:0,1');
+
+  const openLine = findBlockedLineCrossing({
+    fromPoint: { x: 0.5, y: 0.5 },
+    toPoint: { x: 1.5, y: 0.5 },
+    blockingEdges: ['h:0,1']
+  });
+  assert.equal(openLine, null);
 });
 
 test('shared VTT runtime helpers expose token-row, turn-dropdown, and editor state', () => {

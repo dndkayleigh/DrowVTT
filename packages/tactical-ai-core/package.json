@@ -1,0 +1,10 @@
+{
+  "name": "@drowvtt/tactical-ai-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Portable tactical controller core for DrowVTT.",
+  "exports": {
+    ".": "./src/index.js"
+  }
+}

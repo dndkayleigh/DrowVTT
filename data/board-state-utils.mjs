@@ -33,6 +33,37 @@ function normalizeTokenSnapshot(token = {}) {
   };
 }
 
+function normalizeBlockingEdgeKey(edge) {
+  if (!edge) return null;
+  if (typeof edge === 'string') {
+    const trimmed = edge.trim();
+    const match = trimmed.match(/^(h|horizontal|v|vertical):(-?\d+),(-?\d+)$/i);
+    if (!match) return null;
+    const orientation = match[1].toLowerCase().startsWith('h') ? 'h' : 'v';
+    return `${orientation}:${Number(match[2])},${Number(match[3])}`;
+  }
+  const orientationValue = String(edge.orientation ?? edge.o ?? '').toLowerCase();
+  const orientation = orientationValue.startsWith('h')
+    ? 'h'
+    : orientationValue.startsWith('v') ? 'v' : '';
+  const x = Number(edge.x);
+  const y = Number(edge.y);
+  if (!orientation || !Number.isInteger(x) || !Number.isInteger(y)) return null;
+  return `${orientation}:${x},${y}`;
+}
+
+function normalizeBlockingEdgeKeys(edges = []) {
+  const values = Array.isArray(edges) ? edges : [...(edges instanceof Set ? edges : [])];
+  return [...new Set(values.map(normalizeBlockingEdgeKey).filter(Boolean))].sort((left, right) => {
+    const [leftOrientation, leftCoords] = left.split(':');
+    const [rightOrientation, rightCoords] = right.split(':');
+    if (leftOrientation !== rightOrientation) return leftOrientation.localeCompare(rightOrientation);
+    const [leftX, leftY] = leftCoords.split(',').map(Number);
+    const [rightX, rightY] = rightCoords.split(',').map(Number);
+    return leftX - rightX || leftY - rightY;
+  });
+}
+
 export function createBoardSnapshot(state, options = {}) {
   return {
     version: BOARD_STATE_VERSION,
@@ -54,6 +85,9 @@ export function createBoardSnapshot(state, options = {}) {
         scale: clampNumber(state?.map?.scale, 1),
         rot: clampNumber(state?.map?.rot, 0),
         opacity: clampNumber(state?.map?.opacity, 1)
+      },
+      blockingEdges: {
+        edgeKeys: normalizeBlockingEdgeKeys(state?.blockingEdges?.edgeKeys || state?.blockingEdges || [])
       },
       tokens: Array.isArray(state?.tokens) ? state.tokens.map(normalizeTokenSnapshot) : [],
       selectedTokenId: state?.selectedTokenId ? String(state.selectedTokenId) : null,
@@ -93,6 +127,9 @@ export function parseBoardSnapshot(snapshot) {
         scale: clampNumber(state?.map?.scale, 1),
         rot: clampNumber(state?.map?.rot, 0),
         opacity: clampNumber(state?.map?.opacity, 1)
+      },
+      blockingEdges: {
+        edgeKeys: normalizeBlockingEdgeKeys(state?.blockingEdges?.edgeKeys || state?.blockingEdges || [])
       },
       tokens: Array.isArray(state.tokens) ? state.tokens.map(normalizeTokenSnapshot) : [],
       selectedTokenId: state?.selectedTokenId ? String(state.selectedTokenId) : null,

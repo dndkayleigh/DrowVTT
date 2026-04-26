@@ -1,0 +1,10 @@
+{
+  "name": "@drowvtt/tactical-ai-devtools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Replay and benchmark helpers for DrowVTT tactical controllers.",
+  "exports": {
+    ".": "./src/index.js"
+  }
+}

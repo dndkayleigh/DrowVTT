@@ -587,6 +587,13 @@ import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/d
 import { buildDefaultSlotName, normalizeSlotName } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
 import {
+  createControllerRegistry,
+  getController,
+  tacticalOutputToVttPlan,
+  validateEncounterState
+} from '/packages/tactical-ai-core/src/index.js';
+import { normalizeMonsterProfile } from '/packages/tactical-ai-content/src/index.js';
+import {
   computeCanvasContextMenuTarget,
   computeCanvasMouseDownIntent,
   computeAiGroupAssignment,
@@ -599,7 +606,11 @@ import {
   buildTurnDropdownState,
   buildTurnEditorState,
   buildTokenSelectionNote,
+  findBlockedLineCrossing,
   moveTokenToCell as moveTokenToCellState,
+  normalizeBlockingEdgeKeys,
+  parseAttackProfiles,
+  parseBlockingEdgeKey,
   resolveDragComplete,
   validateTokenMove as validateTokenMoveState
 } from '/packages/vtt-ui-shared/src/index.js';
@@ -632,6 +643,7 @@ import {
     snapMode: 'center',
     view: { zoom: 1, panX: 0, panY: 0 },
     map: { img: null, src: '', w: 0, h: 0, offX: 0, offY: 0, scale: 1, rot: 0, opacity: 1 },
+    blockingEdges: { edgeKeys: [], mode: 'off', paint: null },
 
     tokens: [],
     selectedTokenId: null,
@@ -656,7 +668,7 @@ import {
     aiControls: 'Monsters',
     round: 1,
     log: [],
-    aiOverlay: { paths: [], summary: '' },
+    aiOverlay: { paths: [], sightLines: [], summary: '' },
     mobileGroupSelectMode: false,
     mobileCanvasMode: 'navigate',
     touchGesture: null,
@@ -712,6 +724,10 @@ import {
   const calibrationGridSizeInput = document.getElementById('calibrationGridSize');
   const horizontalNudgePxInput = document.getElementById('horizontalNudgePx');
   const verticalNudgePxInput = document.getElementById('verticalNudgePx');
+  const blockingDrawButton = document.getElementById('blockingDrawBtn');
+  const blockingEraseButton = document.getElementById('blockingEraseBtn');
+  const blockingClearButton = document.getElementById('blockingClearBtn');
+  const blockingCountEl = document.getElementById('blockingCount');
   const boardStatusBar = document.getElementById('boardStatusBar');
   const showBoardStatusCheckbox = document.getElementById('showBoardStatus');
   const mobileCanvasToolbar = document.getElementById('mobileCanvasToolbar');
@@ -728,6 +744,7 @@ import {
 
   const SRD_MONSTERS = Array.isArray(window.SRD_MONSTERS) ? window.SRD_MONSTERS : [];
   const SRD_MONSTERS_BY_NAME = new Map(SRD_MONSTERS.map((monster) => [monster.name.toLowerCase(), monster]));
+  const tacticalControllerRegistry = createControllerRegistry();
   let autosaveTimer = null;
   let autosaveSuppressed = false;
   const assetStorage = createLocalAssetStorageAdapter();
@@ -979,6 +996,117 @@ import {
     };
   }
 
+  function getBlockingEdgeKeys() {
+    return normalizeBlockingEdgeKeys(state.blockingEdges?.edgeKeys || []);
+  }
+
+  function setBlockingEdgeKeys(edgeKeys = []) {
+    state.blockingEdges.edgeKeys = normalizeBlockingEdgeKeys(edgeKeys);
+  }
+
+  function blockingEdgeSet() {
+    return new Set(getBlockingEdgeKeys());
+  }
+
+  function shouldAllowBlockingEdgeEditing() {
+    return state.blockingEdges?.mode === 'draw' || state.blockingEdges?.mode === 'erase';
+  }
+
+  function blockingEdgeFromWorldPoint(worldPoint) {
+    if (!worldPoint) return null;
+    const cellSize = state.gridSize;
+    const threshold = Math.max(8, 12 / Math.max(0.2, state.view.zoom));
+    const gridX = Math.round(worldPoint.x / cellSize);
+    const gridY = Math.round(worldPoint.y / cellSize);
+    const verticalDistance = Math.abs(worldPoint.x - (gridX * cellSize));
+    const horizontalDistance = Math.abs(worldPoint.y - (gridY * cellSize));
+    if (Math.min(verticalDistance, horizontalDistance) > threshold) return null;
+
+    if (verticalDistance <= horizontalDistance) {
+      return normalizeBlockingEdgeKeys([{
+        orientation: 'vertical',
+        x: gridX,
+        y: Math.floor(worldPoint.y / cellSize)
+      }])[0] || null;
+    }
+    return normalizeBlockingEdgeKeys([{
+      orientation: 'horizontal',
+      x: Math.floor(worldPoint.x / cellSize),
+      y: gridY
+    }])[0] || null;
+  }
+
+  function applyBlockingEdgePaint(edgeKey) {
+    const normalized = normalizeBlockingEdgeKeys([edgeKey])[0] || '';
+    if (!normalized || !shouldAllowBlockingEdgeEditing()) return false;
+    if (state.blockingEdges.paint?.lastEdgeKey === normalized) return false;
+    const edges = blockingEdgeSet();
+    const shouldBlock = state.blockingEdges.mode === 'draw';
+    const changed = shouldBlock ? !edges.has(normalized) : edges.has(normalized);
+    if (shouldBlock) edges.add(normalized);
+    else edges.delete(normalized);
+    state.blockingEdges.edgeKeys = normalizeBlockingEdgeKeys([...edges]);
+    state.blockingEdges.paint = {
+      lastEdgeKey: normalized,
+      changed: !!(state.blockingEdges.paint?.changed || changed)
+    };
+    return changed;
+  }
+
+  function startBlockingEdgePaint(worldPoint) {
+    const edgeKey = blockingEdgeFromWorldPoint(worldPoint);
+    if (!edgeKey) return false;
+    state.blockingEdges.paint = { lastEdgeKey: '', changed: false };
+    applyBlockingEdgePaint(edgeKey);
+    draw();
+    renderBlockingControls();
+    return true;
+  }
+
+  function continueBlockingEdgePaint(worldPoint) {
+    if (!state.blockingEdges.paint) return;
+    const edgeKey = blockingEdgeFromWorldPoint(worldPoint);
+    if (!edgeKey) return;
+    if (applyBlockingEdgePaint(edgeKey)) {
+      draw();
+      renderBlockingControls();
+    }
+  }
+
+  function finishBlockingEdgePaint() {
+    const changed = !!state.blockingEdges.paint?.changed;
+    state.blockingEdges.paint = null;
+    draw();
+    renderBlockingControls();
+    if (changed) refreshExport();
+  }
+
+  function replaceBlockingEdges(edgeKeys = []) {
+    setBlockingEdgeKeys(edgeKeys);
+    state.blockingEdges.paint = null;
+    draw();
+    refreshExport();
+    renderBlockingControls();
+  }
+
+  function renderBlockingControls() {
+    if (blockingDrawButton) {
+      blockingDrawButton.classList.toggle('primary', state.blockingEdges.mode === 'draw');
+      blockingDrawButton.setAttribute('aria-pressed', state.blockingEdges.mode === 'draw' ? 'true' : 'false');
+    }
+    if (blockingEraseButton) {
+      blockingEraseButton.classList.toggle('primary', state.blockingEdges.mode === 'erase');
+      blockingEraseButton.setAttribute('aria-pressed', state.blockingEdges.mode === 'erase' ? 'true' : 'false');
+    }
+    if (blockingClearButton) {
+      blockingClearButton.disabled = getBlockingEdgeKeys().length === 0;
+    }
+    if (blockingCountEl) {
+      const count = getBlockingEdgeKeys().length;
+      blockingCountEl.textContent = count === 1 ? '1 blocking edge' : `${count} blocking edges`;
+    }
+  }
+
   function finishDraggedToken(token) {
     if (!token) return;
     const targetCell = gridCoords(token);
@@ -1077,6 +1205,7 @@ import {
     state.suppressAIDrawerToggle = false;
     state.dragOffset = { x: 0, y: 0 };
     state.dragOriginCell = null;
+    state.blockingEdges.paint = null;
     state.contextMenuTokenId = null;
     state.tokenArtEditor = null;
     clearAiPaths();
@@ -1430,6 +1559,11 @@ import {
     state.map.scale = next.map.scale;
     state.map.rot = next.map.rot;
     state.map.opacity = next.map.opacity;
+    state.blockingEdges = {
+      edgeKeys: normalizeBlockingEdgeKeys(next.blockingEdges?.edgeKeys || next.blockingEdges || []),
+      mode: 'off',
+      paint: null
+    };
     state.tokens = next.tokens.map((token) => ({
       ...token,
       art: normalizeTokenArt(token.art)
@@ -1451,8 +1585,10 @@ import {
     document.getElementById('mapScale').value = String(state.map.scale);
     document.getElementById('mapRotDeg').value = String((state.map.rot * 180) / Math.PI);
     document.getElementById('mapOpacity').value = String(state.map.opacity);
-    document.getElementById('aiControls').value = state.aiControls;
-    document.getElementById('roundNum').value = String(state.round);
+    const aiControlsEl = document.getElementById('aiControls');
+    if (aiControlsEl) aiControlsEl.value = state.aiControls;
+    const roundNumEl = document.getElementById('roundNum');
+    if (roundNumEl) roundNumEl.value = String(state.round);
     stopCalibration();
     updateCalibrationNote();
 
@@ -1466,6 +1602,7 @@ import {
     state.aiGroupTokenIds = getAiGroupTokenIds();
 
     draw();
+    renderBlockingControls();
     renderTokenList();
     syncTurnDropdown();
     loadCurrentTurnTokenToEditor();
@@ -1717,6 +1854,136 @@ import {
     return Math.max(1, Math.ceil(feet / 5));
   }
 
+  function resolveAttackProfileForAction(actor, action = {}) {
+    const explicitKind = action?.attack_kind == null ? '' : String(action.attack_kind).toLowerCase();
+    const explicitRange = Number(action?.range_ft);
+    const details = String(action?.details ?? '').toLowerCase();
+    const profiles = parseAttackProfiles(actor?.statblock || '');
+    const namedProfile = profiles.find((profile) => {
+      const name = String(profile.name || '').toLowerCase();
+      return name && details.includes(name);
+    });
+    const inferredProfile = namedProfile || profiles.find((profile) =>
+      Number.isFinite(explicitRange)
+        && Number(profile.rangeFt) === explicitRange
+        && (!explicitKind || String(profile.attackKind).toLowerCase() === explicitKind)
+    );
+    const kind = explicitKind === 'melee' || explicitKind === 'ranged'
+      ? explicitKind
+      : inferredProfile?.attackKind || '';
+    const rangeFt = Number.isFinite(explicitRange) && explicitRange > 0
+      ? explicitRange
+      : Number(inferredProfile?.rangeFt);
+    return {
+      attackKind: kind,
+      rangeFt,
+      profile: inferredProfile || null
+    };
+  }
+
+  function tokenAimPoint(token, fromCell = null) {
+    const cell = fromCell || gridCoords(token);
+    const size = normalizeSizeCells(token?.sizeCells);
+    return {
+      x: cell.x + (size / 2),
+      y: cell.y + (size / 2)
+    };
+  }
+
+  function blockingEdgesForEncounter() {
+    return getBlockingEdgeKeys().map((edgeKey) => {
+      const edge = parseBlockingEdgeKey(edgeKey);
+      if (!edge) return null;
+      return {
+        id: edge.key,
+        orientation: edge.orientation,
+        x: edge.x,
+        y: edge.y,
+        blocksMovement: true,
+        blocksLineOfSight: true,
+        semantics: {
+          climbable: false,
+          jumpable: false,
+          oneWay: null,
+          breakable: false,
+          door: false
+        }
+      };
+    }).filter(Boolean);
+  }
+
+  function actorSideFromToken(token) {
+    return token?.type === 'Monster' ? 'monsters' : token?.type === 'NPC' ? 'neutral' : 'heroes';
+  }
+
+  function attacksForToken(token) {
+    const parsed = parseAttackProfiles(token?.statblock || '').map((profile) => ({
+      name: profile.name,
+      attackKind: profile.attackKind,
+      rangeFt: profile.rangeFt,
+      expectedDamage: profile.attackKind === 'ranged' ? 5 : 6,
+      tags: []
+    }));
+    if (parsed.length) return parsed;
+    return normalizeMonsterProfile({
+      id: token?.id,
+      name: token?.name,
+      speed: token?.speed,
+      ac: token?.ac,
+      statblock: token?.statblock
+    }).attacks;
+  }
+
+  function buildEncounterStateFromBoard() {
+    const mapWidthCells = state.map.w && state.map.scale
+      ? Math.ceil((state.map.offX + (state.map.w * state.map.scale)) / state.gridSize)
+      : 0;
+    const mapHeightCells = state.map.h && state.map.scale
+      ? Math.ceil((state.map.offY + (state.map.h * state.map.scale)) / state.gridSize)
+      : 0;
+    const actors = state.tokens.map((token) => ({
+      id: token.id,
+      name: token.name,
+      side: actorSideFromToken(token),
+      kind: token.type,
+      cell: gridCoords(token),
+      sizeCells: normalizeSizeCells(token.sizeCells),
+      ac: token.ac,
+      hp: token.hp,
+      speed: token.speed,
+      attacks: attacksForToken(token),
+      traits: [],
+      tags: [],
+      statblock: token.statblock,
+      provenance: {}
+    }));
+    return {
+      id: 'oss-board',
+      round: state.round,
+      activeActorId: state.currentTurnTokenId,
+      activationGroups: [{
+        id: 'current-selection',
+        actorIds: getAiGroupTokenIds().length ? getAiGroupTokenIds() : [state.currentTurnTokenId].filter(Boolean),
+        activationMode: getSelectedAiStrategy()?.id === 'group_tactical' ? 'coordinated_sequential' : 'independent'
+      }],
+      objectives: [],
+      actors,
+      battlefield: {
+        gridSize: state.gridSize,
+        width: mapWidthCells,
+        height: mapHeightCells,
+        tiles: [],
+        edges: blockingEdgesForEncounter(),
+        interactables: []
+      },
+      metadata: {
+        source: 'oss-vtt',
+        aiControls: state.aiControls,
+        selectedTokenIds: [...state.selectedTokenIds]
+      }
+    };
+  }
+
   function pathCellsBetween(fromCell, toCell) {
     const steps = [];
     let x = fromCell.x;
@@ -1742,7 +2009,7 @@ import {
       gridCoords,
       chebyshevDistanceCells,
       cellsOccupiedAt
-    }, options);
+    }, { ...options, blockingEdges: getBlockingEdgeKeys() });
   }
 
   function moveTokenToCell(token, cell, options = {}) {
@@ -1763,8 +2030,6 @@ import {
     const tokenName = (a?.token ?? "").toString();
     const type = (a?.type ?? "other").toString().toLowerCase();
     const targetName = a?.target == null ? null : String(a.target);
-    const attackKind = a?.attack_kind == null ? null : String(a.attack_kind).toLowerCase();
-    const rangeFt = a?.range_ft == null ? null : Number(a.range_ft);
     if (!tokenName) return { ok: false, reason: 'Action ignored: missing token name.' };
 
     const actor = state.tokens.find((token) => token.name === tokenName);
@@ -1778,6 +2043,7 @@ import {
 
     const target = state.tokens.find((token) => token.name === targetName);
     if (!target) return { ok: false, reason: `${tokenName} attack ignored: target not found (${targetName}).` };
+    const { attackKind, rangeFt } = resolveAttackProfileForAction(actor, a);
     if (attackKind === 'melee') {
       const maxCells = attackRangeCells(rangeFt ?? 5);
       const actualCells = minTokenDistanceCells(actor, target);
@@ -1788,9 +2054,21 @@ import {
           reason: `${tokenName} cannot make a melee attack on ${targetName} from ${actualCells * 5} ft away; range ${shownFeet} ft requires ${maxCells === 1 ? 'adjacent spaces' : `within ${maxCells} cells`}.`
         };
       }
+    } else if (attackKind === 'ranged') {
+      const blockedLine = findBlockedLineCrossing({
+        fromPoint: tokenAimPoint(actor),
+        toPoint: tokenAimPoint(target),
+        blockingEdges: getBlockingEdgeKeys()
+      });
+      if (blockedLine) {
+        return {
+          ok: false,
+          reason: `${tokenName} cannot make a ranged attack on ${targetName}; a blocking edge blocks line of fire.`
+        };
+      }
     }
 
-    return { ok: true, actor, target };
+    return { ok: true, actor, target, attackKind, rangeFt };
   }
 
   function parseGridCellTuple(value) {
@@ -1818,11 +2096,17 @@ import {
 
   function clearAiPaths() {
     state.aiOverlay.paths = [];
+    state.aiOverlay.sightLines = [];
   }
 
   function clearAiPathForToken(tokenId) {
-    if (!tokenId || !Array.isArray(state.aiOverlay.paths) || !state.aiOverlay.paths.length) return;
-    state.aiOverlay.paths = state.aiOverlay.paths.filter((overlay) => overlay?.tokenId !== tokenId);
+    if (!tokenId) return;
+    if (Array.isArray(state.aiOverlay.paths)) {
+      state.aiOverlay.paths = state.aiOverlay.paths.filter((overlay) => overlay?.tokenId !== tokenId);
+    }
+    if (Array.isArray(state.aiOverlay.sightLines)) {
+      state.aiOverlay.sightLines = state.aiOverlay.sightLines.filter((overlay) => overlay?.tokenId !== tokenId);
+    }
   }
 
   function getPathLabelPoint(points) {
@@ -2022,6 +2306,34 @@ import {
     ctx.restore();
   }
 
+  function drawBlockingEdges() {
+    const edgeKeys = getBlockingEdgeKeys();
+    if (!edgeKeys.length) return;
+    const cellSize = state.gridSize;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(3, 4 * state.view.zoom);
+    ctx.strokeStyle = 'rgba(255, 112, 91, 0.94)';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+    ctx.shadowBlur = 4;
+
+    for (const edgeKey of edgeKeys) {
+      const edge = parseBlockingEdgeKey(edgeKey);
+      if (!edge) continue;
+      const start = worldToScreen(edge.x * cellSize, edge.y * cellSize);
+      const end = edge.orientation === 'v'
+        ? worldToScreen(edge.x * cellSize, (edge.y + 1) * cellSize)
+        : worldToScreen((edge.x + 1) * cellSize, edge.y * cellSize);
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
   function drawTokens() {
     const { zoom } = state.view;
     const selectedIds = new Set(state.selectedTokenIds);
@@ -2118,9 +2430,8 @@ import {
   }
 
   function drawAiPaths() {
-    if (!Array.isArray(state.aiOverlay.paths) || !state.aiOverlay.paths.length) return;
     const zoom = state.view.zoom;
-    for (const overlay of state.aiOverlay.paths) {
+    for (const overlay of Array.isArray(state.aiOverlay.paths) ? state.aiOverlay.paths : []) {
       if (!Array.isArray(overlay.cells) || overlay.cells.length < 2) continue;
       const points = overlay.cells.map((cell) => {
         const anchor = centerFromGridCell(cell.x, cell.y, overlay.sizeCells || 1);
@@ -2175,6 +2486,46 @@ import {
       }
       ctx.restore();
     }
+
+    for (const overlay of Array.isArray(state.aiOverlay.sightLines) ? state.aiOverlay.sightLines : []) {
+      if (!overlay?.from || !overlay?.to) continue;
+      const start = worldToScreen(overlay.from.x, overlay.from.y);
+      const end = worldToScreen(overlay.to.x, overlay.to.y);
+      const color = overlay.color || '#ffd166';
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1.5, Math.min(4, zoom * 2.5));
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.88;
+      ctx.setLineDash([10, 7]);
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.95;
+      ctx.beginPath();
+      ctx.arc(start.x, start.y, Math.max(3, zoom * 3), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(end.x, end.y, Math.max(4, zoom * 4), 0, Math.PI * 2);
+      ctx.fill();
+      if (overlay.label) {
+        const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+        ctx.font = `${Math.max(10, 11 * zoom)}px ui-sans-serif, system-ui`;
+        const textWidth = ctx.measureText(overlay.label).width;
+        ctx.globalAlpha = 0.82;
+        ctx.fillStyle = 'rgba(8,12,22,0.84)';
+        ctx.fillRect(mid.x - textWidth / 2 - 7, mid.y - 20, textWidth + 14, 18);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(overlay.label, mid.x, mid.y - 11);
+      }
+      ctx.restore();
+    }
   }
 
   function updatePills() {
@@ -2195,10 +2546,12 @@ import {
     clear();
     drawMap();
     drawGrid();
+    drawBlockingEdges();
     drawAiPaths();
     drawTokens();
     drawCalibrationOverlay();
     updatePills();
+    canvas.style.cursor = shouldAllowBlockingEdgeEditing() ? 'crosshair' : '';
     scheduleAutosave();
   }
 
@@ -2424,6 +2777,24 @@ import {
   document.getElementById('dragModeBtn').addEventListener('click', () => {
     state.dragMode = (state.dragMode === 'tokens') ? 'map' : 'tokens';
     document.getElementById('dragModeBtn').textContent = `Drag: ${state.dragMode === 'tokens' ? 'Tokens' : 'Map'}`;
+  });
+
+  blockingDrawButton?.addEventListener('click', () => {
+    state.blockingEdges.mode = state.blockingEdges.mode === 'draw' ? 'off' : 'draw';
+    state.blockingEdges.paint = null;
+    renderBlockingControls();
+    draw();
+  });
+
+  blockingEraseButton?.addEventListener('click', () => {
+    state.blockingEdges.mode = state.blockingEdges.mode === 'erase' ? 'off' : 'erase';
+    state.blockingEdges.paint = null;
+    renderBlockingControls();
+    draw();
+  });
+
+  blockingClearButton?.addEventListener('click', () => {
+    replaceBlockingEdges([]);
   });
 
   function nudgeWorldAmount() {
@@ -2681,9 +3052,9 @@ import {
   }
 
   // ---------- Turn controls ----------
-  document.getElementById('aiControls').addEventListener('change', () => {
+  document.getElementById('aiControls')?.addEventListener('change', () => {
     const next = computeAiControlsState(state.tokens, {
-      nextAiControls: document.getElementById('aiControls').value,
+      nextAiControls: document.getElementById('aiControls')?.value || state.aiControls,
       strategyId: getSelectedAiStrategyId(),
       currentTurnTokenId: state.currentTurnTokenId,
       selectedTokenIds: state.selectedTokenIds,
@@ -2702,13 +3073,13 @@ import {
     renderTokenList();
     refreshExport();
   });
-  document.getElementById('roundNum').addEventListener('input', () => {
-    state.round = Number(document.getElementById('roundNum').value) || 1;
+  document.getElementById('roundNum')?.addEventListener('input', () => {
+    state.round = Number(document.getElementById('roundNum')?.value) || 1;
     refreshExport();
   });
 
   const turnTokenSel = document.getElementById('turnToken');
-  turnTokenSel.addEventListener('change', () => setCurrentTurnTokenId(turnTokenSel.value || null));
+  turnTokenSel?.addEventListener('change', () => setCurrentTurnTokenId(turnTokenSel.value || null));
 
   function syncTurnDropdown() {
     const resolvedCurrentId = resolveAiCurrentTurnTokenId([
@@ -3047,6 +3418,8 @@ import {
 
   function describePacketVariant(variantId) {
     switch (variantId) {
+      case 'controller':
+        return 'the portable tactical controller contract';
       case 'full':
         return 'the full tactical packet';
       case 'full_moves5_attacks6':
@@ -3062,6 +3435,8 @@ import {
 
   function explainPacketVariant(variantId) {
     switch (variantId) {
+      case 'controller':
+        return 'This builds a standardized EncounterState locally and runs a hot-swappable controller without changing VTT action plumbing.';
       case 'full':
         return 'This includes the full board summary, occupied spaces, and the active creature\'s full statblock for maximum context.';
       case 'full_moves5_attacks6':
@@ -3084,13 +3459,20 @@ import {
       aiStrategyBadge.title = `${strategy.label}: ${strategy.description}`;
     }
     if (aiStrategyHint) {
-      aiStrategyHint.textContent =
-        `${strategy.description} Uses ${strategy.model} with ${describePacketVariant(strategy.packetVariant)}. ${explainPacketVariant(strategy.packetVariant)}`;
+      aiStrategyHint.textContent = strategy.controllerId
+        ? `${strategy.description} Runs locally with ${describePacketVariant(strategy.packetVariant)}. ${explainPacketVariant(strategy.packetVariant)}`
+        : `${strategy.description} Uses ${strategy.model} with ${describePacketVariant(strategy.packetVariant)}. ${explainPacketVariant(strategy.packetVariant)}`;
     }
   }
 
   function getAiProgressMessage(strategy) {
     switch (strategy?.id) {
+      case 'controller_human':
+        return 'Preparing the human-controller action contract...';
+      case 'controller_scripted':
+        return 'Running scripted tactical baseline locally...';
+      case 'controller_utility':
+        return 'Scoring legal tactical candidates locally...';
       case 'single_fast':
         return 'Running a quick single-monster turn...';
       case 'group_tactical':
@@ -3183,6 +3565,7 @@ import {
     const actions = Array.isArray(obj?.actions) ? obj.actions : [];
     const { source = 'AI' } = options;
     const nextPaths = [];
+    const nextSightLines = [];
 
     for (const m of moves) {
       const name = (m?.token ?? "").toString();
@@ -3226,8 +3609,38 @@ import {
       const details = (a?.details ?? "").toString();
       const rationale = conciseAiText(a?.rationale, 180);
       if (!token) continue;
+      const actionActor = state.tokens.find((entry) => entry.name === token);
+      const actionTargetName = target == null ? null : String(target);
+      const actionTarget = actionTargetName ? state.tokens.find((entry) => entry.name === actionTargetName) : null;
+      const actionProfile = actionActor ? resolveAttackProfileForAction(actionActor, a) : { attackKind: '' };
+      const isRangedAttack = type.toLowerCase() === 'attack' && actionProfile.attackKind === 'ranged';
+      if (isRangedAttack && actionActor && actionTarget) {
+        const from = tokenAimPoint(actionActor);
+        const to = tokenAimPoint(actionTarget);
+        nextSightLines.push({
+          tokenId: actionActor.id,
+          name: actionActor.name,
+          targetId: actionTarget.id,
+          targetName: actionTarget.name,
+          color: '#34d5ff',
+          from: centerFromGridCell(from.x - (normalizeSizeCells(actionActor.sizeCells) / 2), from.y - (normalizeSizeCells(actionActor.sizeCells) / 2), actionActor.sizeCells),
+          to: centerFromGridCell(to.x - (normalizeSizeCells(actionTarget.sizeCells) / 2), to.y - (normalizeSizeCells(actionTarget.sizeCells) / 2), actionTarget.sizeCells),
+          label: `${actionActor.name} ranged line`
+        });
+      }
       const validation = validateAction(a);
       if (!validation.ok) {
+        if (isRangedAttack && nextSightLines.length) {
+          const lastLine = nextSightLines[nextSightLines.length - 1];
+          if (lastLine?.tokenId === actionActor?.id && lastLine?.targetId === actionTarget?.id) {
+            lastLine.blocked = /blocking edge blocks line of fire/i.test(validation.reason);
+            lastLine.invalid = !lastLine.blocked;
+            lastLine.color = lastLine.blocked ? '#ff3f8f' : '#ffb703';
+            lastLine.label = lastLine.blocked
+              ? `${actionActor.name} blocked line`
+              : `${actionActor.name} rejected line`;
+          }
+        }
         pushLog(`Action ignored: ${validation.reason}`);
         continue;
       }
@@ -3238,6 +3651,7 @@ import {
     }
 
     state.aiOverlay.paths = nextPaths;
+    state.aiOverlay.sightLines = nextSightLines;
     setDecisionSummary(buildDecisionSummary(obj));
 
     if (obj?.end_turn) pushLog("End turn ✓");
@@ -3272,6 +3686,37 @@ import {
     const userContext = authAdapter.requireAuthenticatedUser();
     if (!authAdapter.canPerform('run_ai', { userContext })) {
       status.textContent = 'Run AI is not permitted for this user.';
+      return;
+    }
+    if (strategy?.controllerId) {
+      const t0 = nowMs();
+      status.textContent = getAiProgressMessage(strategy);
+      try {
+        const encounter = buildEncounterStateFromBoard();
+        const validation = validateEncounterState(encounter);
+        if (!validation.ok) throw new Error(validation.issues.join('; '));
+        const controller = getController(strategy.controllerId, tacticalControllerRegistry);
+        const output = await controller.chooseAction({
+          encounter: validation.encounter,
+          actorId: state.currentTurnTokenId,
+          candidateLimit: 24,
+          stance: 'opportunistic'
+        });
+        const aiObj = tacticalOutputToVttPlan(output);
+        document.getElementById('applyJson').value = JSON.stringify(aiObj, null, 2);
+        for (const entry of output.logs || []) {
+          pushLog(`Controller ${entry.controllerId}: ${entry.message}`);
+        }
+        if (autoApply && output.selectedCandidateId) {
+          applyAiObject(aiObj, { source: controller.label });
+        }
+        status.textContent = autoApply
+          ? `${controller.label} ✓ (auto) total ${Math.round(nowMs() - t0)}ms`
+          : `${controller.label} ✓ total ${Math.round(nowMs() - t0)}ms`;
+      } catch (err) {
+        status.textContent = `Controller failed: ${err.message || err}`;
+        pushLog(`Controller ${strategy.controllerId} failed: ${err.message || err}`);
+      }
       return;
     }
     if (!url) return;
@@ -3466,6 +3911,12 @@ import {
       return;
     }
 
+    if (e.button === 0 && shouldAllowBlockingEdgeEditing()) {
+      e.preventDefault();
+      startBlockingEdgePaint(world);
+      return;
+    }
+
     if (mouseIntent.type === 'toggle-selection') {
       toggleTokenSelection(mouseIntent.tokenId);
       draw();
@@ -3517,6 +3968,16 @@ import {
     const m = getTouchPos(touch);
     const world = screenToWorld(m.x, m.y);
     const hit = tokenHitTest(world.x, world.y);
+    if (shouldAllowBlockingEdgeEditing()) {
+      startBlockingEdgePaint(world);
+      state.touchGesture = {
+        kind: 'blocking-paint',
+        startMouse: m,
+        lastMouse: m,
+        moved: false
+      };
+      return;
+    }
     const gesture = {
       kind: state.mobileCanvasMode === 'move'
         ? (hit ? 'move-token' : 'tap-move')
@@ -3593,6 +4054,11 @@ import {
       return;
     }
 
+    if (state.touchGesture.kind === 'blocking-paint') {
+      continueBlockingEdgePaint(screenToWorld(m.x, m.y));
+      return;
+    }
+
     if (state.touchGesture.kind === 'move-token' && state.draggingToken) {
       const world = screenToWorld(m.x, m.y);
       const t = state.draggingToken;
@@ -3616,6 +4082,8 @@ import {
 
     if (gesture.kind === 'navigate' && !gesture.moved && gesture.tokenId && !gesture.menuOpened) {
       setCurrentTurnTokenId(gesture.tokenId);
+    } else if (gesture.kind === 'blocking-paint') {
+      finishBlockingEdgePaint();
     } else if (gesture.kind === 'move-token' && state.draggingToken) {
       const t = state.draggingToken;
       state.draggingToken = null;
@@ -3634,6 +4102,7 @@ import {
     state.touchGesture = null;
     state.draggingToken = null;
     state.dragOriginCell = null;
+    state.blockingEdges.paint = null;
   }, { passive:false });
 
   window.addEventListener('mouseup', () => {
@@ -3648,6 +4117,7 @@ import {
     }
     if (state.draggingMap) { state.draggingMap = false; draw(); }
     if (state.draggingPan) { state.draggingPan = false; canvas.classList.remove('dragging'); draw(); }
+    if (state.blockingEdges.paint) finishBlockingEdgePaint();
   });
 
   window.addEventListener('mousemove', (e) => {
@@ -3673,6 +4143,11 @@ import {
         updateTokenArtInputsFromDraft();
         renderArtEditorPreview();
       }
+      return;
+    }
+
+    if (state.blockingEdges.paint) {
+      continueBlockingEdgePaint(calibrationCursor);
       return;
     }
 
@@ -3768,6 +4243,7 @@ import {
   setAutosaveEnabled(boardPersistence.getAutosaveEnabled());
   syncAutosaveUiFromStorage();
   updateCalibrationNote();
+  renderBlockingControls();
 
   setTimeout(resizeCanvasToCSS, 0);
 
@@ -3781,10 +4257,40 @@ import {
     getAutosaves: () => loadAutosaveHistoryFromStorage().map((entry) => ({ id: entry.id, savedAt: entry.savedAt })),
     getAutosaveSnapshot: async (entryId) => await boardPersistence.loadAutosaveSnapshot(entryId),
     getSaveSlots: () => loadSaveSlotsFromStorage().map((slot) => ({ id: slot.id, name: slot.name, savedAt: slot.savedAt })),
-    getSaveSlotSnapshot: async (slotId) => await boardPersistence.loadSaveSlotSnapshot(slotId),
-    getSessionEvents: () => sessionSync.getPublishedEvents(),
-    getUsageEvents: () => usageTracking.getUsageEvents(),
-    getTokenInteractionPoint: (tokenId) => {
+	    getSaveSlotSnapshot: async (slotId) => await boardPersistence.loadSaveSlotSnapshot(slotId),
+	    getSessionEvents: () => sessionSync.getPublishedEvents(),
+	    getUsageEvents: () => usageTracking.getUsageEvents(),
+	    getBlockingEdges: () => getBlockingEdgeKeys(),
+	    setBlockingEdges: (edgeKeys) => replaceBlockingEdges(edgeKeys),
+	    getScreenPointForWorld: (x, y) => worldToScreen(Number(x) || 0, Number(y) || 0),
+	    getAiControls: () => state.aiControls,
+	    setAiControls: (value) => {
+	      const next = computeAiControlsState(state.tokens, {
+	        nextAiControls: value,
+	        strategyId: getSelectedAiStrategyId(),
+	        currentTurnTokenId: state.currentTurnTokenId,
+	        selectedTokenIds: state.selectedTokenIds,
+	        aiGroupTokenIds: state.aiGroupTokenIds,
+	        getAiGroupTokenIds: getAiGroupTokenIdsState,
+	        getSelectedAiControlledIds: getSelectedAiControlledIdsState,
+	        resolveAiCurrentTurnTokenId: resolveAiCurrentTurnTokenIdState,
+	        setSelectedTokenIds: setSelectedTokenIdsState
+	      });
+	      state.aiControls = next.aiControls;
+	      state.aiGroupTokenIds = next.aiGroupTokenIds;
+	      state.selectedTokenIds = next.selectedTokenIds;
+	      state.selectedTokenId = next.selectedTokenId;
+	      state.currentTurnTokenId = next.currentTurnTokenId;
+	      syncTokenSelectionUi();
+	      renderTokenList();
+	      refreshExport();
+	    },
+	    getRound: () => state.round,
+	    setRound: (value) => {
+	      state.round = Number(value) || 1;
+	      refreshExport();
+	    },
+	    getTokenInteractionPoint: (tokenId) => {
       const token = state.tokens.find((entry) => entry.id === tokenId);
       if (!token) return null;
       const renderPoint = getTokenRenderWorldPoint(token);

@@ -1,3 +1,8 @@
+import {
+  findBlockedLineCrossing,
+  normalizeBlockingEdgeKeys
+} from './vtt-runtime-utils.js';
+
 function normalizeSizeCells(sizeCells) {
   return Math.max(1, Math.round(Number(sizeCells) || 1));
 }
@@ -81,6 +86,27 @@ export function maxMoveCellsForToken(token) {
 
 function serializeCell(cell) {
   return `${cell.x},${cell.y}`;
+}
+
+function getBlockingEdgeKeys(state) {
+  return normalizeBlockingEdgeKeys(state?.blockingEdges?.edgeKeys || state?.blockingEdges || []);
+}
+
+function tokenAimPoint(state, token, fromCellOverride = null) {
+  const cell = fromCellOverride || gridCoordsFromToken(state, token);
+  const size = normalizeSizeCells(token?.sizeCells);
+  return {
+    x: cell.x + (size / 2),
+    y: cell.y + (size / 2)
+  };
+}
+
+function hasBlockedRangedLine(state, attacker, target, fromCellOverride = null) {
+  return !!findBlockedLineCrossing({
+    fromPoint: tokenAimPoint(state, attacker, fromCellOverride),
+    toPoint: tokenAimPoint(state, target),
+    blockingEdges: getBlockingEdgeKeys(state)
+  });
 }
 
 function getOccupiedCellMap(state, movingToken) {
@@ -233,6 +259,7 @@ function buildMoveAttackSummary(state, token, cell, enemies, attackProfiles) {
       const requiredCells = attackRangeCells(profile.rangeFt);
       const actualCells = minTokenDistanceCells(state, token, enemy, cell);
       if (actualCells > requiredCells) continue;
+      if (profile.attackKind === 'ranged' && hasBlockedRangedLine(state, token, enemy, cell)) continue;
       attackOpportunityCount += 1;
       bestAttackDistance = Math.min(bestAttackDistance, actualCells);
       const currentBest = attackTargetDistances.get(enemy.name);
@@ -324,6 +351,7 @@ export function computeAttackOpportunities(state, token, moveCandidates, enemies
         const requiredCells = attackRangeCells(profile.rangeFt);
         const actualCells = minTokenDistanceCells(state, token, enemy, move);
         if (actualCells > requiredCells) continue;
+        if (profile.attackKind === 'ranged' && hasBlockedRangedLine(state, token, enemy, move)) continue;
         opportunities.push({
           attack: profile.name,
           attackKind: profile.attackKind,

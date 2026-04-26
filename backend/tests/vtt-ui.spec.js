@@ -193,8 +193,41 @@ async function setCurrentTurnToken(page, name) {
 
 async function setAiControls(page, value) {
   await openDetails(page, '#turnSection');
-  await page.locator('#aiControls').selectOption(value);
+  const control = page.locator('#aiControls');
+  if (await control.count()) {
+    await control.selectOption(value);
+  } else {
+    await page.evaluate((nextValue) => window.__VTT_DEBUG__.setAiControls(nextValue), value);
+  }
   await closeDrawer(page);
+}
+
+async function setRound(page, value) {
+  await openDetails(page, '#turnSection');
+  const control = page.locator('#roundNum');
+  if (await control.count()) {
+    await control.fill(String(value));
+  } else {
+    await page.evaluate((nextValue) => window.__VTT_DEBUG__.setRound(nextValue), value);
+  }
+}
+
+async function expectRound(page, value) {
+  const control = page.locator('#roundNum');
+  if (await control.count()) {
+    await expect(control).toHaveValue(String(value));
+    return;
+  }
+  await expect.poll(async () => page.evaluate(() => String(window.__VTT_DEBUG__.getRound()))).toBe(String(value));
+}
+
+async function expectAiControls(page, value) {
+  const control = page.locator('#aiControls');
+  if (await control.count()) {
+    await expect(control).toHaveValue(value);
+    return;
+  }
+  await expect.poll(async () => page.evaluate(() => window.__VTT_DEBUG__.getAiControls())).toBe(value);
 }
 
 async function uploadTestMap(page, { width = 256, height = 256 } = {}) {
@@ -362,7 +395,7 @@ test('map drawer owns board tools formerly in session', async ({ page }) => {
 test('AI section defaults to compact controls with autopilot on and no tab expanded', async ({ page }) => {
   await openDetails(page, '#aiSection');
   await expect(page.locator('#contextDrawerTitle')).toHaveText('Tactics Director');
-  await expect(page.getByRole('button', { name: 'Run AI' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run Tactics' })).toBeVisible();
   await expect(page.locator('#autoApplyAI')).toBeChecked();
   await expect(page.getByText('Autopilot')).toBeVisible();
 
@@ -754,7 +787,7 @@ test('AI drawer tabs open one panel at a time and clicking the active tab collap
   for (const tab of ['packet', 'settings', 'apply', 'log']) {
     await expect(page.locator(`[data-drawer-panel="${tab}"]`)).toBeHidden();
   }
-  await expect(page.getByRole('button', { name: 'Run AI' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run Tactics' })).toBeVisible();
   await expect(page.locator('#autoApplyAI')).toBeChecked();
 });
 
@@ -769,11 +802,11 @@ test('AI drawer persistent controls remain usable regardless of which tab is ope
   await expect(page.locator('#autoApplyAI')).toBeChecked();
 
   await openDrawerTab(page, 'apply');
-  await expect(page.getByRole('button', { name: 'Run AI' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run Tactics' })).toBeVisible();
   await expect(page.locator('#autoApplyAI')).toBeChecked();
 
   await openDrawerTab(page, 'log');
-  await expect(page.getByRole('button', { name: 'Run AI' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run Tactics' })).toBeVisible();
   await expect(page.locator('#autoApplyAI')).toBeChecked();
 });
 
@@ -788,6 +821,28 @@ test('AI drawer settings persist across tab changes', async ({ page }) => {
   await expect(page.locator('#aiStrategy')).toHaveValue('single_tactical');
   await expect(page.locator('#aiStrategyHint')).toContainText('gpt-5');
   await expect(page.locator('#aiStrategyHint')).toContainText('full');
+});
+
+test('local tactical controllers hot-swap through the same VTT apply contract', async ({ page }) => {
+  await addToken(page, { name: 'Goblin', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 0, cellY: 0 });
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Hero', cellX: 3, cellY: 0 });
+  await setAiControls(page, 'Both');
+  await setCurrentTurnToken(page, 'Goblin');
+
+  await openDrawerTab(page, 'settings');
+  await page.locator('#aiStrategy').selectOption('controller_utility');
+  await expect(page.locator('#aiStrategyHint')).toContainText('Runs locally');
+  await page.locator('#autoApplyAI').uncheck();
+  await page.getByRole('button', { name: 'Run Tactics' }).click();
+
+  await expect(page.locator('#sendStatus')).toContainText('Utility Baseline');
+  await openDrawerTab(page, 'apply');
+  const plan = await page.evaluate(() => JSON.parse(document.querySelector('#applyJson')?.value || '{}'));
+  expect(plan._controller.id).toBe('utility_baseline');
+  expect(Array.isArray(plan.moves)).toBe(true);
+  expect(Array.isArray(plan.actions)).toBe(true);
 });
 
 test('AI rail item opens the unified drawer instead of a floating draggable panel', async ({ page }) => {
@@ -1188,9 +1243,8 @@ test('named save slots restore a saved board and can be managed from the toolbar
   await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 4, cellY: 2 });
 
-  await openDetails(page, '#turnSection');
-  await page.locator('#roundNum').fill('3');
-  await page.locator('#aiControls').selectOption('PCs');
+  await setRound(page, '3');
+  await setAiControls(page, 'PCs');
   await openDetails(page, '#saveSection');
   await setHiddenInputValue(page, '#saveSlotName', 'Round 3 Start');
 
@@ -1203,9 +1257,8 @@ test('named save slots restore a saved board and can be managed from the toolbar
   await openDetails(page, '#tokensSection');
   await page.getByRole('button', { name: 'Clear all' }).click();
   await expect(page.locator('#tokenList .tokRow')).toHaveCount(0);
-  await openDetails(page, '#turnSection');
-  await page.locator('#roundNum').fill('1');
-  await page.locator('#aiControls').selectOption('Monsters');
+  await setRound(page, '1');
+  await setAiControls(page, 'Monsters');
   await openDetails(page, '#saveSection');
   await setHiddenInputValue(page, '#saveSlotName', 'Empty Board');
   await clickHiddenElement(page, '#saveSlotBtn');
@@ -1219,8 +1272,8 @@ test('named save slots restore a saved board and can be managed from the toolbar
   await expect(page.locator('#saveStateStatus')).toContainText('Round 3 Start');
   await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Hero' })).toHaveCount(1);
   await expectTokenCell(page, 'Hero', 4, 2);
-  await expect(page.locator('#roundNum')).toHaveValue('3');
-  await expect(page.locator('#aiControls')).toHaveValue('PCs');
+  await expectRound(page, '3');
+  await expectAiControls(page, 'PCs');
   await expect.poll(async () => (
     await page.evaluate(() => document.querySelector('#saveSlotName')?.value || '')
   )).toBe('Round 3 Start');
@@ -1243,8 +1296,7 @@ test('saving with a new slot name creates a new slot instead of overwriting anot
   await setHiddenInputValue(page, '#saveSlotName', 'Round 1');
   await clickHiddenElement(page, '#saveSlotBtn');
 
-  await openDetails(page, '#turnSection');
-  await page.locator('#roundNum').fill('2');
+  await setRound(page, '2');
   await openDetails(page, '#saveSection');
   await setHiddenInputValue(page, '#saveSlotName', 'Round 2');
   await clickHiddenElement(page, '#saveSlotBtn');
@@ -1258,8 +1310,7 @@ test('saving with a new slot name creates a new slot instead of overwriting anot
     await page.evaluate(() => document.querySelector('#saveSlotName')?.value || '')
   )).toBe('Round 1');
 
-  await openDetails(page, '#turnSection');
-  await page.locator('#roundNum').fill('3');
+  await setRound(page, '3');
   await openDetails(page, '#saveSection');
   await setHiddenInputValue(page, '#saveSlotName', 'Round 3');
   await clickHiddenElement(page, '#saveSlotBtn');
@@ -1310,8 +1361,7 @@ test('map-backed named saves can be created repeatedly and restored', async ({ p
   await addToken(page, { name: 'Ranger', size: 1, type: 'PC' });
 
   for (const [name, round] of [['Quick Save', '1'], ['Quick Save 3', '3'], ['Quick Save 10', '10']]) {
-    await openDetails(page, '#turnSection');
-    await page.locator('#roundNum').fill(round);
+    await setRound(page, round);
     await openDetails(page, '#saveSection');
     await setHiddenInputValue(page, '#saveSlotName', name);
     await clickHiddenElement(page, '#saveSlotBtn');
@@ -1332,8 +1382,7 @@ test('map-backed named saves can be created repeatedly and restored', async ({ p
 
   await openDetails(page, '#tokensSection');
   await expect(page.locator('#tokenList .tokRow').filter({ hasText: 'Ranger' })).toHaveCount(1);
-  await openDetails(page, '#turnSection');
-  await expect(page.locator('#roundNum')).toHaveValue('3');
+  await expectRound(page, '3');
   await openDetails(page, '#saveSection');
   await expect(page.locator('#saveStateStatus')).toContainText('Quick Save 3');
 });
@@ -1341,8 +1390,7 @@ test('map-backed named saves can be created repeatedly and restored', async ({ p
 test('board snapshots can be exported and imported as json files', async ({ page }) => {
   await addToken(page, { name: 'Mage', size: 1, type: 'PC' });
   await dragTokenToTopLeftCell(page, { size: 1, cellX: 6, cellY: 4 });
-  await openDetails(page, '#turnSection');
-  await page.locator('#roundNum').fill('5');
+  await setRound(page, '5');
   await openDetails(page, '#saveSection');
 
   const exported = await page.evaluate(() => JSON.stringify(window.__VTT_DEBUG__.getBoardSnapshot()));
@@ -1353,8 +1401,7 @@ test('board snapshots can be exported and imported as json files', async ({ page
 
   await openDetails(page, '#tokensSection');
   await page.getByRole('button', { name: 'Clear all' }).click();
-  await openDetails(page, '#turnSection');
-  await page.locator('#roundNum').fill('1');
+  await setRound(page, '1');
   await openDetails(page, '#saveSection');
   await page.locator('#importBoardFile').setInputFiles({
     name: 'restored-board.json',
@@ -1364,8 +1411,7 @@ test('board snapshots can be exported and imported as json files', async ({ page
 
   await openDetails(page, '#tokensSection');
   await expectTokenCell(page, 'Mage', 6, 4);
-  await openDetails(page, '#turnSection');
-  await expect(page.locator('#roundNum')).toHaveValue('5');
+  await expectRound(page, '5');
   await openDetails(page, '#saveSection');
   await expect(page.locator('#saveStateStatus')).toContainText('Imported JSON');
 });
@@ -1539,7 +1585,7 @@ test('backend auto-apply fills the response box and moves the current token', as
   await addToken(page, { name: 'Cleric', size: 1 });
   await openDetails(page, '#aiDrawer');
   await page.locator('#autoApplyAI').check();
-  await page.getByRole('button', { name: 'Run AI' }).click();
+  await page.getByRole('button', { name: 'Run Tactics' }).click();
 
   await expect(page.locator('#sendStatus')).toContainText('AI response');
   await expect(page.locator('#decisionSummary')).toContainText('Cleric falls back to a safer square');
@@ -1575,7 +1621,7 @@ test('backend failures are recorded in local usage tracking', async ({ page }) =
 
   await addToken(page, { name: 'Cleric', size: 1 });
   await openDetails(page, '#aiDrawer');
-  await page.getByRole('button', { name: 'Run AI' }).click();
+  await page.getByRole('button', { name: 'Run Tactics' }).click();
 
   await expect(page.locator('#sendStatus')).toContainText('Send failed');
   const usageEvents = await page.evaluate(() => window.__VTT_DEBUG__.getUsageEvents());
@@ -1702,6 +1748,131 @@ test('map controls update the map pill and drag mode label', async ({ page }) =>
   await expect(page.getByRole('button', { name: 'Drag: Map' })).toBeVisible();
   await expect(page.locator('#gridPill')).toContainText('72px');
   await expect(page.locator('#mapPill')).toContainText('off(48,24)');
+});
+
+test('blocking edge controls persist edges while allowing manual movement across them', async ({ page }) => {
+  await addToken(page, { name: 'Scout', size: 1, type: 'PC' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 0, cellY: 0 });
+
+  await openDetails(page, '#mapSection');
+  await expect(page.locator('#blockingDrawBtn')).toBeVisible();
+  await page.locator('#blockingDrawBtn').click();
+  await closeDrawer(page);
+  await clickStageWorld(page, 32, 64);
+
+  await expect.poll(async () => page.evaluate(() => window.__VTT_DEBUG__.getBlockingEdges())).toContain('h:0,1');
+
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  expect(snapshot.state.blockingEdges.edgeKeys).toContain('h:0,1');
+
+  await page.evaluate(() => window.__VTT_DEBUG__.setBlockingEdges([]));
+  await expect.poll(async () => page.evaluate(() => window.__VTT_DEBUG__.getBlockingEdges())).toEqual([]);
+  await page.evaluate((boardSnapshot) => window.__VTT_DEBUG__.importBoardSnapshotText(JSON.stringify(boardSnapshot)), snapshot);
+  await expect.poll(async () => page.evaluate(() => window.__VTT_DEBUG__.getBlockingEdges())).toContain('h:0,1');
+
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 0, cellY: 1 });
+
+  await expectTokenCell(page, 'Scout', 0, 1);
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).not.toContainText('blocking edge blocks the path');
+});
+
+test('blocking edges block ranged tactics attacks through line of fire', async ({ page }) => {
+  await addToken(page, { name: 'Archer', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 0, cellY: 0 });
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Hero', cellX: 0, cellY: 1 });
+
+  await openDetails(page, '#mapSection');
+  await page.locator('#blockingDrawBtn').click();
+  await closeDrawer(page);
+  await clickStageWorld(page, 32, 64);
+  await setAiControls(page, 'Both');
+  await setCurrentTurnToken(page, 'Archer');
+
+  await openDrawerTab(page, 'apply');
+  await page.locator('#applyJson').fill(JSON.stringify({
+    summary: 'Archer shoots through the wall.',
+    moves: [],
+    actions: [{ token: 'Archer', type: 'attack', target: 'Hero', details: 'Shortbow', rationale: 'Take the shot.', attack_kind: 'ranged', range_ft: 80 }],
+    end_turn: false
+  }));
+  await page.locator('#applyBtn').click();
+
+  const blockedOverlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
+  expect(blockedOverlay.sightLines).toHaveLength(1);
+  expect(blockedOverlay.sightLines[0]).toMatchObject({
+    name: 'Archer',
+    targetName: 'Hero',
+    blocked: true,
+    label: 'Archer blocked line',
+    color: '#ff3f8f'
+  });
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('blocking edge blocks line of fire');
+});
+
+test('ranged tactics attacks draw line-of-sight debug overlays', async ({ page }) => {
+  await addToken(page, { name: 'Archer', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 0, cellY: 0 });
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Hero', cellX: 2, cellY: 0 });
+  await setAiControls(page, 'Both');
+  await setCurrentTurnToken(page, 'Archer');
+
+  await openDrawerTab(page, 'apply');
+  await page.locator('#applyJson').fill(JSON.stringify({
+    summary: 'Archer takes a clean shot.',
+    moves: [],
+    actions: [{ token: 'Archer', type: 'attack', target: 'Hero', details: 'Shortbow', rationale: 'Clear line.', attack_kind: 'ranged', range_ft: 80 }],
+    end_turn: false
+  }));
+  await page.locator('#applyBtn').click();
+
+  const overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
+  expect(overlay.sightLines).toHaveLength(1);
+  expect(overlay.sightLines[0]).toMatchObject({
+    name: 'Archer',
+    targetName: 'Hero',
+    label: 'Archer ranged line',
+    color: '#34d5ff'
+  });
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('Action: Archer attack vs Hero');
+});
+
+test('ranged blocking is enforced when tactics omit attack kind but details match a ranged weapon', async ({ page }) => {
+  await addToken(page, { name: 'Goblin', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 0, cellY: 0 });
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Hero', cellX: 0, cellY: 1 });
+
+  await openDetails(page, '#mapSection');
+  await page.locator('#blockingDrawBtn').click();
+  await closeDrawer(page);
+  await clickStageWorld(page, 32, 64);
+  await setAiControls(page, 'Both');
+  await setCurrentTurnToken(page, 'Goblin');
+
+  await openDrawerTab(page, 'apply');
+  await page.locator('#applyJson').fill(JSON.stringify({
+    summary: 'Goblin fires without a structured attack kind.',
+    moves: [],
+    actions: [{ token: 'Goblin', type: 'attack', target: 'Hero', details: 'Shortbow', rationale: 'Shoot through cover.', attack_kind: null, range_ft: null }],
+    end_turn: false
+  }));
+  await page.locator('#applyBtn').click();
+
+  const overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
+  expect(overlay.sightLines).toHaveLength(1);
+  expect(overlay.sightLines[0]).toMatchObject({
+    name: 'Goblin',
+    targetName: 'Hero',
+    blocked: true,
+    color: '#ff3f8f'
+  });
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('blocking edge blocks line of fire');
 });
 
 test('calibration offset fields directly update map offsets and survive redraw', async ({ page }) => {

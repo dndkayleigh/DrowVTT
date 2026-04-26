@@ -59,6 +59,87 @@ test('evaluator rejects a melee attack made from out of range after movement', (
   assert.match(result.issues.join('\n'), /cannot make a melee attack/i);
 });
 
+test('evaluator rejects ranged attacks through blocking edges', () => {
+  const state = {
+    gridSize: 64,
+    snapMode: 'center',
+    currentTurnTokenId: 'archer',
+    blockingEdges: { edgeKeys: ['h:0,1'] },
+    tokens: [
+      {
+        id: 'archer',
+        name: 'Archer',
+        type: 'Monster',
+        sizeCells: 1,
+        x: 32,
+        y: 32,
+        speed: 30,
+        statblock: '- Shortbow: Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target.'
+      },
+      {
+        id: 'hero',
+        name: 'Hero',
+        type: 'PC',
+        sizeCells: 1,
+        x: 32,
+        y: 96,
+        speed: 30,
+        statblock: ''
+      }
+    ]
+  };
+  const result = evaluateAiTurnResponse(state, {
+    summary: 'The archer shoots through a blocked edge.',
+    moves: [],
+    actions: [{ token: 'Archer', type: 'attack', target: 'Hero', details: 'Shortbow', rationale: 'Clear shot.', attack_kind: 'ranged', range_ft: 80 }],
+    end_turn: true
+  });
+
+  assert.equal(result.actionsLegal, false);
+  assert.equal(result.legalTurn, false);
+  assert.match(result.issues.join('\n'), /blocking edge blocks line of fire/i);
+});
+
+test('evaluator infers ranged attacks from action details before blocking checks', () => {
+  const state = {
+    gridSize: 64,
+    snapMode: 'center',
+    currentTurnTokenId: 'goblin',
+    blockingEdges: { edgeKeys: ['h:0,1'] },
+    tokens: [
+      {
+        id: 'goblin',
+        name: 'Goblin',
+        type: 'Monster',
+        sizeCells: 1,
+        x: 32,
+        y: 32,
+        speed: 30,
+        statblock: 'Goblin\n- Shortbow: +4 to hit, range 80/320, 1d6+2 piercing'
+      },
+      {
+        id: 'hero',
+        name: 'Hero',
+        type: 'PC',
+        sizeCells: 1,
+        x: 32,
+        y: 96,
+        speed: 30,
+        statblock: ''
+      }
+    ]
+  };
+  const result = evaluateAiTurnResponse(state, {
+    summary: 'The goblin fires through a blocked edge.',
+    moves: [],
+    actions: [{ token: 'Goblin', type: 'attack', target: 'Hero', details: 'Shortbow', rationale: 'Shoot.', attack_kind: null, range_ft: null }],
+    end_turn: true
+  });
+
+  assert.equal(result.actionsLegal, false);
+  assert.match(result.issues.join('\n'), /blocking edge blocks line of fire/i);
+});
+
 test('compact candidate consistency catches destinations outside listed move candidates', () => {
   const result = evaluateAiTurnResponse(duelScenario.state, {
     summary: 'The goblin moves far away.',

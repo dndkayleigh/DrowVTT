@@ -148,6 +148,16 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
             </div>
           </div>
 
+          <div class="subcard">
+            <div class="subtleLabel">Blocking Edges</div>
+            <div class="mapToolbar">
+              <button id="blockingDrawBtn" type="button" aria-pressed="false">Draw blocking</button>
+              <button id="blockingEraseBtn" type="button" aria-pressed="false">Erase blocking</button>
+              <button id="blockingClearBtn" type="button" class="danger">Clear</button>
+            </div>
+            <div class="sectionNote" id="blockingCount">0 blocking edges</div>
+          </div>
+
           <div class="subcard nudgeCard" hidden>
             <div class="subtleLabel">Map Alignment</div>
             <div class="nudgeHeader">
@@ -353,6 +363,9 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
                 <option value="single_fast">Single (Fast)</option>
                 <option value="single_tactical">Single (Tactical)</option>
                 <option value="group_tactical">Group (Tactical)</option>
+                <option value="controller_human">Human Controller</option>
+                <option value="controller_scripted">Scripted Baseline</option>
+                <option value="controller_utility">Utility Baseline</option>
               </select>
               <div class="sectionNote" id="aiStrategyHint" style="margin-top:8px;"></div>
             </div>

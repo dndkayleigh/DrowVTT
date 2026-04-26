@@ -1,0 +1,10 @@
+{
+  "name": "@drowvtt/tactical-ai-advisors",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Optional LLM advisor interfaces for DrowVTT tactical controllers.",
+  "exports": {
+    ".": "./src/index.js"
+  }
+}

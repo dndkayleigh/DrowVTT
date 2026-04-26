@@ -431,6 +431,131 @@ export function pathCellsBetween(fromCell, toCell) {
   return steps;
 }
 
+export function normalizeBlockingEdgeKey(edge) {
+  if (typeof edge === 'string') {
+    const match = edge.trim().match(/^([vh]):(-?\d+),(-?\d+)$/i);
+    if (!match) return '';
+    return `${match[1].toLowerCase()}:${Number(match[2])},${Number(match[3])}`;
+  }
+
+  if (!edge || typeof edge !== 'object') return '';
+  const rawOrientation = String(edge.orientation || edge.axis || edge.type || '').trim().toLowerCase();
+  const orientation = rawOrientation === 'v' || rawOrientation === 'vertical'
+    ? 'v'
+    : (rawOrientation === 'h' || rawOrientation === 'horizontal' ? 'h' : '');
+  const x = Number(edge.x);
+  const y = Number(edge.y);
+  if (!orientation || !Number.isInteger(x) || !Number.isInteger(y)) return '';
+  return `${orientation}:${x},${y}`;
+}
+
+export function normalizeBlockingEdgeKeys(edges = []) {
+  const values = Array.isArray(edges) ? edges : [...(edges instanceof Set ? edges : [])];
+  return [...new Set(values.map(normalizeBlockingEdgeKey).filter(Boolean))].sort((left, right) => {
+    const [leftOrientation, leftCoords] = left.split(':');
+    const [rightOrientation, rightCoords] = right.split(':');
+    if (leftOrientation !== rightOrientation) return leftOrientation.localeCompare(rightOrientation);
+    const [leftX, leftY] = leftCoords.split(',').map(Number);
+    const [rightX, rightY] = rightCoords.split(',').map(Number);
+    return leftX - rightX || leftY - rightY;
+  });
+}
+
+export function parseBlockingEdgeKey(edgeKey) {
+  const normalized = normalizeBlockingEdgeKey(edgeKey);
+  if (!normalized) return null;
+  const [orientation, coords] = normalized.split(':');
+  const [x, y] = coords.split(',').map(Number);
+  return { orientation, x, y, key: normalized };
+}
+
+export function blockingEdgesBetweenCells(fromCell, toCell) {
+  if (!fromCell || !toCell) return [];
+  const fromX = Number(fromCell.x);
+  const fromY = Number(fromCell.y);
+  const toX = Number(toCell.x);
+  const toY = Number(toCell.y);
+  if (![fromX, fromY, toX, toY].every(Number.isInteger)) return [];
+
+  const dx = Math.sign(toX - fromX);
+  const dy = Math.sign(toY - fromY);
+  const edges = [];
+  if (dx !== 0) {
+    edges.push(`v:${Math.max(fromX, toX)},${fromY}`);
+    if (dy !== 0) edges.push(`v:${Math.max(fromX, toX)},${toY}`);
+  }
+  if (dy !== 0) {
+    edges.push(`h:${fromX},${Math.max(fromY, toY)}`);
+    if (dx !== 0) edges.push(`h:${toX},${Math.max(fromY, toY)}`);
+  }
+  return normalizeBlockingEdgeKeys(edges);
+}
+
+export function findBlockedEdgeCrossing({ fromCell, toCell, blockingEdges = [] } = {}) {
+  const blocked = new Set(normalizeBlockingEdgeKeys(blockingEdges));
+  if (!blocked.size) return null;
+
+  let previous = fromCell;
+  for (const step of pathCellsBetween(fromCell, toCell)) {
+    const crossed = blockingEdgesBetweenCells(previous, step);
+    const blockedKey = crossed.find((edgeKey) => blocked.has(edgeKey));
+    if (blockedKey) return { edgeKey: blockedKey, fromCell: previous, toCell: step };
+    previous = step;
+  }
+  return null;
+}
+
+function lineOrientation(a, b, c) {
+  const value = ((b.y - a.y) * (c.x - b.x)) - ((b.x - a.x) * (c.y - b.y));
+  if (Math.abs(value) < 1e-9) return 0;
+  return value > 0 ? 1 : 2;
+}
+
+function pointOnLineSegment(a, b, c) {
+  return b.x <= Math.max(a.x, c.x) + 1e-9
+    && b.x + 1e-9 >= Math.min(a.x, c.x)
+    && b.y <= Math.max(a.y, c.y) + 1e-9
+    && b.y + 1e-9 >= Math.min(a.y, c.y);
+}
+
+function lineSegmentsIntersect(a, b, c, d) {
+  const o1 = lineOrientation(a, b, c);
+  const o2 = lineOrientation(a, b, d);
+  const o3 = lineOrientation(c, d, a);
+  const o4 = lineOrientation(c, d, b);
+  if (o1 !== o2 && o3 !== o4) return true;
+  if (o1 === 0 && pointOnLineSegment(a, c, b)) return true;
+  if (o2 === 0 && pointOnLineSegment(a, d, b)) return true;
+  if (o3 === 0 && pointOnLineSegment(c, a, d)) return true;
+  if (o4 === 0 && pointOnLineSegment(c, b, d)) return true;
+  return false;
+}
+
+export function findBlockedLineCrossing({ fromPoint, toPoint, blockingEdges = [] } = {}) {
+  const start = {
+    x: Number(fromPoint?.x),
+    y: Number(fromPoint?.y)
+  };
+  const end = {
+    x: Number(toPoint?.x),
+    y: Number(toPoint?.y)
+  };
+  if (![start.x, start.y, end.x, end.y].every(Number.isFinite)) return null;
+
+  for (const edgeKey of normalizeBlockingEdgeKeys(blockingEdges)) {
+    const edge = parseBlockingEdgeKey(edgeKey);
+    if (!edge) continue;
+    const edgeStart = { x: edge.x, y: edge.y };
+    const edgeEnd = edge.orientation === 'v'
+      ? { x: edge.x, y: edge.y + 1 }
+      : { x: edge.x + 1, y: edge.y };
+    if (lineSegmentsIntersect(start, end, edgeStart, edgeEnd)) {
+      return { edgeKey, fromPoint: start, toPoint: end };
+    }
+  }
+  return null;
+}
+
 export function validateTokenMove(
   {
     token,
@@ -439,7 +564,8 @@ export function validateTokenMove(
     isTokenControlledThisTurn,
     gridCoords,
     chebyshevDistanceCells,
-    cellsOccupiedAt
+    cellsOccupiedAt,
+    blockingEdges = []
   },
   options = {}
 ) {
@@ -448,6 +574,22 @@ export function validateTokenMove(
   const fromCell = options.fromCell || gridCoords(token);
   if (manualOverride) {
     return { ok: true, fromCell, toCell, distanceCells: chebyshevDistanceCells(fromCell, toCell), source, manualOverride: true };
+  }
+  const blockedCrossing = findBlockedEdgeCrossing({
+    fromCell,
+    toCell,
+    blockingEdges: options.blockingEdges || blockingEdges
+  });
+  if (blockedCrossing) {
+    return {
+      ok: false,
+      reason: `${token.name} cannot move to (${toCell.x},${toCell.y}); a blocking edge blocks the path.`,
+      fromCell,
+      toCell,
+      blockedEdgeKey: blockedCrossing.edgeKey,
+      source,
+      manualOverride
+    };
   }
   if (!isTokenControlledThisTurn(token)) {
     return { ok: false, reason: `${token.name} cannot move because it is not the current turn token.` };

@@ -29,6 +29,30 @@ export const AI_TURN_STRATEGIES = [
     description: 'Lowest-latency speed mode for one monster taking a quick turn.',
     model: 'gpt-5.4-mini',
     packetVariant: 'compact_moves5'
+  },
+  {
+    id: 'controller_human',
+    label: 'Human Controller',
+    description: 'Uses the portable controller contract for manually selected or replayed human actions.',
+    model: 'none',
+    packetVariant: 'controller',
+    controllerId: 'human'
+  },
+  {
+    id: 'controller_scripted',
+    label: 'Scripted Baseline',
+    description: 'Runs a deterministic behavior-rule baseline locally with no LLM dependency.',
+    model: 'none',
+    packetVariant: 'controller',
+    controllerId: 'scripted_baseline'
+  },
+  {
+    id: 'controller_utility',
+    label: 'Utility Baseline',
+    description: 'Runs deterministic candidate scoring locally with line-of-sight and blocking-edge legality.',
+    model: 'none',
+    packetVariant: 'controller',
+    controllerId: 'utility_baseline'
   }
 ];
 
@@ -42,6 +66,15 @@ const AI_TURN_STRATEGY_ALIASES = new Map([
   ['single_tactical', 'single_tactical'],
   ['single-tactical', 'single_tactical'],
   ['tactical', 'single_tactical'],
+  ['human', 'controller_human'],
+  ['controller_human', 'controller_human'],
+  ['controller-human', 'controller_human'],
+  ['scripted', 'controller_scripted'],
+  ['controller_scripted', 'controller_scripted'],
+  ['controller-scripted', 'controller_scripted'],
+  ['utility', 'controller_utility'],
+  ['controller_utility', 'controller_utility'],
+  ['controller-utility', 'controller_utility'],
   ['group', 'group_tactical'],
   ['group_strategy', 'group_tactical'],
   ['group-strategy', 'group_tactical'],

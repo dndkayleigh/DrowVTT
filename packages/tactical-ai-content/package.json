@@ -1,0 +1,10 @@
+{
+  "name": "@drowvtt/tactical-ai-content",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Portable tactical AI content defaults for DrowVTT.",
+  "exports": {
+    ".": "./src/index.js"
+  }
+}
