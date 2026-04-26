@@ -289,6 +289,177 @@ Every mode ultimately feeds the same VTT apply contract: a summary, zero or more
 - It is not exposed as a normal OSS UI option because humans can already move tokens directly on the board.
 - Keeping it in the controller contract lets future replay/evaluation tooling compare human decisions and AI decisions through the same input/output shape.
 
+### How Tactical Decisions Are Executed
+
+The local tactical-controller path is deliberately staged. The important idea is that the controller does not start by deciding what it wants to do. It starts by asking deterministic code what it is allowed to do, then chooses among those legal candidates.
+
+The current local flow is:
+
+1. The board is converted into an `EncounterState`.
+2. Actors, battlefield dimensions, blocking edges, token positions, speeds, and attacks are normalized.
+3. `PathfindingService` computes reachable legal destinations using the default legacy pathfinding adapter.
+4. `SimpleGridRulesAdapter` checks movement, occupied cells, blocking edges, and line of sight.
+5. `generateCandidateActions` creates a bounded list of legal candidate actions.
+6. A controller selects one candidate using either rule order, score order, or supervisor ranking.
+7. The selected candidate is converted back into the VTT apply contract.
+8. The board applies the returned moves/actions and logs the decision.
+
+The candidate generator currently emits these main families:
+
+- `attack_from_current`: attack from the actor's current cell when the target is in range and line of sight is legal.
+- `move_and_attack`: move to a reachable legal destination, then attack from that destination.
+- `advance_to_attack`: dash or advance toward a future attack position when no attack is available this turn.
+- `disengage_retreat`: move away from the nearest enemy and take a disengage-style action.
+- `hold_position`: stay put and take a dodge-style defensive action.
+
+The candidate generator is intentionally bounded. It does not enumerate every theoretical action. It looks for plausible legal actions that are useful for tactical comparison, then caps the list so local scoring and LLM supervisor packets stay inspectable.
+
+### Example Candidate Set
+
+Suppose a bandit is at `(11,3)`, a hero is behind a doorway, and a blocking edge prevents a direct crossbow shot. The candidate generator may produce a set like this:
+
+```text
+Candidates for Bandit
+- move_and_attack to=(12,4), attack=Light Crossbow vs Dirk, rejected before candidate set if the path crosses a blocking edge
+- move_and_attack to=(10,5), attack=Light Crossbow vs Dirk, legal if path and line of sight are clear
+- advance_to_attack to=(9,4), futureAttackCell=(8,4), legal route toward a later crossbow lane
+- disengage_retreat to=(14,2), legal but low value unless threatened
+- hold_position, dodge defensively
+```
+
+Only legal candidates should reach the final candidate set used by local controllers or LLM supervisor modes. If a move crosses a blocking edge, ends in an occupied enemy cell, leaves the battlefield, or fires through a blocked line of sight, it should be filtered before selection.
+
+### Scripted Baseline Decision Logic
+
+`Scripted Baseline` is rule ordered. It does not primarily use the full scoring model to choose the action. It generates candidates, then applies this priority:
+
+1. Best `attack_from_current`.
+2. Best `move_and_attack`.
+3. First legal `advance_to_attack`.
+4. `hold_position`.
+5. `disengage_retreat`.
+6. First remaining fallback candidate.
+
+For attack candidates, "best" is based on expected damage plus a bonus for long-ranged attacks. It also applies a penalty for unforced melee closing when the actor has a long-ranged option and is not already adjacent. Ties prefer fewer movement steps, then ranged attacks.
+
+Example:
+
+```text
+Scripted candidates
+- move_and_attack@(7,0): Shortbow vs Aria, expectedDamage=5, ranged, moveSteps=6
+- move_and_attack@(7,1): Shortbow vs Aria, expectedDamage=5, ranged, moveSteps=6
+- advance_to_attack@(6,2): no attack this turn, moveSteps=4
+- hold_position: dodge
+- disengage_retreat@(0,1): disengage
+
+Scripted selection
+- Pick move_and_attack because attacks outrank advance/hold/retreat.
+- Between the two attacks, prefer equal damage and equal range; then tie-break by movement/order.
+```
+
+This is useful as a simple baseline because it is predictable. It is not expected to be brilliant. If it makes a weak choice, the log should show whether the issue is candidate generation, rule priority, or missing tactical features.
+
+### Utility Baseline Decision Logic
+
+`Utility Baseline` scores every generated candidate and picks the highest score. The current default stance is `opportunistic`.
+
+Scoring features include:
+
+- `expectedDamage`
+- `attackValue`
+- `rangedAttackValue`
+- `longRangedAttackValue`
+- `currentPositionValue`
+- `repositionValue`
+- `killChance`
+- `retaliationRisk`
+- `defensiveValue`
+- `allySupport`
+- `formationValue`
+- `holdPenalty`
+- `retreatPenalty`
+- `meleeClosingPenalty`
+
+Different stances change the weights. For example, `aggressive` values damage and attacks more heavily, while `cautious` and `evasive` apply stronger penalties to retaliation risk and unsafe melee closing.
+
+Example:
+
+```text
+Utility candidates under opportunistic stance
+- move_and_attack Shortbow: damage + attack + ranged value - movement risk = high score
+- advance_to_attack: reposition value but no damage = medium score
+- hold_position: defensive value but hold penalty = low score
+- disengage_retreat: defensive value but retreat penalty = very low score
+
+Utility selection
+- Pick the candidate with the highest numeric score.
+- If scores tie, prefer the candidate with fewer move steps.
+```
+
+The utility log includes the selected candidate, feature values, stance, family counts, and top alternatives. That log is the fastest way to inspect why the scoring model preferred one legal candidate over another.
+
+### Deterministic Supervisor Decision Logic
+
+`Supervisor + Scripted (Single)` uses the same candidate generator, but it applies a stronger ranking pass than `Scripted Baseline`.
+
+The supervisor starts with the utility score, then adds supervisor-specific adjustments:
+
+- `safeRangedBonus`: rewards ranged attacks when the actor is not already adjacent to an enemy.
+- `attackBonus`: rewards taking an attack over non-attack actions.
+- `holdWhenNoPressureBonus`: gives a small bump to holding/dodging when there is no better pressure action.
+- `retreatPenalty`: strongly discourages retreat unless it is genuinely the best remaining candidate.
+- `reservationPenalty`: prevents selecting a destination that has already been reserved by another grouped actor.
+
+Example:
+
+```text
+Scripted generated these legal candidates:
+- move_and_attack@(10,5): crossbow shot, score 12.8
+- advance_to_attack@(9,4): future firing lane, score 2.1
+- hold_position: dodge, score -0.6
+- disengage_retreat@(14,2): disengage, score -3.2
+
+Supervisor adjustment:
+- move_and_attack gets attackBonus + safeRangedBonus
+- advance_to_attack gets no attack bonus
+- hold gets only a small defensive/no-pressure bonus
+- retreat gets an additional penalty
+
+Supervisor selection:
+- Pick move_and_attack because it is legal, applies pressure now, preserves spacing, and beats the closest alternative by score.
+```
+
+`Supervisor + Scripted (Group)` repeats that supervised ranking for each actor in the active group. After one actor claims a destination, that destination is reserved. Later actors receive a large reservation penalty for choosing the same destination, which reduces pileups and obvious collisions.
+
+Current group planning is `coordinated_sequential`: actors are planned one after another with shared reservations. It is not yet full simultaneous movement planning or beam-search squad planning.
+
+### LLM Supervisor Decision Logic
+
+The LLM supervisor modes use the same design principle, but the final ranking step is performed by the model instead of by deterministic JavaScript scoring.
+
+The packet includes a section like:
+
+```text
+SUPERVISOR CANDIDATE SET:
+- The deterministic rules layer has already filtered these candidates for movement budget, occupied final spaces, blocking movement edges, and ranged line of sight.
+- Select from these candidates. Do not invent attacks, targets, or destinations outside this section.
+
+TOKEN "Bandit" CANDIDATES:
+- legal_move to=(10,5) steps=3 nearest_enemy_cells=5
+- legal_move to=(9,4) steps=4 nearest_enemy_cells=6
+- legal_attack attack="Light Crossbow" kind=ranged target="Dirk" range_ft=80 from=(10,5) move_steps=3 distance_cells=7
+```
+
+The model is then asked to choose the candidate or candidate combination with the best tactical value. The prompt explicitly says this is supervised candidate ranking, not freeform turn piloting.
+
+For group LLM supervisor mode, the packet includes candidate sections for each grouped token and asks the model to rank the combined plan while avoiding redundant crowding. The deterministic code is still responsible for generating and filtering the legal option space. The model is responsible for the tactical judgment among those options.
+
+If the LLM returns a destination or attack outside the candidate set, the VTT may still reject it during application. In that case, the correct debugging question is different from local controller debugging:
+
+- If a good legal candidate was missing, fix candidate generation or legality filtering.
+- If a good legal candidate was present but the model ignored it, improve the supervisor prompt or response validation.
+- If the model selected a candidate that was supposedly legal but application rejected it, fix the mismatch between candidate legality and VTT apply-time legality.
+
 ### Selection Behavior
 
 - Single modes act on exactly one AI-controlled token.
@@ -364,7 +535,8 @@ The frontend posts a small payload to the backend:
 Notes:
 - `strategy` is the preferred control and maps to a server-side model plus packet variant.
 - `model` is still sent by the frontend for transparency and logging, but strategy selection now drives the intended mode.
-- Canonical strategies are `single_fast`, `single_tactical`, and `group_tactical`.
+- Canonical LLM strategies are `single_fast`, `single_tactical`, `group_tactical`, `llm_supervisor_single`, and `llm_supervisor_group`.
+- Canonical local-controller strategies are `controller_scripted`, `controller_utility`, `controller_supervisor_scripted_single`, and `controller_supervisor_scripted_group`.
 - Older aliases remain accepted for backward compatibility, but new integrations should use the canonical names above.
 
 ### Response
