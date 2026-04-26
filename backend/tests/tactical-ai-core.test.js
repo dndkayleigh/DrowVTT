@@ -10,6 +10,7 @@ import {
   findPath,
   rankApproachCells,
   generateCandidateActions,
+  hasBlockedMovementPath,
   hasLineOfSight,
   normalizeEncounterState,
   tacticalOutputToVttPlan,
@@ -71,6 +72,7 @@ test('simple grid rules enforce blocking edges for movement and line of sight', 
 
   assert.equal(hasLineOfSight(encounter, goblin, hero), false);
   assert.equal(rules.lineOfSight(encounter, goblin, hero), false);
+  assert.equal(hasBlockedMovementPath(encounter, goblin.cell, hero.cell), true);
   assert.equal(rules.reachableTiles(encounter, goblin).some((cell) => cell.x === 0 && cell.y === 1), false);
 });
 
@@ -163,9 +165,37 @@ test('scripted baseline advances instead of retreating when no attack is reachab
   const output = await new ScriptedController().chooseAction({ encounter });
 
   assert.match(output.selectedCandidateId, /^advance_to_attack:/);
-  assert.deepEqual(output.plan.moves[0].to, [10, 6]);
+  assert.deepEqual(output.plan.moves[0].to, [8, 6]);
   assert.equal(output.plan.actions[0].type, 'dash');
+  assert.equal(output.logs[0].data.selected.movementUsed, 4);
+  assert.equal(output.logs[0].data.selected.reserveCells, 2);
   assert.match(output.logs[0].message, /1 advances/);
+});
+
+test('advance planning preserves movement reserve on long approaches', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'long-approach-reserve',
+    round: 1,
+    activeActorId: 'orc',
+    battlefield: { gridSize: 64, width: 18, height: 12, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'orc',
+        name: 'Orc',
+        side: 'monsters',
+        cell: { x: 2, y: 6 },
+        speed: 30,
+        attacks: [{ name: 'Greataxe', attackKind: 'melee', rangeFt: 5, expectedDamage: 9 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 15, y: 6 }, speed: 30, attacks: [] }
+    ]
+  });
+  const output = await new UtilityController().chooseAction({ encounter });
+
+  assert.match(output.selectedCandidateId, /^advance_to_attack:/);
+  assert.equal(output.logs[0].data.selected.movementUsed, 4);
+  assert.equal(output.logs[0].data.selected.reserveCells, 2);
+  assert.equal(output.plan.moves[0].path.length, 4);
 });
 
 test('reachable tactical cells stay inside declared battlefield bounds', () => {
@@ -221,6 +251,105 @@ test('path-aware approach routes around blocking edges instead of moving into th
   assert.deepEqual(output.plan.moves[0].to, [5, 1]);
   assert.deepEqual(output.logs[0].data.selected.futureAttackCell, { x: 6, y: 2 });
   assert.equal(output.logs[0].data.selected.remainingDistance, 1);
+});
+
+test('move-and-attack candidates emit routed paths instead of direct blocked paths', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'blocked-move-attack-path',
+    round: 1,
+    activeActorId: 'archer',
+    battlefield: {
+      gridSize: 64,
+      width: 4,
+      height: 4,
+      edges: [{ orientation: 'v', x: 1, y: 0, blocksMovement: true, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'archer',
+        name: 'Archer',
+        side: 'monsters',
+        cell: { x: 0, y: 0 },
+        speed: 30,
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 2, y: 1 }, speed: 30, attacks: [] }
+    ]
+  });
+  const archer = encounter.actors[0];
+  const candidates = generateCandidateActions(encounter, archer);
+  const routedCandidate = candidates.find((candidate) =>
+    candidate.family === 'move_and_attack' &&
+    candidate.move?.to?.x === 1 &&
+    candidate.move?.to?.y === 1
+  );
+
+  assert.ok(routedCandidate, 'expected a routed move-and-attack candidate');
+  assert.deepEqual(routedCandidate.move.path, [{ x: 0, y: 1 }, { x: 1, y: 1 }]);
+  assert.equal(hasBlockedMovementPath(encounter, { x: 0, y: 0 }, { x: 1, y: 1 }), true);
+  assert.equal(hasBlockedMovementPath(encounter, { x: 0, y: 0 }, { x: 0, y: 1 }), false);
+  assert.equal(hasBlockedMovementPath(encounter, { x: 0, y: 1 }, { x: 1, y: 1 }), false);
+});
+
+test('tactical candidates do not choose occupied final destinations', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'occupied-destination',
+    round: 1,
+    activeActorId: 'goblin',
+    battlefield: { gridSize: 64, width: 8, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'goblin',
+        name: 'Goblin',
+        side: 'monsters',
+        cell: { x: 0, y: 0 },
+        speed: 30,
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      {
+        id: 'orc',
+        name: 'Orc',
+        side: 'monsters',
+        cell: { x: 1, y: 1 },
+        speed: 30,
+        attacks: [{ name: 'Greataxe', attackKind: 'melee', rangeFt: 5, expectedDamage: 9 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 5, y: 1 }, speed: 30, attacks: [] }
+    ]
+  });
+  const goblin = encounter.actors[0];
+  const candidates = generateCandidateActions(encounter, goblin);
+  const output = await new ScriptedController().chooseAction({ encounter });
+
+  assert.equal(candidates.some((candidate) => candidate.move?.to?.x === 1 && candidate.move?.to?.y === 1), false);
+  assert.notDeepEqual(output.plan.moves[0]?.to, [1, 1]);
+});
+
+test('advance candidates avoid occupied future approach cells', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'occupied-advance',
+    round: 1,
+    activeActorId: 'orc',
+    battlefield: { gridSize: 64, width: 14, height: 12, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'orc',
+        name: 'Orc',
+        side: 'monsters',
+        cell: { x: 4, y: 6 },
+        speed: 30,
+        attacks: [{ name: 'Greataxe', attackKind: 'melee', rangeFt: 5, expectedDamage: 9 }]
+      },
+      { id: 'goblin', name: 'Goblin', side: 'monsters', cell: { x: 10, y: 6 }, speed: 30, attacks: [] },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 12, y: 6 }, speed: 30, attacks: [] }
+    ]
+  });
+  const output = await new ScriptedController().chooseAction({ encounter });
+
+  assert.match(output.selectedCandidateId, /^advance_to_attack:/);
+  assert.notDeepEqual(output.plan.moves[0].to, [10, 6]);
 });
 
 test('utility baseline explains top candidates and does not hold when a legal attack exists', async () => {

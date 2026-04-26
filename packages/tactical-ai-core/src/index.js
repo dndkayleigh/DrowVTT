@@ -286,6 +286,25 @@ function cellKey(cell) {
   return `${normalized.x},${normalized.y}`;
 }
 
+function occupiedCellMap(encounter, { excludeActorId = null } = {}) {
+  const occupied = new Map();
+  for (const actor of encounter?.actors || []) {
+    if (excludeActorId && actor.id === excludeActorId) continue;
+    const origin = normalizeCell(actor.cell);
+    const size = Math.max(1, Math.round(Number(actor.sizeCells) || 1));
+    for (let dx = 0; dx < size; dx += 1) {
+      for (let dy = 0; dy < size; dy += 1) {
+        occupied.set(cellKey({ x: origin.x + dx, y: origin.y + dy }), actor);
+      }
+    }
+  }
+  return occupied;
+}
+
+function cellIsOccupied(encounter, cell, { excludeActorId = null } = {}) {
+  return occupiedCellMap(encounter, { excludeActorId }).has(cellKey(cell));
+}
+
 function battlefieldSearchBounds(encounter) {
   const width = Math.round(Number(encounter?.battlefield?.width) || 0);
   const height = Math.round(Number(encounter?.battlefield?.height) || 0);
@@ -298,8 +317,10 @@ function battlefieldSearchBounds(encounter) {
   return { minX: 0, minY: 0, maxX: maxActorX + 12, maxY: maxActorY + 12 };
 }
 
-function neighborCells(encounter, cell) {
+function neighborCells(encounter, cell, { actor = null, goal = null } = {}) {
   const current = normalizeCell(cell);
+  const actorId = actor?.id || null;
+  const movingSide = actor?.side || null;
   const directions = [
     { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
     { x: -1, y: 0 },                    { x: 1, y: 0 },
@@ -308,20 +329,31 @@ function neighborCells(encounter, cell) {
   return directions
     .map((direction) => ({ x: current.x + direction.x, y: current.y + direction.y }))
     .filter((next) => isCellInsideBattlefield(encounter, next))
-    .filter((next) => !hasBlockedMovementPath(encounter, current, next));
+    .filter((next) => !hasBlockedMovementPath(encounter, current, next))
+    .filter((next) => {
+      const occupant = occupiedCellMap(encounter, { excludeActorId: actorId }).get(cellKey(next));
+      if (!occupant) return true;
+      if (goal && cellKey(next) === cellKey(goal)) return false;
+      return movingSide && occupant.side === movingSide;
+    });
 }
 
-export function findPath(encounterInput, fromCell, toCell, { maxExpanded = 3000 } = {}) {
+export function findPath(encounterInput, fromCell, toCell, { maxExpanded = 3000, actor = null } = {}) {
   const encounter = normalizeEncounterState(encounterInput);
   const start = normalizeCell(fromCell);
   const goal = normalizeCell(toCell);
   if (!isCellInsideBattlefield(encounter, start) || !isCellInsideBattlefield(encounter, goal)) return null;
+  const movingActor = actor ? normalizeActor(actor) : null;
+  if (cellIsOccupied(encounter, goal, { excludeActorId: movingActor?.id || null })) return null;
   if (cellKey(start) === cellKey(goal)) return [];
   const directPath = pathCellsBetween(start, goal);
   let previous = start;
   let directPathIsLegal = true;
   for (const step of directPath) {
-    if (!isCellInsideBattlefield(encounter, step) || hasBlockedMovementPath(encounter, previous, step)) {
+    const occupant = occupiedCellMap(encounter, { excludeActorId: movingActor?.id || null }).get(cellKey(step));
+    const occupiedByOpponent = occupant && (!movingActor?.side || occupant.side !== movingActor.side);
+    const occupiedFinal = occupant && cellKey(step) === cellKey(goal);
+    if (!isCellInsideBattlefield(encounter, step) || hasBlockedMovementPath(encounter, previous, step) || occupiedByOpponent || occupiedFinal) {
       directPathIsLegal = false;
       break;
     }
@@ -349,7 +381,7 @@ export function findPath(encounterInput, fromCell, toCell, { maxExpanded = 3000 
       }
       return path.reverse();
     }
-    for (const next of neighborCells(encounter, current.cell)) {
+    for (const next of neighborCells(encounter, current.cell, { actor: movingActor, goal })) {
       const nextKey = cellKey(next);
       const newCost = current.cost + 1;
       if (costSoFar.has(nextKey) && newCost >= costSoFar.get(nextKey)) continue;
@@ -373,6 +405,7 @@ export function findAttackPositions(encounterInput, actorInput, targetInput, att
   for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
     for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
       const cell = { x, y };
+      if (cellIsOccupied(encounter, cell, { excludeActorId: actor.id })) continue;
       if (gridDistance(cell, target.cell) > rangeCells) continue;
       if (!hasLineOfSight(encounter, actor, target, cell)) continue;
       positions.push({
@@ -399,9 +432,15 @@ export function rankApproachCells(encounterInput, actorInput, targetInput, attac
 
   for (const attack of attacks) {
     for (const position of findAttackPositions(encounter, actor, target, attack, { limit: 120 })) {
-      const path = findPath(encounter, actor.cell, position.cell);
+      const path = findPath(encounter, actor.cell, position.cell, { actor });
       if (!path || path.length === 0) continue;
-      const movePath = path.slice(0, maxSteps);
+      const preferredAdvanceSteps = maxSteps >= 5
+        ? Math.max(1, Math.floor(maxSteps * 0.67))
+        : maxSteps;
+      const movePath = path.slice(0, Math.min(path.length, preferredAdvanceSteps));
+      while (movePath.length && cellIsOccupied(encounter, movePath[movePath.length - 1], { excludeActorId: actor.id })) {
+        movePath.pop();
+      }
       const destination = movePath[movePath.length - 1];
       if (!destination) continue;
       approaches.push({
@@ -410,6 +449,8 @@ export function rankApproachCells(encounterInput, actorInput, targetInput, attac
         futureAttackCell: position.cell,
         futureAttackDistance: path.length,
         remainingDistance: Math.max(0, path.length - movePath.length),
+        movementUsed: movePath.length,
+        reserveCells: Math.max(0, maxSteps - movePath.length),
         laneDeviation: Math.abs(position.cell.y - actor.cell.y),
         attackName: attack.name,
         attackKind: attack.attackKind,
@@ -432,6 +473,7 @@ export function rankApproachCells(encounterInput, actorInput, targetInput, attac
   return [...bestByCell.values()]
     .sort((left, right) =>
       left.remainingDistance - right.remainingDistance ||
+      right.reserveCells - left.reserveCells ||
       left.laneDeviation - right.laneDeviation ||
       right.expectedDamage - left.expectedDamage ||
       left.futureAttackDistance - right.futureAttackDistance
@@ -444,9 +486,9 @@ export class SimpleGridRulesAdapter {
     const encounter = normalizeEncounterState(encounterInput);
     const start = normalizeCell(actor?.cell);
     const maxSteps = Math.floor((Number(actor?.speed) || 0) / 5);
-    const queue = [{ cell: start, steps: 0 }];
+    const queue = [{ cell: start, steps: 0, path: [] }];
     const visited = new Set([`${start.x},${start.y}`]);
-    const reachable = [{ ...start, steps: 0 }];
+    const reachable = [{ ...start, steps: 0, path: [] }];
     const directions = [
       { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
       { x: -1, y: 0 },                    { x: 1, y: 0 },
@@ -459,12 +501,14 @@ export class SimpleGridRulesAdapter {
         const next = { x: current.cell.x + direction.x, y: current.cell.y + direction.y };
         const key = `${next.x},${next.y}`;
         if (visited.has(key)) continue;
-        visited.add(key);
         if (!isCellInsideBattlefield(encounter, next)) continue;
         if (hasBlockedMovementPath(encounter, current.cell, next)) continue;
-        const entry = { ...next, steps: current.steps + 1 };
-        reachable.push(entry);
-        queue.push({ cell: next, steps: entry.steps });
+        const occupant = occupiedCellMap(encounter, { excludeActorId: actor?.id || null }).get(cellKey(next));
+        if (occupant && occupant.side !== actor?.side) continue;
+        visited.add(key);
+        const entry = { ...next, steps: current.steps + 1, path: [...(current.path || []), normalizeCell(next)], occupied: !!occupant };
+        if (!occupant) reachable.push(entry);
+        queue.push({ cell: next, steps: entry.steps, path: entry.path });
         if (reachable.length >= limit) break;
       }
     }
@@ -505,9 +549,10 @@ function alliesFor(encounter, actor) {
   return encounter.actors.filter((other) => other.id !== actor.id && other.side === actor.side);
 }
 
-function attackAction(actor, target, attack, fromCell, family, moveSteps = 0) {
+function attackAction(actor, target, attack, fromCell, family, moveSteps = 0, metadata = {}) {
+  const movePath = metadata.path?.length ? metadata.path.map(normalizeCell) : pathCellsBetween(actor.cell, fromCell);
   const move = gridDistance(actor.cell, fromCell) > 0
-    ? { actorId: actor.id, to: normalizeCell(fromCell), path: pathCellsBetween(actor.cell, fromCell) }
+    ? { actorId: actor.id, to: normalizeCell(fromCell), path: movePath }
     : null;
   return {
     id: `${family}:${actor.id}:${target.id}:${attack.name}:${fromCell.x},${fromCell.y}`,
@@ -527,7 +572,8 @@ function attackAction(actor, target, attack, fromCell, family, moveSteps = 0) {
     fromCell: normalizeCell(fromCell),
     expectedDamage: attack.expectedDamage,
     moveSteps,
-    legal: true
+    legal: true,
+    metadata
   };
 }
 
@@ -566,11 +612,19 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
       if (gridDistance(actor.cell, enemy.cell) <= rangeCells && rulesAdapter.lineOfSight(encounter, actor, enemy, actor.cell)) {
         candidates.push(attackAction(actor, enemy, attack, actor.cell, 'attack_from_current', 0));
       }
-      for (const cell of reachable) {
-        if (gridDistance(cell, enemy.cell) > rangeCells) continue;
-        if (!rulesAdapter.lineOfSight(encounter, actor, enemy, cell)) continue;
-        candidates.push(attackAction(actor, enemy, attack, cell, 'move_and_attack', cell.steps));
-        break;
+      const moveAttackCells = reachable
+        .filter((cell) => gridDistance(cell, actor.cell) > 0)
+        .filter((cell) => gridDistance(cell, enemy.cell) <= rangeCells)
+        .filter((cell) => rulesAdapter.lineOfSight(encounter, actor, enemy, cell))
+        .sort((left, right) =>
+          (left.steps || 0) - (right.steps || 0) ||
+          gridDistance(left, enemy.cell) - gridDistance(right, enemy.cell)
+        )
+        .slice(0, 6);
+      for (const cell of moveAttackCells) {
+        candidates.push(attackAction(actor, enemy, attack, cell, 'move_and_attack', cell.steps, {
+          path: cell.path || pathCellsBetween(actor.cell, cell)
+        }));
       }
     }
   }
@@ -586,6 +640,8 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
         futureAttackCell: approach.futureAttackCell,
         futureAttackDistance: approach.futureAttackDistance,
         remainingDistance: approach.remainingDistance,
+        movementUsed: approach.movementUsed,
+        reserveCells: approach.reserveCells,
         laneDeviation: approach.laneDeviation,
         attackName: approach.attackName,
         attackKind: approach.attackKind,
@@ -695,6 +751,8 @@ function summarizeCandidate(candidate, scored = null) {
     futureAttackCell: candidate.metadata?.futureAttackCell || null,
     futureAttackDistance: candidate.metadata?.futureAttackDistance ?? null,
     remainingDistance: candidate.metadata?.remainingDistance ?? null,
+    movementUsed: candidate.metadata?.movementUsed ?? null,
+    reserveCells: candidate.metadata?.reserveCells ?? null,
     laneDeviation: candidate.metadata?.laneDeviation ?? null,
     approachAttack: candidate.metadata?.attackName || null,
     score: scored?.score ?? null,
