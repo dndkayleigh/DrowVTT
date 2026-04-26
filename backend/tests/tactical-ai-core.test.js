@@ -3,10 +3,16 @@ import assert from 'node:assert/strict';
 
 import {
   HumanController,
+  InternalV2PathfindingAdapter,
+  LegacyPathfindingAdapter,
+  PathfindingService,
   ScriptedController,
   SimpleGridRulesAdapter,
   UtilityController,
+  comparePathfindingAdapters,
   createControllerRegistry,
+  createPathfindingAdapter,
+  createPathfindingService,
   findPath,
   rankApproachCells,
   generateCandidateActions,
@@ -74,6 +80,75 @@ test('simple grid rules enforce blocking edges for movement and line of sight', 
   assert.equal(rules.lineOfSight(encounter, goblin, hero), false);
   assert.equal(hasBlockedMovementPath(encounter, goblin.cell, hero.cell), true);
   assert.equal(rules.reachableTiles(encounter, goblin).some((cell) => cell.x === 0 && cell.y === 1), false);
+});
+
+test('legacy pathfinding adapter is the default service adapter', () => {
+  const adapter = createPathfindingAdapter();
+  const service = createPathfindingService();
+
+  assert.equal(adapter.id, 'legacy');
+  assert.equal(service.adapter.id, 'legacy');
+  assert.equal(new PathfindingService({ adapterId: 'internal-v2' }).adapter.id, 'internal-v2');
+});
+
+test('legacy pathfinding adapter preserves open-grid diagonal behavior', () => {
+  const encounter = normalizeEncounterState({
+    id: 'open-path',
+    battlefield: { gridSize: 64, width: 6, height: 6, edges: [], tiles: [], interactables: [] },
+    actors: [{ id: 'orc', name: 'Orc', side: 'monsters', cell: { x: 0, y: 0 }, speed: 30, attacks: [] }]
+  });
+  const adapter = new LegacyPathfindingAdapter();
+  const result = adapter.findPath({
+    encounter,
+    actor: encounter.actors[0],
+    from: { row: 0, col: 0 },
+    to: { row: 2, col: 2 }
+  });
+
+  assert.equal(result.found, true);
+  assert.equal(result.cost, 2);
+  assert.deepEqual(result.path, [{ row: 1, col: 1 }, { row: 2, col: 2 }]);
+  assert.equal(result.adapterId, 'legacy');
+});
+
+test('pathfinding service exposes serializable reachable tiles and candidate moves', () => {
+  const encounter = normalizeEncounterState({
+    id: 'reachable-budget',
+    battlefield: { gridSize: 64, width: 5, height: 5, edges: [], tiles: [], interactables: [] },
+    actors: [{ id: 'orc', name: 'Orc', side: 'monsters', cell: { x: 0, y: 0 }, speed: 10, attacks: [] }]
+  });
+  const service = createPathfindingService();
+  const reachable = service.reachable({ encounter, actor: encounter.actors[0], limit: 20 });
+  const moves = service.getCandidateMoveActions(encounter.actors[0], encounter, { limit: 20 });
+
+  assert.equal(reachable.adapterId, 'legacy');
+  assert.ok(reachable.tiles.every((tile) => Number.isFinite(tile.cost)));
+  assert.ok(reachable.tiles.some((tile) => tile.coord.row === 2 && tile.coord.col === 2));
+  assert.ok(moves.every((move) => move.pathfindingAdapter === 'legacy'));
+  assert.ok(moves.every((move) => Array.isArray(move.path)));
+});
+
+test('pathfinding comparison harness reports equivalent legacy and internal-v2 adapters', () => {
+  const encounter = normalizeEncounterState({
+    id: 'compare-pathfinding',
+    battlefield: { gridSize: 64, width: 6, height: 6, edges: [], tiles: [], interactables: [] },
+    actors: [{ id: 'orc', name: 'Orc', side: 'monsters', cell: { x: 0, y: 0 }, speed: 30, attacks: [] }]
+  });
+  const report = comparePathfindingAdapters({
+    adapters: [new LegacyPathfindingAdapter(), new InternalV2PathfindingAdapter()],
+    pathRequests: [{
+      encounter,
+      actor: encounter.actors[0],
+      from: { row: 0, col: 0 },
+      to: { row: 2, col: 2 }
+    }],
+    reachabilityRequests: [{ encounter, actor: encounter.actors[0], limit: 20 }]
+  });
+
+  assert.deepEqual(report.adapters, ['legacy', 'internal-v2']);
+  assert.equal(report.pathComparisons[0].differences.foundMismatch, false);
+  assert.equal(report.pathComparisons[0].differences.costMismatch, false);
+  assert.equal(report.reachabilityComparisons[0].differences.legalDestinationMismatch, false);
 });
 
 test('candidate generation avoids ranged shots through blocking edges', () => {

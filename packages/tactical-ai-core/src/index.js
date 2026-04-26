@@ -35,8 +35,20 @@ function normalizeNumber(value, fallback = 0) {
 
 function normalizeCell(cell = {}) {
   return {
-    x: Math.round(normalizeNumber(cell.x, 0)),
-    y: Math.round(normalizeNumber(cell.y, 0))
+    x: Math.round(normalizeNumber(cell.x ?? cell.col, 0)),
+    y: Math.round(normalizeNumber(cell.y ?? cell.row, 0))
+  };
+}
+
+function cellToCoord(cell = {}) {
+  const normalized = normalizeCell(cell);
+  return { row: normalized.y, col: normalized.x };
+}
+
+function coordToCell(coord = {}) {
+  return {
+    x: Math.round(normalizeNumber(coord.col ?? coord.x, 0)),
+    y: Math.round(normalizeNumber(coord.row ?? coord.y, 0))
   };
 }
 
@@ -338,7 +350,7 @@ function neighborCells(encounter, cell, { actor = null, goal = null } = {}) {
     });
 }
 
-export function findPath(encounterInput, fromCell, toCell, { maxExpanded = 3000, actor = null } = {}) {
+function legacyFindPathCells(encounterInput, fromCell, toCell, { maxExpanded = 3000, actor = null } = {}) {
   const encounter = normalizeEncounterState(encounterInput);
   const start = normalizeCell(fromCell);
   const goal = normalizeCell(toCell);
@@ -394,6 +406,204 @@ export function findPath(encounterInput, fromCell, toCell, { maxExpanded = 3000,
   return null;
 }
 
+function legacyReachableCells(encounterInput, actorInput, { limit = 24 } = {}) {
+  const encounter = normalizeEncounterState(encounterInput);
+  const actor = normalizeActor(actorInput);
+  const start = normalizeCell(actor?.cell);
+  const maxSteps = Math.floor((Number(actor?.speed) || 0) / 5);
+  const queue = [{ cell: start, steps: 0, path: [] }];
+  const visited = new Set([`${start.x},${start.y}`]);
+  const reachable = [{ ...start, steps: 0, path: [] }];
+  const directions = [
+    { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
+    { x: -1, y: 0 },                    { x: 1, y: 0 },
+    { x: -1, y: 1 },  { x: 0, y: 1 },  { x: 1, y: 1 }
+  ];
+  while (queue.length && reachable.length < limit) {
+    const current = queue.shift();
+    if (!current || current.steps >= maxSteps) continue;
+    for (const direction of directions) {
+      const next = { x: current.cell.x + direction.x, y: current.cell.y + direction.y };
+      const key = `${next.x},${next.y}`;
+      if (visited.has(key)) continue;
+      if (!isCellInsideBattlefield(encounter, next)) continue;
+      if (hasBlockedMovementPath(encounter, current.cell, next)) continue;
+      const occupant = occupiedCellMap(encounter, { excludeActorId: actor?.id || null }).get(cellKey(next));
+      if (occupant && occupant.side !== actor?.side) continue;
+      visited.add(key);
+      const entry = { ...next, steps: current.steps + 1, path: [...(current.path || []), normalizeCell(next)], occupied: !!occupant };
+      if (!occupant) reachable.push(entry);
+      queue.push({ cell: next, steps: entry.steps, path: entry.path });
+      if (reachable.length >= limit) break;
+    }
+  }
+  return reachable;
+}
+
+export class LegacyPathfindingAdapter {
+  id = 'legacy';
+
+  findPath(request = {}) {
+    const encounter = normalizeEncounterState(request.encounter);
+    const actor = request.actor ? normalizeActor(request.actor) : null;
+    const fromCell = coordToCell(request.from || request.fromCell);
+    const toCell = coordToCell(request.to || request.toCell);
+    const path = legacyFindPathCells(encounter, fromCell, toCell, {
+      actor,
+      maxExpanded: request.maxExpanded || 3000
+    });
+    if (!path) {
+      return {
+        found: false,
+        path: [],
+        cost: Infinity,
+        reason: 'No legal legacy path found.',
+        adapterId: this.id
+      };
+    }
+    return {
+      found: true,
+      path: path.map(cellToCoord),
+      cost: path.length,
+      adapterId: this.id
+    };
+  }
+
+  reachable(request = {}) {
+    const encounter = normalizeEncounterState(request.encounter);
+    const actor = normalizeActor(request.actor || {});
+    const tiles = legacyReachableCells(encounter, actor, { limit: request.limit || 24 }).map((tile) => ({
+      coord: cellToCoord(tile),
+      cost: tile.steps || 0,
+      path: (tile.path || []).map(cellToCoord),
+      legalStop: !tile.occupied
+    }));
+    return { tiles, adapterId: this.id };
+  }
+
+  distance(request = {}) {
+    const result = this.findPath(request);
+    return result.found ? result.cost : null;
+  }
+}
+
+export class InternalV2PathfindingAdapter extends LegacyPathfindingAdapter {
+  id = 'internal-v2';
+}
+
+export function createPathfindingAdapter(adapterId = 'legacy') {
+  const normalized = String(adapterId || 'legacy').trim().toLowerCase();
+  if (normalized === 'internal-v2') return new InternalV2PathfindingAdapter();
+  return new LegacyPathfindingAdapter();
+}
+
+export class PathfindingService {
+  constructor({ adapter = null, adapterId = null } = {}) {
+    this.adapter = adapter || createPathfindingAdapter(adapterId || globalThis?.process?.env?.PATHFINDING_ADAPTER || 'legacy');
+  }
+
+  findPath(request = {}) {
+    return this.adapter.findPath(request);
+  }
+
+  reachable(request = {}) {
+    return this.adapter.reachable(request);
+  }
+
+  distance(request = {}) {
+    return this.adapter.distance(request);
+  }
+
+  getLegalDestinations(request = {}) {
+    return this.reachable(request).tiles.filter((tile) => tile.legalStop);
+  }
+
+  getCandidateMoveActions(actor, encounter, options = {}) {
+    return this.getLegalDestinations({
+      encounter,
+      actor,
+      limit: options.limit || options.candidateLimit || 24
+    }).map((tile) => ({
+      tokenId: actor.id,
+      from: cellToCoord(actor.cell),
+      to: tile.coord,
+      path: tile.path || [],
+      movementCost: tile.cost,
+      legal: tile.legalStop,
+      pathfindingAdapter: this.adapter.id,
+      reason: 'Legacy reachable destination.'
+    }));
+  }
+}
+
+export function createPathfindingService(options = {}) {
+  return new PathfindingService(options);
+}
+
+function pathSignature(path = []) {
+  return path.map((coord) => `${coord.row},${coord.col}`).join(' -> ');
+}
+
+export function comparePathfindingAdapters({
+  adapters = [new LegacyPathfindingAdapter(), new InternalV2PathfindingAdapter()],
+  pathRequests = [],
+  reachabilityRequests = []
+} = {}) {
+  const pathComparisons = [];
+  for (const request of pathRequests) {
+    const results = adapters.map((adapter) => adapter.findPath(request));
+    pathComparisons.push({
+      request,
+      results,
+      differences: {
+        foundMismatch: new Set(results.map((result) => result.found)).size > 1,
+        costMismatch: new Set(results.map((result) => result.found ? result.cost : null)).size > 1,
+        pathMismatch: new Set(results.map((result) => pathSignature(result.path))).size > 1,
+        equivalentCostDifferentPath: new Set(results.map((result) => result.found ? result.cost : null)).size === 1 &&
+          new Set(results.map((result) => pathSignature(result.path))).size > 1
+      }
+    });
+  }
+
+  const reachabilityComparisons = [];
+  for (const request of reachabilityRequests) {
+    const results = adapters.map((adapter) => adapter.reachable(request));
+    const legalDestinationSets = results.map((result) =>
+      new Set(result.tiles.filter((tile) => tile.legalStop).map((tile) => `${tile.coord.row},${tile.coord.col}`))
+    );
+    reachabilityComparisons.push({
+      request,
+      results,
+      differences: {
+        reachableTileCountMismatch: new Set(results.map((result) => result.tiles.length)).size > 1,
+        legalDestinationMismatch: legalDestinationSets.some((set) =>
+          set.size !== legalDestinationSets[0].size ||
+          [...set].some((key) => !legalDestinationSets[0].has(key))
+        )
+      }
+    });
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    adapters: adapters.map((adapter) => adapter.id),
+    pathComparisons,
+    reachabilityComparisons
+  };
+}
+
+export function findPath(encounterInput, fromCell, toCell, { maxExpanded = 3000, actor = null, pathfinding = null } = {}) {
+  const service = pathfinding || createPathfindingService();
+  const result = service.findPath({
+    encounter: encounterInput,
+    actor,
+    from: cellToCoord(fromCell),
+    to: cellToCoord(toCell),
+    maxExpanded
+  });
+  return result.found ? result.path.map(coordToCell) : null;
+}
+
 export function findAttackPositions(encounterInput, actorInput, targetInput, attackInput, { limit = 80 } = {}) {
   const encounter = normalizeEncounterState(encounterInput);
   const actor = normalizeActor(actorInput);
@@ -422,7 +632,7 @@ export function findAttackPositions(encounterInput, actorInput, targetInput, att
   return positions;
 }
 
-export function rankApproachCells(encounterInput, actorInput, targetInput, attacksInput = [], { limit = 5 } = {}) {
+export function rankApproachCells(encounterInput, actorInput, targetInput, attacksInput = [], { limit = 5, pathfinding = null } = {}) {
   const encounter = normalizeEncounterState(encounterInput);
   const actor = normalizeActor(actorInput);
   const target = normalizeActor(targetInput);
@@ -432,7 +642,7 @@ export function rankApproachCells(encounterInput, actorInput, targetInput, attac
 
   for (const attack of attacks) {
     for (const position of findAttackPositions(encounter, actor, target, attack, { limit: 120 })) {
-      const path = findPath(encounter, actor.cell, position.cell, { actor });
+      const path = findPath(encounter, actor.cell, position.cell, { actor, pathfinding });
       if (!path || path.length === 0) continue;
       const preferredAdvanceSteps = maxSteps >= 5
         ? Math.max(1, Math.floor(maxSteps * 0.67))
@@ -482,37 +692,28 @@ export function rankApproachCells(encounterInput, actorInput, targetInput, attac
 }
 
 export class SimpleGridRulesAdapter {
+  constructor({ pathfinding = null } = {}) {
+    this.pathfinding = pathfinding || createPathfindingService();
+  }
+
   reachableTiles(encounterInput, actor, { limit = 24 } = {}) {
     const encounter = normalizeEncounterState(encounterInput);
-    const start = normalizeCell(actor?.cell);
-    const maxSteps = Math.floor((Number(actor?.speed) || 0) / 5);
-    const queue = [{ cell: start, steps: 0, path: [] }];
-    const visited = new Set([`${start.x},${start.y}`]);
-    const reachable = [{ ...start, steps: 0, path: [] }];
-    const directions = [
-      { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
-      { x: -1, y: 0 },                    { x: 1, y: 0 },
-      { x: -1, y: 1 },  { x: 0, y: 1 },  { x: 1, y: 1 }
-    ];
-    while (queue.length && reachable.length < limit) {
-      const current = queue.shift();
-      if (!current || current.steps >= maxSteps) continue;
-      for (const direction of directions) {
-        const next = { x: current.cell.x + direction.x, y: current.cell.y + direction.y };
-        const key = `${next.x},${next.y}`;
-        if (visited.has(key)) continue;
-        if (!isCellInsideBattlefield(encounter, next)) continue;
-        if (hasBlockedMovementPath(encounter, current.cell, next)) continue;
-        const occupant = occupiedCellMap(encounter, { excludeActorId: actor?.id || null }).get(cellKey(next));
-        if (occupant && occupant.side !== actor?.side) continue;
-        visited.add(key);
-        const entry = { ...next, steps: current.steps + 1, path: [...(current.path || []), normalizeCell(next)], occupied: !!occupant };
-        if (!occupant) reachable.push(entry);
-        queue.push({ cell: next, steps: entry.steps, path: entry.path });
-        if (reachable.length >= limit) break;
-      }
-    }
-    return reachable;
+    const normalizedActor = normalizeActor(actor);
+    return this.pathfinding.reachable({
+      encounter,
+      actor: normalizedActor,
+      origin: cellToCoord(normalizedActor.cell),
+      movementProfile: {
+        maxCost: Math.floor((Number(normalizedActor.speed) || 0) / 5),
+        diagonalMovement: 'chebyshev'
+      },
+      limit
+    }).tiles.map((tile) => ({
+      ...coordToCell(tile.coord),
+      steps: tile.cost,
+      path: (tile.path || []).map(coordToCell),
+      legalStop: tile.legalStop
+    }));
   }
 
   legalActions(encounterInput, actor, { candidateLimit = 24 } = {}) {
@@ -595,27 +796,29 @@ function advanceAction(actor, target, toCell, moveSteps = 0, metadata = {}) {
   };
 }
 
-export function generateCandidateActions(encounterInput, actorInput, { rulesAdapter = new SimpleGridRulesAdapter(), limit = 24 } = {}) {
+export function generateCandidateActions(encounterInput, actorInput, { rulesAdapter = null, limit = 24, pathfinding = null } = {}) {
   const encounter = normalizeEncounterState(encounterInput);
   const actor = normalizeActor(actorInput || encounter.actors.find((entry) => entry.id === encounter.activeActorId));
   if (!actor?.id) return [];
+  const pathfindingService = pathfinding || createPathfindingService();
+  const resolvedRulesAdapter = rulesAdapter || new SimpleGridRulesAdapter({ pathfinding: pathfindingService });
   const enemies = enemiesFor(encounter, actor);
   const candidates = [];
   const maxSteps = Math.floor((Number(actor?.speed) || 0) / 5);
   const movementEnvelopeLimit = Math.max(1, (maxSteps * 2 + 1) ** 2);
-  const reachable = rulesAdapter.reachableTiles(encounter, actor, { limit: Math.max(limit * 3, movementEnvelopeLimit) });
+  const reachable = resolvedRulesAdapter.reachableTiles(encounter, actor, { limit: Math.max(limit * 3, movementEnvelopeLimit) });
   const attacks = actor.attacks.length ? actor.attacks : [normalizeAttackProfile({ name: 'Strike', attackKind: 'melee', rangeFt: 5 })];
 
   for (const enemy of enemies) {
     for (const attack of attacks) {
       const rangeCells = Math.max(1, Math.ceil(attack.rangeFt / 5));
-      if (gridDistance(actor.cell, enemy.cell) <= rangeCells && rulesAdapter.lineOfSight(encounter, actor, enemy, actor.cell)) {
+      if (gridDistance(actor.cell, enemy.cell) <= rangeCells && resolvedRulesAdapter.lineOfSight(encounter, actor, enemy, actor.cell)) {
         candidates.push(attackAction(actor, enemy, attack, actor.cell, 'attack_from_current', 0));
       }
       const moveAttackCells = reachable
         .filter((cell) => gridDistance(cell, actor.cell) > 0)
         .filter((cell) => gridDistance(cell, enemy.cell) <= rangeCells)
-        .filter((cell) => rulesAdapter.lineOfSight(encounter, actor, enemy, cell))
+        .filter((cell) => resolvedRulesAdapter.lineOfSight(encounter, actor, enemy, cell))
         .sort((left, right) =>
           (left.steps || 0) - (right.steps || 0) ||
           gridDistance(left, enemy.cell) - gridDistance(right, enemy.cell)
@@ -633,7 +836,7 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
     .map((enemy) => ({ enemy, distance: gridDistance(actor.cell, enemy.cell) }))
     .sort((left, right) => left.distance - right.distance)[0]?.enemy;
   if (nearestEnemy) {
-    const approach = rankApproachCells(encounter, actor, nearestEnemy, attacks, { limit: 1 })[0];
+    const approach = rankApproachCells(encounter, actor, nearestEnemy, attacks, { limit: 1, pathfinding: pathfindingService })[0];
     if (approach && gridDistance(approach.cell, actor.cell) > 0) {
       candidates.push(advanceAction(actor, nearestEnemy, approach.cell, approach.path.length, {
         path: approach.path,
