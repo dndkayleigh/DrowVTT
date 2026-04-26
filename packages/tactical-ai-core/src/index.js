@@ -442,6 +442,10 @@ export function extractScoringFeatures(encounterInput, candidate) {
     : Infinity;
   return {
     expectedDamage: normalizeNumber(candidate.expectedDamage, 0),
+    attackValue: candidate.action?.type === 'attack' ? 1 : 0,
+    rangedAttackValue: candidate.action?.type === 'attack' && candidate.action?.attackKind === 'ranged' ? 1 : 0,
+    currentPositionValue: candidate.family === 'attack_from_current' ? 1 : 0,
+    repositionValue: candidate.family === 'move_and_attack' || candidate.family === 'advance_to_attack' ? 1 : 0,
     killChance: target && String(target.hp).match(/^\d+/)
       ? Math.min(1, normalizeNumber(candidate.expectedDamage, 0) / Math.max(1, Number(String(target.hp).match(/^\d+/)?.[0])))
       : 0,
@@ -454,23 +458,66 @@ export function extractScoringFeatures(encounterInput, candidate) {
     chokeControl: candidate.family === 'move_to_chokepoint' ? 1 : 0,
     interactableUtility: candidate.family === 'use_interactable' ? 1 : 0,
     formationValue: allies.length ? 0.25 : 0,
-    overkillPenalty: 0
+    overkillPenalty: 0,
+    holdPenalty: candidate.family === 'hold_position' ? 1 : 0,
+    retreatPenalty: candidate.family === 'disengage_retreat' ? 1 : 0
   };
 }
 
 export function scoreCandidate(encounter, candidate, { stance = 'opportunistic' } = {}) {
   const weightsByStance = {
-    aggressive: { expectedDamage: 2.2, killChance: 1.5, retaliationRisk: -0.4 },
-    cautious: { expectedDamage: 1.2, defensiveValue: 1.2, retaliationRisk: -1.4 },
-    evasive: { expectedDamage: 0.7, defensiveValue: 2, retaliationRisk: -2 },
-    protective: { expectedDamage: 1, allySupport: 1.8, formationValue: 1.2 },
-    desperate: { expectedDamage: 2.4, killChance: 2, retaliationRisk: -0.1 },
-    opportunistic: { expectedDamage: 1.6, killChance: 1.2, defensiveValue: 0.6, retaliationRisk: -0.8 }
+    aggressive: { expectedDamage: 2.2, attackValue: 4, rangedAttackValue: 0.4, currentPositionValue: 0.8, repositionValue: 0.4, killChance: 1.5, retaliationRisk: -0.4, holdPenalty: -3, retreatPenalty: -2 },
+    cautious: { expectedDamage: 1.2, attackValue: 3, rangedAttackValue: 0.8, currentPositionValue: 0.8, repositionValue: 0.3, defensiveValue: 0.8, retaliationRisk: -1.4, holdPenalty: -2, retreatPenalty: -1.2 },
+    evasive: { expectedDamage: 0.7, attackValue: 2, rangedAttackValue: 0.8, defensiveValue: 1.2, retaliationRisk: -2, holdPenalty: -1.5, retreatPenalty: -0.4 },
+    protective: { expectedDamage: 1, attackValue: 3, rangedAttackValue: 0.4, currentPositionValue: 0.6, allySupport: 1.8, formationValue: 1.2, holdPenalty: -2, retreatPenalty: -1 },
+    desperate: { expectedDamage: 2.4, attackValue: 5, currentPositionValue: 0.8, killChance: 2, retaliationRisk: -0.1, holdPenalty: -4, retreatPenalty: -3 },
+    opportunistic: { expectedDamage: 1.6, attackValue: 4, rangedAttackValue: 0.6, currentPositionValue: 0.8, repositionValue: 0.4, killChance: 1.2, defensiveValue: 0.2, retaliationRisk: -0.8, holdPenalty: -2.5, retreatPenalty: -1.5 }
   };
   const features = extractScoringFeatures(encounter, candidate);
   const weights = weightsByStance[stance] || weightsByStance.opportunistic;
   const score = Object.entries(features).reduce((sum, [key, value]) => sum + (weights[key] || 0) * value, 0);
   return { score, features, stance };
+}
+
+function summarizeCandidate(candidate, scored = null) {
+  return {
+    id: candidate.id,
+    family: candidate.family,
+    label: candidate.label,
+    actionType: candidate.action?.type || null,
+    attackKind: candidate.action?.attackKind || null,
+    targetIds: candidate.targetIds || [],
+    moveSteps: candidate.moveSteps || 0,
+    expectedDamage: normalizeNumber(candidate.expectedDamage, 0),
+    score: scored?.score ?? null,
+    features: scored?.features || null
+  };
+}
+
+function topCandidateSummaries(encounter, candidates, { stance = 'opportunistic', limit = 5 } = {}) {
+  return candidates
+    .map((candidate) => ({ candidate, ...scoreCandidate(encounter, candidate, { stance }) }))
+    .sort((left, right) => right.score - left.score || left.candidate.moveSteps - right.candidate.moveSteps)
+    .slice(0, limit)
+    .map((entry) => summarizeCandidate(entry.candidate, entry));
+}
+
+function candidateFamilyCounts(candidates = []) {
+  return candidates.reduce((counts, candidate) => {
+    counts[candidate.family] = (counts[candidate.family] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function decisionSummary({ controllerLabel, selected, candidates, topCandidates = [] }) {
+  if (!selected) return `${controllerLabel} found no legal candidates.`;
+  const counts = candidateFamilyCounts(candidates);
+  const attackCount = (counts.attack_from_current || 0) + (counts.move_and_attack || 0);
+  const topLine = topCandidates
+    .slice(0, 3)
+    .map((candidate) => `${candidate.family}${candidate.score == null ? '' : `=${candidate.score.toFixed(2)}`}`)
+    .join(', ');
+  return `${controllerLabel} selected ${selected.family} from ${candidates.length} candidates (${attackCount} attacks, ${counts.disengage_retreat || 0} retreats, ${counts.hold_position || 0} holds). Top candidates: ${topLine || 'none'}.`;
 }
 
 function outputFromCandidate({ encounter, controllerId, candidate, candidates = [], logs = [], stance = 'opportunistic' }) {
@@ -552,11 +599,29 @@ export class ScriptedController {
     const encounter = normalizeEncounterState(input.encounter);
     const actor = encounter.actors.find((entry) => entry.id === (input.actorId || encounter.activeActorId));
     const candidates = generateCandidateActions(encounter, actor, { limit: input.candidateLimit || 24 });
-    const selected = candidates.find((candidate) => candidate.family === 'attack_from_current')
-      || candidates.find((candidate) => candidate.family === 'move_and_attack')
+    const bestAttack = (family) => candidates
+      .filter((candidate) => candidate.family === family)
+      .sort((left, right) =>
+        normalizeNumber(right.expectedDamage, 0) - normalizeNumber(left.expectedDamage, 0) ||
+        (left.moveSteps || 0) - (right.moveSteps || 0) ||
+        (right.action?.attackKind === 'ranged' ? 1 : 0) - (left.action?.attackKind === 'ranged' ? 1 : 0)
+      )[0];
+    const selected = bestAttack('attack_from_current')
+      || bestAttack('move_and_attack')
       || candidates.find((candidate) => candidate.family === 'disengage_retreat')
       || candidates[0];
-    const logs = [createDecisionLogEntry({ controllerId: this.id, actorId: actor?.id, message: `Scripted selected ${selected?.family || 'none'}.` })];
+    const topCandidates = topCandidateSummaries(encounter, candidates, { limit: 5 });
+    const logs = [createDecisionLogEntry({
+      controllerId: this.id,
+      actorId: actor?.id,
+      message: decisionSummary({ controllerLabel: this.label, selected, candidates, topCandidates }),
+      data: {
+        ruleOrder: ['best attack from current position', 'best move and attack', 'retreat only if no legal attack', 'fallback'],
+        familyCounts: candidateFamilyCounts(candidates),
+        selected: selected ? summarizeCandidate(selected) : null,
+        topCandidates
+      }
+    })];
     return outputFromCandidate({ encounter, controllerId: this.id, candidate: selected, candidates, logs });
   }
 }
@@ -576,11 +641,17 @@ export class UtilityController {
     const scored = candidates.map((candidate) => ({ candidate, ...scoreCandidate(encounter, candidate, { stance }) }));
     scored.sort((left, right) => right.score - left.score || left.candidate.moveSteps - right.candidate.moveSteps);
     const selected = scored[0]?.candidate || candidates[0];
+    const topCandidates = scored.slice(0, 5).map((entry) => summarizeCandidate(entry.candidate, entry));
     const logs = [createDecisionLogEntry({
       controllerId: this.id,
       actorId: actor?.id,
-      message: `Utility selected ${selected?.family || 'none'}.`,
-      data: { topScore: scored[0]?.score ?? null, stance }
+      message: decisionSummary({ controllerLabel: this.label, selected, candidates, topCandidates }),
+      data: {
+        stance,
+        familyCounts: candidateFamilyCounts(candidates),
+        selected: selected ? summarizeCandidate(selected, scored.find((entry) => entry.candidate.id === selected.id)) : null,
+        topCandidates
+      }
     })];
     return outputFromCandidate({ encounter, controllerId: this.id, candidate: selected, candidates, logs, stance });
   }

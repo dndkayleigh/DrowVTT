@@ -363,7 +363,6 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
                 <option value="single_fast">Single (Fast)</option>
                 <option value="single_tactical">Single (Tactical)</option>
                 <option value="group_tactical">Group (Tactical)</option>
-                <option value="controller_human">Human Controller</option>
                 <option value="controller_scripted">Scripted Baseline</option>
                 <option value="controller_utility">Utility Baseline</option>
               </select>

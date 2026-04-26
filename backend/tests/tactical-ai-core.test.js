@@ -104,6 +104,29 @@ test('human scripted and utility controllers share one output contract', async (
   }
 });
 
+test('scripted baseline prefers a legal ranged attack over retreating', async () => {
+  const encounter = SAMPLE_ENCOUNTER_FIXTURES[0].encounter;
+  const output = await new ScriptedController().chooseAction({ encounter });
+
+  assert.equal(output.plan.actions[0].type, 'attack');
+  assert.equal(output.plan.actions[0].attack_kind, 'ranged');
+  assert.match(output.logs[0].message, /selected attack_from_current/);
+  assert.equal(output.logs[0].data.familyCounts.hold_position, 1);
+  assert.ok(output.logs[0].data.topCandidates.length > 0);
+});
+
+test('utility baseline explains top candidates and does not hold when a legal attack exists', async () => {
+  const encounter = SAMPLE_ENCOUNTER_FIXTURES[0].encounter;
+  const output = await new UtilityController().chooseAction({ encounter });
+
+  assert.equal(output.plan.actions[0].type, 'attack');
+  assert.notEqual(output.selectedCandidateId, 'hold_position:goblin');
+  assert.match(output.logs[0].message, /Top candidates:/);
+  assert.equal(output.logs[0].data.selected.actionType, 'attack');
+  assert.ok(output.logs[0].data.selected.score > 0);
+  assert.ok(output.logs[0].data.selected.features.attackValue > 0);
+});
+
 test('content normalization tracks provenance for missing custom monster fields', () => {
   const profile = normalizeMonsterProfile({ id: 'custom', name: 'Custom Archer', statblock: '- Sling: +3 to hit, range 30/120, 1d4+1 bludgeoning' }, { archetype: 'archer' });
 
