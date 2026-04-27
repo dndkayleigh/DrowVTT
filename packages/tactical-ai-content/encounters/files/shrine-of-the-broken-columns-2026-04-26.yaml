@@ -9,9 +9,9 @@ description: |
   rubble, and a central altar create lanes that should matter tactically.
 
   This fixture is intended for deterministic tactics work only for now:
-  scripted_baseline, utility_baseline, supervisor_scripted_single, and
-  supervisor_scripted_group. Do not use LLM-based approaches for this fixture
-  until explicitly re-enabled.
+  scripted, utility, and supervisor families in both current-token and selected
+  group activation scope. Do not use LLM-based approaches for this fixture until
+  explicitly re-enabled.
 
   Correct broad behavior:
   - Guards should act as front-line defenders and hold or advance into useful
@@ -32,7 +32,9 @@ description: |
 
 controllers:
   - scripted_baseline
+  - scripted_baseline_group
   - utility_baseline
+  - utility_baseline_group
   - supervisor_scripted_single
   - supervisor_scripted_group
 

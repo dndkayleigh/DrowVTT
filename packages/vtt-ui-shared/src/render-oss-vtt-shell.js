@@ -364,17 +364,16 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
             <div class="subtleLabel">Settings</div>
             __BACKEND_ENDPOINT_HTML__
             <div style="margin-top:8px;">
-              <label>AI Mode</label>
+              <label>Tactics Mode</label>
               <select id="aiStrategy">
-                <option value="single_fast">Single (Fast)</option>
-                <option value="single_tactical">Single (Tactical)</option>
-                <option value="group_tactical">Group (Tactical)</option>
-                <option value="llm_supervisor_single">LLM Supervisor + Tactical (Single)</option>
-                <option value="llm_supervisor_group">LLM Supervisor + Tactical (Group)</option>
-                <option value="controller_scripted">Scripted Baseline</option>
-                <option value="controller_utility">Utility Baseline</option>
-                <option value="controller_supervisor_scripted_single">Supervisor + Scripted (Single)</option>
-                <option value="controller_supervisor_scripted_group">Supervisor + Scripted (Group)</option>
+                <option value="controller_scripted">Scripted</option>
+                <option value="controller_utility">Utility</option>
+                <option value="controller_supervisor_scripted">Supervisor</option>
+              </select>
+              <label style="margin-top:8px;">Activation Scope</label>
+              <select id="aiActivationScope">
+                <option value="single">Current Token</option>
+                <option value="group">Selected Group</option>
               </select>
               <div class="sectionNote" id="aiStrategyHint" style="margin-top:8px;"></div>
             </div>

@@ -57,36 +57,42 @@ export const AI_TURN_STRATEGIES = [
   },
   {
     id: 'controller_scripted',
-    label: 'Scripted Baseline',
+    label: 'Scripted',
     description: 'Runs a deterministic behavior-rule baseline locally with no LLM dependency.',
     model: 'none',
     packetVariant: 'controller',
-    controllerId: 'scripted_baseline'
+    controllerId: 'scripted_baseline',
+    controllerIds: {
+      single: 'scripted_baseline',
+      group: 'scripted_baseline_group'
+    },
+    supportsActivationScope: true
   },
   {
     id: 'controller_utility',
-    label: 'Utility Baseline',
+    label: 'Utility',
     description: 'Runs deterministic candidate scoring locally with line-of-sight and blocking-edge legality.',
     model: 'none',
     packetVariant: 'controller',
-    controllerId: 'utility_baseline'
+    controllerId: 'utility_baseline',
+    controllerIds: {
+      single: 'utility_baseline',
+      group: 'utility_baseline_group'
+    },
+    supportsActivationScope: true
   },
   {
-    id: 'controller_supervisor_scripted_single',
-    label: 'Supervisor + Scripted (Single)',
-    description: 'Runs scripted candidate generation, then a deterministic supervisor ranks candidate actions for one actor.',
+    id: 'controller_supervisor_scripted',
+    label: 'Supervisor',
+    description: 'Runs scripted candidate generation, then a deterministic supervisor ranks candidate actions.',
     model: 'none',
     packetVariant: 'controller',
-    controllerId: 'supervisor_scripted_single'
-  },
-  {
-    id: 'controller_supervisor_scripted_group',
-    label: 'Supervisor + Scripted (Group)',
-    description: 'Runs grouped scripted candidate generation with reservation-aware supervisor selection.',
-    model: 'none',
-    packetVariant: 'controller',
-    controllerId: 'supervisor_scripted_group',
-    requiresGroup: true
+    controllerId: 'supervisor_scripted_single',
+    controllerIds: {
+      single: 'supervisor_scripted_single',
+      group: 'supervisor_scripted_group'
+    },
+    supportsActivationScope: true
   }
 ];
 
@@ -115,12 +121,13 @@ const AI_TURN_STRATEGY_ALIASES = new Map([
   ['utility', 'controller_utility'],
   ['controller_utility', 'controller_utility'],
   ['controller-utility', 'controller_utility'],
-  ['supervisor_scripted', 'controller_supervisor_scripted_single'],
-  ['supervisor-scripted', 'controller_supervisor_scripted_single'],
-  ['supervisor_scripted_single', 'controller_supervisor_scripted_single'],
-  ['controller_supervisor_scripted_single', 'controller_supervisor_scripted_single'],
-  ['supervisor_scripted_group', 'controller_supervisor_scripted_group'],
-  ['controller_supervisor_scripted_group', 'controller_supervisor_scripted_group'],
+  ['supervisor_scripted', 'controller_supervisor_scripted'],
+  ['supervisor-scripted', 'controller_supervisor_scripted'],
+  ['supervisor_scripted_single', 'controller_supervisor_scripted'],
+  ['controller_supervisor_scripted_single', 'controller_supervisor_scripted'],
+  ['controller_supervisor_scripted', 'controller_supervisor_scripted'],
+  ['supervisor_scripted_group', 'controller_supervisor_scripted'],
+  ['controller_supervisor_scripted_group', 'controller_supervisor_scripted'],
   ['group', 'group_tactical'],
   ['group_strategy', 'group_tactical'],
   ['group-strategy', 'group_tactical'],

@@ -536,8 +536,9 @@ Notes:
 - `strategy` is the preferred control and maps to a server-side model plus packet variant.
 - `model` is still sent by the frontend for transparency and logging, but strategy selection now drives the intended mode.
 - Canonical LLM strategies are `single_fast`, `single_tactical`, `group_tactical`, `llm_supervisor_single`, and `llm_supervisor_group`.
-- Canonical local-controller strategies are `controller_scripted`, `controller_utility`, `controller_supervisor_scripted_single`, and `controller_supervisor_scripted_group`.
-- Older aliases remain accepted for backward compatibility, but new integrations should use the canonical names above.
+- Canonical local-controller strategy families are `controller_scripted`, `controller_utility`, and `controller_supervisor_scripted`.
+- In the OSS UI, deterministic tactics are selected as a strategy family plus an activation scope: `Current Token` or `Selected Group`. The scope maps the same family to the matching controller, such as `scripted_baseline` versus `scripted_baseline_group`.
+- Older aliases such as `controller_supervisor_scripted_single` and `controller_supervisor_scripted_group` remain accepted for backward compatibility, but new integrations should use the canonical family names plus explicit scope.
 
 ### Response
 

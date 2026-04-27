@@ -658,7 +658,9 @@ test('shrine of the broken columns fixture targets deterministic controller iter
 
   assert.deepEqual(fixture.controllers, [
     'scripted_baseline',
+    'scripted_baseline_group',
     'utility_baseline',
+    'utility_baseline_group',
     'supervisor_scripted_single',
     'supervisor_scripted_group'
   ]);
@@ -675,6 +677,12 @@ test('shrine of the broken columns fixture targets deterministic controller iter
 
   const groupReport = await runControllerFixture({ controllerId: 'supervisor_scripted_group', fixture });
   assert.equal(groupReport.output.plan.actions.length, 7);
+
+  const scriptedGroupReport = await runControllerFixture({ controllerId: 'scripted_baseline_group', fixture });
+  assert.equal(scriptedGroupReport.output.plan.actions.length, 7);
+
+  const utilityGroupReport = await runControllerFixture({ controllerId: 'utility_baseline_group', fixture });
+  assert.equal(utilityGroupReport.output.plan.actions.length, 7);
 });
 
 test('devtools comparison harness runs controllers over shared fixtures', async () => {

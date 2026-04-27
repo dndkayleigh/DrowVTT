@@ -817,19 +817,21 @@ test('AI drawer persistent controls remain usable regardless of which tab is ope
 test('AI drawer settings persist across tab changes', async ({ page }) => {
   await openDrawerTab(page, 'settings');
   await page.locator('#apiUrl').fill('http://localhost:3000/api/custom');
-  await page.locator('#aiStrategy').selectOption('single_tactical');
+  await page.locator('#aiStrategy').selectOption('controller_scripted');
+  await page.locator('#aiActivationScope').selectOption('single');
 
   await openDrawerTab(page, 'packet');
   await openDrawerTab(page, 'settings');
   await expect(page.locator('#apiUrl')).toHaveValue('http://localhost:3000/api/custom');
-  await expect(page.locator('#aiStrategy')).toHaveValue('single_tactical');
-  await expect(page.locator('#aiStrategyHint')).toContainText('gpt-5');
-  await expect(page.locator('#aiStrategyHint')).toContainText('full');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_scripted');
+  await expect(page.locator('#aiActivationScope')).toHaveValue('single');
+  await expect(page.locator('#aiStrategyHint')).toContainText('current token only');
+  await expect(page.locator('#aiStrategyHint')).toContainText('portable tactical controller contract');
 
-  await page.locator('#aiStrategy').selectOption('llm_supervisor_single');
-  await expect(page.locator('#aiStrategyHint')).toContainText('LLM tactical path');
+  await page.locator('#aiStrategy').selectOption('controller_supervisor_scripted');
+  await expect(page.locator('#aiStrategyHint')).toContainText('supervisor ranks candidate actions');
   await openDrawerTab(page, 'packet');
-  await expect(page.locator('#aiExport')).toHaveValue(/LLM SUPERVISOR MODE/);
+  await expect(page.locator('#aiExport')).toHaveValue(/TACTICAL CONTROLLER:/);
 });
 
 test('local tactical controllers hot-swap through the same VTT apply contract', async ({ page }) => {
@@ -854,7 +856,8 @@ test('local tactical controllers hot-swap through the same VTT apply contract', 
   expect(Array.isArray(plan.actions)).toBe(true);
 
   await openDrawerTab(page, 'settings');
-  await page.locator('#aiStrategy').selectOption('controller_supervisor_scripted_single');
+  await page.locator('#aiStrategy').selectOption('controller_supervisor_scripted');
+  await page.locator('#aiActivationScope').selectOption('single');
   await expect(page.locator('#aiStrategyHint')).toContainText('supervisor ranks candidate actions');
   await page.getByRole('button', { name: 'Run Tactics' }).click();
   await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted');
@@ -1102,10 +1105,11 @@ test('ctrl-clicking a monster after selecting a PC drops the PC instead of formi
   await expect(tokenRow(page, 'Hero')).not.toContainText('Grouped');
   await expect(tokenRow(page, 'Goblin A')).toHaveClass(/selected/);
   await openDrawerTab(page, 'settings');
-  await expect(page.locator('#aiStrategy')).toHaveValue('single_tactical');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervisor_scripted');
+  await expect(page.locator('#aiActivationScope')).toHaveValue('single');
 });
 
-test('multi-selecting monsters auto-switches tactics director to group tactical', async ({ page }) => {
+test('multi-selecting monsters auto-switches tactics director to group scope', async ({ page }) => {
   await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
   await addToken(page, { name: 'Goblin B', size: 1, type: 'Monster' });
 
@@ -1114,58 +1118,45 @@ test('multi-selecting monsters auto-switches tactics director to group tactical'
 
   await openDrawerTab(page, 'settings');
   await openDetails(page, '#tokensSection');
-  await expect(page.locator('#aiStrategy')).toHaveValue('group_tactical');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervisor_scripted');
+  await expect(page.locator('#aiActivationScope')).toHaveValue('group');
   await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
   await expect(tokenRow(page, 'Goblin B')).toContainText('Grouped');
   await expect(page.locator('#tokenSelectionNote')).toContainText('2 grouped AI-controlled tokens');
 });
 
-test('LLM supervisor group mode preserves ctrl-click grouping and sends group strategy', async ({ page }) => {
-  let requestPayload = null;
-  await page.route('http://localhost:3000/api/vtt', async (route) => {
-    requestPayload = route.request().postDataJSON();
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        summary: 'No-op supervised group plan.',
-        moves: [],
-        actions: [],
-        end_turn: false,
-        _timing: { total: 1, openai: 1, prep: 0, parse: 0, model: 'gpt-5', strategy: 'llm_supervisor_group', packet: 'full_moves5_attacks6' }
-      })
-    });
-  });
-
+test('supervisor group scope preserves ctrl-click grouping and runs local group controller', async ({ page }) => {
   await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
   await addToken(page, { name: 'Goblin B', size: 1, type: 'Monster' });
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Hero', cellX: 4, cellY: 0 });
 
   await clickTokenOnStage(page, 'Goblin A');
   await openDrawerTab(page, 'settings');
-  await page.locator('#aiStrategy').selectOption('llm_supervisor_group');
-  await expect(page.locator('#aiStrategy')).toHaveValue('llm_supervisor_group');
+  await page.locator('#aiStrategy').selectOption('controller_supervisor_scripted');
+  await page.locator('#aiActivationScope').selectOption('group');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervisor_scripted');
+  await expect(page.locator('#aiActivationScope')).toHaveValue('group');
 
   await closeDrawer(page);
   await clickTokenOnStage(page, 'Goblin B', ['Control']);
 
   await openDrawerTab(page, 'settings');
-  await expect(page.locator('#aiStrategy')).toHaveValue('llm_supervisor_group');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervisor_scripted');
+  await expect(page.locator('#aiActivationScope')).toHaveValue('group');
   await openDetails(page, '#tokensSection');
   await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
   await expect(tokenRow(page, 'Goblin B')).toContainText('Grouped');
-  await expect(page.locator('#tokenSelectionNote')).toContainText('LLM Supervisor + Tactical (Group) will use 2 grouped AI-controlled tokens');
-  await expect(page.locator('#aiExport')).toHaveValue(/ACTIVE TACTICAL GROUP/);
-  await expect(page.locator('#aiExport')).toHaveValue(/SUPERVISOR CANDIDATE SET/);
+  await expect(page.locator('#tokenSelectionNote')).toContainText('Supervisor will use 2 grouped AI-controlled tokens');
+  await expect(page.locator('#aiExport')).toHaveValue(/TACTICAL CONTROLLER:/);
 
   await openDrawerTab(page, 'settings');
   await page.getByRole('button', { name: 'Run Tactics' }).click();
 
-  await expect.poll(() => requestPayload?.strategy).toBe('llm_supervisor_group');
-  expect(requestPayload.model).toBe('gpt-5');
-  expect(requestPayload.aiExport).toContain('LLM SUPERVISOR MODE');
-  expect(requestPayload.aiExport).toContain('ACTIVE TACTICAL GROUP');
-  await openDrawerTab(page, 'log');
-  await expect(page.locator('#logBox')).toContainText('AI strategy selected: llm_supervisor_group packet=full_moves5_attacks6');
+  await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted Group');
+  await openDrawerTab(page, 'apply');
+  const plan = await page.evaluate(() => JSON.parse(document.querySelector('#applyJson')?.value || '{}'));
+  expect(plan._controller.id).toBe('supervisor_scripted_group');
 });
 
 test('mobile group select mode supports grouped selection without ctrl-click', async ({ page }) => {
@@ -1196,7 +1187,8 @@ test('mobile group select mode supports grouped selection without ctrl-click', a
 
   await closeDrawer(page);
   await openDrawerTab(page, 'settings');
-  await expect(page.locator('#aiStrategy')).toHaveValue('group_tactical');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervisor_scripted');
+  await expect(page.locator('#aiActivationScope')).toHaveValue('group');
   await closeDrawer(page);
   await openDetails(page, '#tokensSection');
   await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
@@ -1600,7 +1592,7 @@ test('group tactical application moves multiple grouped monsters and keeps a tra
 
   await clickTokenOnStage(page, 'Goblin A');
   await clickTokenOnStage(page, 'Goblin B', ['Control']);
-  await expect(page.locator('#aiStrategy')).toHaveValue('group_tactical');
+  await expect(page.locator('#aiActivationScope')).toHaveValue('group');
 
   await openDrawerTab(page, 'apply');
   await page.locator('#applyJson').fill(JSON.stringify({
@@ -1629,7 +1621,7 @@ test('manual movement clears the AI trail for the moved token only', async ({ pa
 
   await clickTokenOnStage(page, 'Goblin A');
   await clickTokenOnStage(page, 'Goblin B', ['Control']);
-  await expect(page.locator('#aiStrategy')).toHaveValue('group_tactical');
+  await expect(page.locator('#aiActivationScope')).toHaveValue('group');
 
   await openDrawerTab(page, 'apply');
   await page.locator('#applyJson').fill(JSON.stringify({

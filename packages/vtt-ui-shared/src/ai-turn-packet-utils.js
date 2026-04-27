@@ -721,10 +721,20 @@ function buildGroupTacticalPacket(packet, state) {
     ])
   ];
 
-  return packet
+  const withGroupRules = packet
     .replace('- Only the current turn token may move or act this turn.', '- Only the current turn token may move or act this turn, unless ACTIVE TACTICAL GROUP rules below override this.')
-    .replace(/(TURN: .*?\n)/, `$1${groupLines.join('\n')}`)
-    .replace(/STATBLOCK \(current turn token\):/, `${groupStatblocks.join('\n')}\n\nSTATBLOCK (current turn token):`);
+    .replace('- 1 cell = 5 ft. Only current turn token may move or act.', '- 1 cell = 5 ft. Only current turn token may move or act, unless ACTIVE TACTICAL GROUP rules below override this.');
+  const withGroupHeader = withGroupRules.includes('ACTIVE TACTICAL GROUP:')
+    ? withGroupRules
+    : withGroupRules
+      .replace(/(TURN: .*?\n)/, `$1${groupLines.join('\n')}`)
+      .replace(/(AI=.*?TURN=.*?\n)/, `$1${groupLines.join('\n')}\n`);
+  const withStatblocks = withGroupHeader.includes('GROUP MEMBER STATBLOCKS:')
+    ? withGroupHeader
+    : withGroupHeader
+      .replace(/STATBLOCK \(current turn token\):/, `${groupStatblocks.join('\n')}\n\nSTATBLOCK (current turn token):`)
+      .replace(/ACTIVE TOKEN STATBLOCK:/, `${groupStatblocks.join('\n')}\n\nACTIVE TOKEN STATBLOCK:`);
+  return withStatblocks;
 }
 
 function buildLlmSupervisorPacket(packet, strategy = {}) {
@@ -751,8 +761,19 @@ function buildLlmSupervisorPacket(packet, strategy = {}) {
 
 export function buildAiTurnPacketForStrategy(state, strategy = {}) {
   let packet = buildAiTurnPacketByVariant(state, strategy?.packetVariant || 'compact_moves5');
-  if (strategy?.id === 'group_tactical' || strategy?.id === 'llm_supervisor_group') {
+  if (strategy?.id === 'group_tactical' || strategy?.id === 'llm_supervisor_group' || strategy?.requiresGroup) {
     packet = buildGroupTacticalPacket(packet, state);
+  }
+  if (strategy?.id === 'controller_supervisor_scripted') {
+    const lines = [packet, ''];
+    const supervisorTokens = strategy?.requiresGroup
+      ? getActiveAiGroupTokens(state)
+      : [getCurrentTurnToken(state)].filter(Boolean);
+    appendSupervisorCandidateSections(lines, state, supervisorTokens, {
+      moveCandidateLimit: 5,
+      attackOpportunityLimit: 6
+    });
+    packet = lines.join('\n');
   }
   if (strategy?.supervisor === 'llm') {
     const lines = [packet, ''];

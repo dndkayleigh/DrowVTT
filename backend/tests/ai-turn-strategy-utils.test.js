@@ -7,7 +7,7 @@ import {
   resolveAiTurnRequest
 } from '../../data/ai-turn-strategy-utils.mjs';
 
-test('OSS AI turn strategies use the new single and group tactical mapping', () => {
+test('OSS AI turn strategies use the new tactical family and scope mapping', () => {
   assert.equal(DEFAULT_AI_TURN_STRATEGY_ID, 'single_tactical');
 
   assert.deepEqual(getAiTurnStrategy('single_fast'), {
@@ -53,23 +53,46 @@ test('OSS AI turn strategies use the new single and group tactical mapping', () 
     requiresGroup: true
   });
 
-  assert.deepEqual(getAiTurnStrategy('controller_supervisor_scripted_single'), {
-    id: 'controller_supervisor_scripted_single',
-    label: 'Supervisor + Scripted (Single)',
-    description: 'Runs scripted candidate generation, then a deterministic supervisor ranks candidate actions for one actor.',
+  assert.deepEqual(getAiTurnStrategy('controller_scripted'), {
+    id: 'controller_scripted',
+    label: 'Scripted',
+    description: 'Runs a deterministic behavior-rule baseline locally with no LLM dependency.',
     model: 'none',
     packetVariant: 'controller',
-    controllerId: 'supervisor_scripted_single'
+    controllerId: 'scripted_baseline',
+    controllerIds: {
+      single: 'scripted_baseline',
+      group: 'scripted_baseline_group'
+    },
+    supportsActivationScope: true
   });
 
-  assert.deepEqual(getAiTurnStrategy('controller_supervisor_scripted_group'), {
-    id: 'controller_supervisor_scripted_group',
-    label: 'Supervisor + Scripted (Group)',
-    description: 'Runs grouped scripted candidate generation with reservation-aware supervisor selection.',
+  assert.deepEqual(getAiTurnStrategy('controller_utility'), {
+    id: 'controller_utility',
+    label: 'Utility',
+    description: 'Runs deterministic candidate scoring locally with line-of-sight and blocking-edge legality.',
     model: 'none',
     packetVariant: 'controller',
-    controllerId: 'supervisor_scripted_group',
-    requiresGroup: true
+    controllerId: 'utility_baseline',
+    controllerIds: {
+      single: 'utility_baseline',
+      group: 'utility_baseline_group'
+    },
+    supportsActivationScope: true
+  });
+
+  assert.deepEqual(getAiTurnStrategy('controller_supervisor_scripted'), {
+    id: 'controller_supervisor_scripted',
+    label: 'Supervisor',
+    description: 'Runs scripted candidate generation, then a deterministic supervisor ranks candidate actions.',
+    model: 'none',
+    packetVariant: 'controller',
+    controllerId: 'supervisor_scripted_single',
+    controllerIds: {
+      single: 'supervisor_scripted_single',
+      group: 'supervisor_scripted_group'
+    },
+    supportsActivationScope: true
   });
 });
 
@@ -81,8 +104,10 @@ test('OSS AI turn strategy aliases stay backward compatible', () => {
   assert.equal(getAiTurnStrategy('group_strategy')?.id, 'group_tactical');
   assert.equal(getAiTurnStrategy('llm_supervisor')?.id, 'llm_supervisor_single');
   assert.equal(getAiTurnStrategy('llm-supervisor-group')?.id, 'llm_supervisor_group');
-  assert.equal(getAiTurnStrategy('supervisor_scripted')?.id, 'controller_supervisor_scripted_single');
-  assert.equal(getAiTurnStrategy('supervisor_scripted_group')?.id, 'controller_supervisor_scripted_group');
+  assert.equal(getAiTurnStrategy('supervisor_scripted')?.id, 'controller_supervisor_scripted');
+  assert.equal(getAiTurnStrategy('supervisor_scripted_group')?.id, 'controller_supervisor_scripted');
+  assert.equal(getAiTurnStrategy('controller_supervisor_scripted_single')?.id, 'controller_supervisor_scripted');
+  assert.equal(getAiTurnStrategy('controller_supervisor_scripted_group')?.id, 'controller_supervisor_scripted');
 });
 
 test('resolveAiTurnRequest returns the expected model and packet for each tactical mode', () => {
@@ -116,8 +141,14 @@ test('resolveAiTurnRequest returns the expected model and packet for each tactic
     packetVariant: 'full_moves5_attacks6'
   });
 
-  assert.deepEqual(resolveAiTurnRequest({ strategy: 'controller_supervisor_scripted_single' }), {
-    strategyId: 'controller_supervisor_scripted_single',
+  assert.deepEqual(resolveAiTurnRequest({ strategy: 'controller_supervisor_scripted' }), {
+    strategyId: 'controller_supervisor_scripted',
+    model: 'none',
+    packetVariant: 'controller'
+  });
+
+  assert.deepEqual(resolveAiTurnRequest({ strategy: 'controller_supervisor_scripted_group' }), {
+    strategyId: 'controller_supervisor_scripted',
     model: 'none',
     packetVariant: 'controller'
   });

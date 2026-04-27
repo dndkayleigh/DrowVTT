@@ -1314,6 +1314,83 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
   }
 }
 
+class SequentialGroupController {
+  constructor({ id, label, baseController }) {
+    this.id = id;
+    this.label = label;
+    this.baseController = baseController;
+    this.kind = baseController.kind;
+    this.supportsGroupPlanning = true;
+    this.supportsSimultaneousPlanning = false;
+  }
+
+  async chooseAction(input = {}) {
+    const encounter = normalizeEncounterState(input.encounter);
+    const group = input.activationGroup || encounter.activationGroups?.[0] || {
+      actorIds: [input.actorId || encounter.activeActorId].filter(Boolean),
+      activationMode: 'coordinated_sequential'
+    };
+    const actorIds = (group.actorIds || []).filter((actorId) =>
+      encounter.actors.some((actor) => actor.id === actorId)
+    );
+    const outputs = [];
+    for (const actorId of actorIds.length ? actorIds : [encounter.activeActorId].filter(Boolean)) {
+      outputs.push(await this.baseController.chooseAction({
+        ...input,
+        encounter,
+        actorId
+      }));
+    }
+    const moves = outputs.flatMap((output) => output.plan?.moves || []);
+    const actions = outputs.flatMap((output) => output.plan?.actions || []);
+    const logs = [
+      createDecisionLogEntry({
+        controllerId: this.id,
+        actorId: encounter.activeActorId,
+        message: `${this.label} ran ${outputs.length} grouped activations through ${this.baseController.label}.`,
+        data: {
+          activationGroup: group,
+          selectedCandidateIds: outputs.map((output) => output.selectedCandidateId).filter(Boolean)
+        }
+      }),
+      ...outputs.flatMap((output) => output.logs || [])
+    ];
+    return {
+      controllerId: this.id,
+      actorId: encounter.activeActorId,
+      plan: { moves, actions, endTurn: true },
+      selectedCandidateId: outputs.map((output) => output.selectedCandidateId).filter(Boolean).join('|') || null,
+      candidates: outputs.flatMap((output) => output.candidates || []),
+      explanation: {
+        summary: `${this.label} selected ${actions.length} grouped actions.`,
+        features: { groupSize: outputs.length, baseControllerId: this.baseController.id },
+        stance: input.stance || 'opportunistic'
+      },
+      logs
+    };
+  }
+}
+
+export class ScriptedGroupController extends SequentialGroupController {
+  constructor() {
+    super({
+      id: 'scripted_baseline_group',
+      label: 'Scripted Baseline Group',
+      baseController: new ScriptedController()
+    });
+  }
+}
+
+export class UtilityGroupController extends SequentialGroupController {
+  constructor() {
+    super({
+      id: 'utility_baseline_group',
+      label: 'Utility Baseline Group',
+      baseController: new UtilityController()
+    });
+  }
+}
+
 export class PureLLMController {
   id = 'pure_llm_stub';
   label = 'Pure LLM Controller';
@@ -1368,7 +1445,9 @@ export function createControllerRegistry() {
   const controllers = [
     new HumanController(),
     new ScriptedController(),
+    new ScriptedGroupController(),
     new UtilityController(),
+    new UtilityGroupController(),
     new SupervisorScriptedController(),
     new SupervisorScriptedGroupController(),
     new PureLLMController(),
