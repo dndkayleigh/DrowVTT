@@ -643,6 +643,40 @@ test('visible YAML encounter fixture asserts long barrier tactical behavior', as
   }
 });
 
+test('shrine of the broken columns fixture targets deterministic controller iteration', async () => {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/shrine-of-the-broken-columns-2026-04-26.yaml'),
+    'utf8'
+  );
+  const fixture = parseVisibleEncounterFixture(source);
+  const monsterCounts = fixture.encounter.actors.reduce((counts, actor) => {
+    if (actor.side !== 'monsters') return counts;
+    const baseName = actor.name.replace(/ [A-Z]$/, '');
+    counts[baseName] = (counts[baseName] || 0) + 1;
+    return counts;
+  }, {});
+
+  assert.deepEqual(fixture.controllers, [
+    'scripted_baseline',
+    'utility_baseline',
+    'supervisor_scripted_single',
+    'supervisor_scripted_group'
+  ]);
+  assert.deepEqual(monsterCounts, { Guard: 3, Scout: 2, Acolyte: 2 });
+  assert.equal(fixture.encounter.activationGroups[0]?.actorIds.length, 7);
+  assert.equal(fixture.encounter.battlefield.width, 13);
+  assert.equal(fixture.encounter.battlefield.height, 13);
+
+  for (const controllerId of fixture.controllers) {
+    const report = await runControllerFixture({ controllerId, fixture });
+    const evaluation = evaluateTacticalFixtureExpectations({ fixture, report });
+    assert.equal(evaluation.ok, true, `${fixture.id} ${controllerId} failed: ${evaluation.failures.join(', ')}`);
+  }
+
+  const groupReport = await runControllerFixture({ controllerId: 'supervisor_scripted_group', fixture });
+  assert.equal(groupReport.output.plan.actions.length, 7);
+});
+
 test('devtools comparison harness runs controllers over shared fixtures', async () => {
   const report = await compareControllers({
     controllerIds: ['scripted_baseline', 'utility_baseline'],

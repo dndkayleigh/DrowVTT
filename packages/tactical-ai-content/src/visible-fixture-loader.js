@@ -8,6 +8,11 @@ export function parseVisibleEncounterFixture(source) {
     id: raw.id,
     round: Number(raw.round || 1),
     activeActorId: raw.activeActor,
+    activationGroups: (raw.activationGroups || []).map((group) => ({
+      id: String(group.id || 'activation_group'),
+      actorIds: Array.isArray(group.actorIds) ? group.actorIds.map((id) => String(id)) : [],
+      activationMode: String(group.activationMode || 'coordinated_sequential')
+    })),
     battlefield: {
       gridSize: Number(battlefield.gridSize || 64),
       width: Number(battlefield.width || 12),

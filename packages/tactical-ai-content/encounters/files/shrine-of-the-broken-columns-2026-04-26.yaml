@@ -1,0 +1,452 @@
+id: shrine_of_the_broken_columns_2026_04_26
+title: Shrine of the Broken Columns
+category: ranged cover skirmish
+description: |
+  Four PCs enter a ruined shrine from the south. The playable tactical interior
+  is a 13x13 grid; the visual outer wall from the source sketch is intentionally
+  excluded from the legal battlefield. The far side is defended by a mixed group
+  of three Guards, two Scouts, and two Acolytes. Broken columns, toppled statues,
+  rubble, and a central altar create lanes that should matter tactically.
+
+  This fixture is intended for deterministic tactics work only for now:
+  scripted_baseline, utility_baseline, supervisor_scripted_single, and
+  supervisor_scripted_group. Do not use LLM-based approaches for this fixture
+  until explicitly re-enabled.
+
+  Correct broad behavior:
+  - Guards should act as front-line defenders and hold or advance into useful
+    lane-control positions.
+  - Scouts should preserve range, seek legal firing lanes around blockers, and
+    avoid unnecessary melee contact.
+  - Acolytes should remain protected behind Guards or blocker-adjacent cover and
+    should avoid front-line exposure.
+  - The group should use more than one lane when useful instead of clustering
+    all enemies into the same central gap.
+
+  Hard failures:
+  - Any path crossing a blocked column, statue, rubble, wall, or altar edge.
+  - Any actor ending on an illegal occupied destination.
+  - Any ranged attack through a line-of-sight blocking edge.
+  - Any Scout walking into melee when a legal ranged line exists.
+  - Any Acolyte advancing ahead of the Guards without tactical pressure.
+
+controllers:
+  - scripted_baseline
+  - utility_baseline
+  - supervisor_scripted_single
+  - supervisor_scripted_group
+
+battlefield:
+  width: 13
+  height: 13
+  gridSize: 64
+  blockingEdges:
+    # Broken column at [3,11]
+    - orientation: v
+      x: 3
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 4
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 3
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 3
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+
+    # Broken column at [9,11]
+    - orientation: v
+      x: 9
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 10
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 9
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 9
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+
+    # Left upper rubble pair at [3,9] and [4,9]
+    - orientation: v
+      x: 3
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 5
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 3
+      y: 9
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 3
+      y: 10
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+
+    # Right upper rubble pair at [8,9] and [9,9]
+    - orientation: v
+      x: 8
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 10
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 9
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 10
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+
+    # Mid columns at [4,7] and [8,7]
+    - orientation: v
+      x: 4
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 5
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 4
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 4
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 8
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 9
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+
+    # Lower rubble pairs at [3,5]/[4,5] and [8,5]/[9,5]
+    - orientation: v
+      x: 3
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 5
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 3
+      y: 5
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 3
+      y: 6
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 8
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 10
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 5
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 6
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+
+    # Lower single column at [5,4]
+    - orientation: v
+      x: 5
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 6
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 5
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 5
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+
+    # Central altar at [7,8]: movement blocker, not line-of-sight blocker.
+    - orientation: v
+      x: 7
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: false
+    - orientation: v
+      x: 8
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: false
+    - orientation: h
+      x: 7
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: false
+    - orientation: h
+      x: 7
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: false
+
+activeActor: guard_1
+
+activationGroups:
+  - id: enemy_defenders
+    actorIds: [guard_1, guard_2, guard_3, scout_1, scout_2, acolyte_1, acolyte_2]
+    activationMode: coordinated_sequential
+
+actors:
+  - id: pc_1
+    name: Aria
+    side: heroes
+    position: [3, 2]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: pc_2
+    name: Bev
+    side: heroes
+    position: [4, 2]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: pc_3
+    name: Dirk
+    side: heroes
+    position: [5, 2]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: pc_4
+    name: Clive
+    side: heroes
+    position: [6, 2]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+
+  - id: guard_1
+    name: Guard
+    side: monsters
+    position: [5, 10]
+    speed: 30
+    attacks:
+      - name: Spear
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Spear
+        kind: ranged
+        rangeFt: 20
+        expectedDamage: 5
+  - id: guard_2
+    name: Guard A
+    side: monsters
+    position: [6, 10]
+    speed: 30
+    attacks:
+      - name: Spear
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Spear
+        kind: ranged
+        rangeFt: 20
+        expectedDamage: 5
+  - id: guard_3
+    name: Guard B
+    side: monsters
+    position: [7, 10]
+    speed: 30
+    attacks:
+      - name: Spear
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Spear
+        kind: ranged
+        rangeFt: 20
+        expectedDamage: 5
+  - id: scout_1
+    name: Scout
+    side: monsters
+    position: [5, 12]
+    speed: 30
+    attacks:
+      - name: Shortsword
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Longbow
+        kind: ranged
+        rangeFt: 150
+        expectedDamage: 5
+  - id: scout_2
+    name: Scout A
+    side: monsters
+    position: [11, 12]
+    speed: 30
+    attacks:
+      - name: Shortsword
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Longbow
+        kind: ranged
+        rangeFt: 150
+        expectedDamage: 5
+  - id: acolyte_1
+    name: Acolyte
+    side: monsters
+    position: [8, 12]
+    speed: 30
+    attacks:
+      - name: Club
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 2
+      - name: Sacred Flame
+        kind: ranged
+        rangeFt: 60
+        expectedDamage: 4
+  - id: acolyte_2
+    name: Acolyte A
+    side: monsters
+    position: [10, 12]
+    speed: 30
+    attacks:
+      - name: Club
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 2
+      - name: Sacred Flame
+        kind: ranged
+        rangeFt: 60
+        expectedDamage: 4
+
+expected:
+  must:
+    - noOccupiedDestination: true
+    - moveDoesNotCrossBlocking: true
+  mustNot: []
