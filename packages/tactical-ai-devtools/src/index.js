@@ -105,7 +105,8 @@ function matchesExpectation(rule, context) {
   if (key === 'noMove') return Boolean(value) === !move;
   if (key === 'lineOfSight') {
     const target = encounter?.actors?.find((entry) => entry.id === action?.targetId || entry.name === action?.target);
-    return Boolean(value) === Boolean(target && hasLineOfSight(encounter, actor, target, destination));
+    const attackOrigin = action?.from ? normalizePlanCell(action.from) : destination;
+    return Boolean(value) === Boolean(target && hasLineOfSight(encounter, actor, target, attackOrigin));
   }
   if (key === 'moveDoesNotCrossBlocking') {
     const blocked = move?.path?.length

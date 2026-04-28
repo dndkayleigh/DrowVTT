@@ -778,6 +778,44 @@ function attackAction(actor, target, attack, fromCell, family, moveSteps = 0, me
   };
 }
 
+function shootAndScootAction(actor, target, attack, attackCell, hideCell, attackPath, hidePath, metadata = {}) {
+  const normalizedAttackCell = normalizeCell(attackCell);
+  const normalizedHideCell = normalizeCell(hideCell);
+  const firstLeg = (attackPath || []).map(normalizeCell);
+  const secondLeg = (hidePath || []).map(normalizeCell);
+  const fullPath = [...firstLeg, ...secondLeg];
+  return {
+    id: `shoot_and_scoot:${actor.id}:${target.id}:${attack.name}:${normalizedAttackCell.x},${normalizedAttackCell.y}:${normalizedHideCell.x},${normalizedHideCell.y}`,
+    family: 'shoot_and_scoot',
+    actorId: actor.id,
+    label: `${actor.name} ${attack.name} vs ${target.name}, then breaks line of sight`,
+    move: { actorId: actor.id, to: normalizedHideCell, path: fullPath },
+    action: {
+      type: 'attack',
+      actorId: actor.id,
+      targetId: target.id,
+      details: attack.name,
+      attackKind: attack.attackKind,
+      rangeFt: attack.rangeFt,
+      from: normalizedAttackCell
+    },
+    targetIds: [target.id],
+    fromCell: normalizedHideCell,
+    expectedDamage: attack.expectedDamage,
+    moveSteps: fullPath.length,
+    legal: true,
+    metadata: {
+      ...metadata,
+      attackCell: normalizedAttackCell,
+      hideCell: normalizedHideCell,
+      attackPath: firstLeg,
+      postAttackPath: secondLeg,
+      lineOfSightBreak: true,
+      postAttackRemainingMovement: Math.max(0, Number(metadata.maxSteps || 0) - fullPath.length)
+    }
+  };
+}
+
 function advanceAction(actor, target, toCell, moveSteps = 0, metadata = {}) {
   const path = metadata.path?.length ? metadata.path.map(normalizeCell) : pathCellsBetween(actor.cell, toCell);
   return {
@@ -794,6 +832,58 @@ function advanceAction(actor, target, toCell, moveSteps = 0, metadata = {}) {
     legal: true,
     metadata
   };
+}
+
+function visibleEnemiesFromCell(encounter, actor, cell) {
+  const actorAtCell = { ...actor, cell: normalizeCell(cell) };
+  return enemiesFor(encounter, actor).filter((enemy) => hasLineOfSight(encounter, enemy, actorAtCell, enemy.cell));
+}
+
+function findShootAndScootDestination(encounter, actor, attackCell, attackPath, reachable, pathfindingService, maxSteps) {
+  const attackSteps = attackPath.length;
+  const remainingSteps = Math.max(0, maxSteps - attackSteps);
+  if (remainingSteps <= 0) return null;
+  const currentVisibilityCount = visibleEnemiesFromCell(encounter, actor, attackCell).length;
+  if (currentVisibilityCount === 0) return null;
+  const actorAtAttackCell = { ...actor, cell: normalizeCell(attackCell) };
+  const localReachable = pathfindingService.reachable({
+    encounter,
+    actor: actorAtAttackCell,
+    origin: cellToCoord(attackCell),
+    movementProfile: {
+      maxCost: remainingSteps,
+      diagonalMovement: 'chebyshev'
+    },
+    limit: Math.max(12, (remainingSteps * 2 + 1) ** 2)
+  }).tiles
+    .filter((tile) => tile.legalStop && tile.cost <= remainingSteps)
+    .map((tile) => ({
+      ...coordToCell(tile.coord),
+      steps: tile.cost,
+      path: (tile.path || []).map(coordToCell)
+    }));
+  const candidates = localReachable
+    .filter((cell) => cellKey(cell) !== cellKey(attackCell))
+    .map((cell) => {
+      const visibleCount = visibleEnemiesFromCell(encounter, actor, cell).length;
+      return {
+        cell,
+        path: cell.path || [],
+        visibleCount,
+        visibilityReduction: currentVisibilityCount - visibleCount,
+        totalSteps: attackSteps + (cell.steps || 0),
+        distanceFromAttackCell: gridDistance(attackCell, cell)
+      };
+    })
+    .filter(Boolean)
+    .filter((candidate) => candidate.visibilityReduction > 0)
+    .sort((left, right) =>
+      left.visibleCount - right.visibleCount ||
+      right.visibilityReduction - left.visibilityReduction ||
+      left.totalSteps - right.totalSteps ||
+      right.distanceFromAttackCell - left.distanceFromAttackCell
+    );
+  return candidates[0] || null;
 }
 
 export function generateCandidateActions(encounterInput, actorInput, { rulesAdapter = null, limit = 24, pathfinding = null } = {}) {
@@ -814,6 +904,17 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
       const rangeCells = Math.max(1, Math.ceil(attack.rangeFt / 5));
       if (gridDistance(actor.cell, enemy.cell) <= rangeCells && resolvedRulesAdapter.lineOfSight(encounter, actor, enemy, actor.cell)) {
         candidates.push(attackAction(actor, enemy, attack, actor.cell, 'attack_from_current', 0));
+        if (attack.attackKind === 'ranged') {
+          const scoot = findShootAndScootDestination(encounter, actor, actor.cell, [], reachable, pathfindingService, maxSteps);
+          if (scoot) {
+            candidates.push(shootAndScootAction(actor, enemy, attack, actor.cell, scoot.cell, [], scoot.path, {
+              maxSteps,
+              visibleEnemiesBeforeScoot: visibleEnemiesFromCell(encounter, actor, actor.cell).length,
+              visibleEnemiesAfterScoot: scoot.visibleCount,
+              visibilityReduction: scoot.visibilityReduction
+            }));
+          }
+        }
       }
       const moveAttackCells = reachable
         .filter((cell) => gridDistance(cell, actor.cell) > 0)
@@ -843,6 +944,18 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
         candidates.push(attackAction(actor, enemy, attack, cell, 'move_and_attack', cell.steps, {
           path: cell.path || pathCellsBetween(actor.cell, cell)
         }));
+        if (attack.attackKind === 'ranged') {
+          const attackPath = cell.path || pathCellsBetween(actor.cell, cell);
+          const scoot = findShootAndScootDestination(encounter, actor, cell, attackPath, reachable, pathfindingService, maxSteps);
+          if (scoot) {
+            candidates.push(shootAndScootAction(actor, enemy, attack, cell, scoot.cell, attackPath, scoot.path, {
+              maxSteps,
+              visibleEnemiesBeforeScoot: visibleEnemiesFromCell(encounter, actor, cell).length,
+              visibleEnemiesAfterScoot: scoot.visibleCount,
+              visibilityReduction: scoot.visibilityReduction
+            }));
+          }
+        }
       }
     }
   }
@@ -929,7 +1042,10 @@ export function extractScoringFeatures(encounterInput, candidate) {
     rangedAttackValue: candidate.action?.type === 'attack' && candidate.action?.attackKind === 'ranged' ? 1 : 0,
     longRangedAttackValue: candidate.action?.type === 'attack' && candidate.action?.attackKind === 'ranged' && Number(candidate.action?.rangeFt) >= 60 ? 1 : 0,
     currentPositionValue: candidate.family === 'attack_from_current' ? 1 : 0,
-    repositionValue: candidate.family === 'move_and_attack' || candidate.family === 'advance_to_attack' ? 1 : 0,
+    repositionValue: candidate.family === 'move_and_attack' || candidate.family === 'advance_to_attack' || candidate.family === 'shoot_and_scoot' ? 1 : 0,
+    shootAndScootValue: candidate.family === 'shoot_and_scoot' ? 1 : 0,
+    lineOfSightBreakValue: Math.max(0, normalizeNumber(candidate.metadata?.visibilityReduction, 0)),
+    exposedAfterActionPenalty: candidate.action?.attackKind === 'ranged' && normalizeNumber(candidate.metadata?.visibleEnemiesAfterScoot, 0) > 0 ? 1 : 0,
     meleeClosingPenalty: actorHasLongRangedAttack &&
       candidate.family === 'move_and_attack' &&
       candidate.action?.attackKind === 'melee' &&
@@ -954,12 +1070,12 @@ export function extractScoringFeatures(encounterInput, candidate) {
 
 export function scoreCandidate(encounter, candidate, { stance = 'opportunistic' } = {}) {
   const weightsByStance = {
-    aggressive: { expectedDamage: 2.2, attackValue: 4, rangedAttackValue: 0.4, longRangedAttackValue: 0.6, currentPositionValue: 0.8, repositionValue: 0.4, killChance: 1.5, retaliationRisk: -0.4, meleeClosingPenalty: -1.2, holdPenalty: -3, retreatPenalty: -2 },
-    cautious: { expectedDamage: 1.2, attackValue: 3, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.3, defensiveValue: 0.8, retaliationRisk: -1.4, meleeClosingPenalty: -1.8, holdPenalty: -2, retreatPenalty: -1.2 },
-    evasive: { expectedDamage: 0.7, attackValue: 2, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, defensiveValue: 1.2, retaliationRisk: -2, meleeClosingPenalty: -2, holdPenalty: -1.5, retreatPenalty: -0.4 },
-    protective: { expectedDamage: 1, attackValue: 3, rangedAttackValue: 0.4, longRangedAttackValue: 0.8, currentPositionValue: 0.6, allySupport: 1.8, formationValue: 1.2, meleeClosingPenalty: -1.4, holdPenalty: -2, retreatPenalty: -1 },
-    desperate: { expectedDamage: 2.4, attackValue: 5, currentPositionValue: 0.8, killChance: 2, retaliationRisk: -0.1, meleeClosingPenalty: -0.8, holdPenalty: -4, retreatPenalty: -3 },
-    opportunistic: { expectedDamage: 1.6, attackValue: 4, rangedAttackValue: 0.6, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.4, killChance: 1.2, defensiveValue: 0.2, retaliationRisk: -0.8, meleeClosingPenalty: -1.6, holdPenalty: -1, retreatPenalty: -2.5 }
+    aggressive: { expectedDamage: 2.2, attackValue: 4, rangedAttackValue: 0.4, longRangedAttackValue: 0.6, currentPositionValue: 0.8, repositionValue: 0.4, shootAndScootValue: 1.8, lineOfSightBreakValue: 0.6, exposedAfterActionPenalty: -1, killChance: 1.5, retaliationRisk: -0.4, meleeClosingPenalty: -1.2, holdPenalty: -3, retreatPenalty: -2 },
+    cautious: { expectedDamage: 1.2, attackValue: 3, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.3, shootAndScootValue: 2.6, lineOfSightBreakValue: 1.1, exposedAfterActionPenalty: -1.8, defensiveValue: 0.8, retaliationRisk: -1.4, meleeClosingPenalty: -1.8, holdPenalty: -2, retreatPenalty: -1.2 },
+    evasive: { expectedDamage: 0.7, attackValue: 2, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, shootAndScootValue: 3, lineOfSightBreakValue: 1.4, exposedAfterActionPenalty: -2, defensiveValue: 1.2, retaliationRisk: -2, meleeClosingPenalty: -2, holdPenalty: -1.5, retreatPenalty: -0.4 },
+    protective: { expectedDamage: 1, attackValue: 3, rangedAttackValue: 0.4, longRangedAttackValue: 0.8, currentPositionValue: 0.6, shootAndScootValue: 1.6, lineOfSightBreakValue: 0.7, exposedAfterActionPenalty: -1.2, allySupport: 1.8, formationValue: 1.2, meleeClosingPenalty: -1.4, holdPenalty: -2, retreatPenalty: -1 },
+    desperate: { expectedDamage: 2.4, attackValue: 5, currentPositionValue: 0.8, shootAndScootValue: 0.8, lineOfSightBreakValue: 0.3, killChance: 2, retaliationRisk: -0.1, meleeClosingPenalty: -0.8, holdPenalty: -4, retreatPenalty: -3 },
+    opportunistic: { expectedDamage: 1.6, attackValue: 4, rangedAttackValue: 0.6, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.4, shootAndScootValue: 2.5, lineOfSightBreakValue: 1, exposedAfterActionPenalty: -1.5, killChance: 1.2, defensiveValue: 0.2, retaliationRisk: -0.8, meleeClosingPenalty: -1.6, holdPenalty: -1, retreatPenalty: -2.5 }
   };
   const features = extractScoringFeatures(encounter, candidate);
   const weights = weightsByStance[stance] || weightsByStance.opportunistic;
@@ -986,6 +1102,11 @@ function summarizeCandidate(candidate, scored = null) {
     reserveCells: candidate.metadata?.reserveCells ?? null,
     laneDeviation: candidate.metadata?.laneDeviation ?? null,
     approachAttack: candidate.metadata?.attackName || null,
+    attackCell: candidate.metadata?.attackCell || candidate.action?.from || null,
+    hideCell: candidate.metadata?.hideCell || null,
+    visibleEnemiesBeforeScoot: candidate.metadata?.visibleEnemiesBeforeScoot ?? null,
+    visibleEnemiesAfterScoot: candidate.metadata?.visibleEnemiesAfterScoot ?? null,
+    visibilityReduction: candidate.metadata?.visibilityReduction ?? null,
     score: scored?.score ?? null,
     features: scored?.features || null
   };
@@ -1006,6 +1127,19 @@ function candidateFamilyCounts(candidates = []) {
   }, {});
 }
 
+function candidateDestinationKey(candidate, actor = null) {
+  const destination = candidate?.move?.to || candidate?.fromCell || actor?.cell;
+  return destination ? cellKey(destination) : '';
+}
+
+function filterReservedCandidates(candidates = [], actor = null, reservedDestinations = new Set()) {
+  if (!reservedDestinations?.size) return candidates;
+  return candidates.filter((candidate) => {
+    const key = candidateDestinationKey(candidate, actor);
+    return !key || !reservedDestinations.has(key);
+  });
+}
+
 function scriptedAttackPriority(encounter, actor, candidate) {
   const actorHasLongRangedAttack = actor?.attacks?.some((attack) =>
     attack.attackKind === 'ranged' && Number(attack.rangeFt) >= 60
@@ -1014,11 +1148,12 @@ function scriptedAttackPriority(encounter, actor, candidate) {
     ? Math.min(...enemiesFor(encounter, actor).map((enemy) => gridDistance(actor.cell, enemy.cell)), Infinity)
     : Infinity;
   const longRangedBonus = candidate.action?.attackKind === 'ranged' && Number(candidate.action?.rangeFt) >= 60 ? 2 : 0;
+  const shootAndScootBonus = candidate.family === 'shoot_and_scoot' ? 3 + normalizeNumber(candidate.metadata?.visibilityReduction, 0) : 0;
   const avoidUnforcedMelee = actorHasLongRangedAttack &&
     candidate.family === 'move_and_attack' &&
     candidate.action?.attackKind === 'melee' &&
     currentNearestEnemyDistance > 1 ? -2 : 0;
-  return normalizeNumber(candidate.expectedDamage, 0) + longRangedBonus + avoidUnforcedMelee;
+  return normalizeNumber(candidate.expectedDamage, 0) + longRangedBonus + shootAndScootBonus + avoidUnforcedMelee;
 }
 
 function supervisedCandidateScore(encounter, actor, candidate, { stance = 'opportunistic', reservedDestinations = new Set() } = {}) {
@@ -1029,15 +1164,17 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
     ? Math.min(...enemiesFor(encounter, actor).map((enemy) => gridDistance(actor.cell, enemy.cell)), Infinity)
     : Infinity;
   const safeRangedBonus = candidate.action?.attackKind === 'ranged' && currentEnemyDistance > 1 ? 1.5 : 0;
+  const shootAndScootBonus = candidate.family === 'shoot_and_scoot' ? 3 + normalizeNumber(candidate.metadata?.visibilityReduction, 0) : 0;
   const attackBonus = candidate.action?.type === 'attack' ? 2 : 0;
   const holdWhenNoPressureBonus = candidate.family === 'hold_position' ? 0.4 : 0;
   const retreatPenalty = candidate.family === 'disengage_retreat' ? -2 : 0;
   const reservationPenalty = destinationKey && reservedDestinations.has(destinationKey) ? -100 : 0;
   return {
     ...scored,
-    score: scored.score + safeRangedBonus + attackBonus + holdWhenNoPressureBonus + retreatPenalty + reservationPenalty,
+    score: scored.score + safeRangedBonus + shootAndScootBonus + attackBonus + holdWhenNoPressureBonus + retreatPenalty + reservationPenalty,
     supervisorFeatures: {
       safeRangedBonus,
+      shootAndScootBonus,
       attackBonus,
       holdWhenNoPressureBonus,
       retreatPenalty,
@@ -1067,7 +1204,7 @@ function selectSupervisedCandidate(encounter, actor, { candidateLimit = 36, stan
 function decisionSummary({ controllerLabel, selected, candidates, topCandidates = [] }) {
   if (!selected) return `${controllerLabel} found no legal candidates.`;
   const counts = candidateFamilyCounts(candidates);
-  const attackCount = (counts.attack_from_current || 0) + (counts.move_and_attack || 0);
+  const attackCount = (counts.attack_from_current || 0) + (counts.move_and_attack || 0) + (counts.shoot_and_scoot || 0);
   const topLine = topCandidates
     .slice(0, 3)
     .map((candidate) => {
@@ -1100,7 +1237,8 @@ function outputFromCandidate({ encounter, controllerId, candidate, candidates = 
         details: candidate.action.details,
         rationale: candidate.label,
         attack_kind: candidate.action.attackKind,
-        range_ft: candidate.action.rangeFt
+        range_ft: candidate.action.rangeFt,
+        from: candidate.action.from ? [candidate.action.from.x, candidate.action.from.y] : undefined
       }
     : {
         token: actor.name,
@@ -1140,7 +1278,11 @@ export class HumanController {
   async chooseAction(input = {}) {
     const encounter = normalizeEncounterState(input.encounter);
     const actor = encounter.actors.find((entry) => entry.id === (input.actorId || encounter.activeActorId));
-    const candidates = generateCandidateActions(encounter, actor, { limit: input.candidateLimit || 24 });
+    const candidates = filterReservedCandidates(
+      generateCandidateActions(encounter, actor, { limit: input.candidateLimit || 24 }),
+      actor,
+      input.reservedDestinations || new Set()
+    );
     const selected = input.selectedAction || candidates.find((candidate) => candidate.id === input.selectedCandidateId) || null;
     const logs = [createDecisionLogEntry({ controllerId: this.id, actorId: actor?.id, message: selected ? 'Human selected action.' : 'Human action pending.' })];
     return outputFromCandidate({ encounter, controllerId: this.id, candidate: selected, candidates, logs });
@@ -1157,7 +1299,11 @@ export class ScriptedController {
   async chooseAction(input = {}) {
     const encounter = normalizeEncounterState(input.encounter);
     const actor = encounter.actors.find((entry) => entry.id === (input.actorId || encounter.activeActorId));
-    const candidates = generateCandidateActions(encounter, actor, { limit: input.candidateLimit || 24 });
+    const candidates = filterReservedCandidates(
+      generateCandidateActions(encounter, actor, { limit: input.candidateLimit || 24 }),
+      actor,
+      input.reservedDestinations || new Set()
+    );
     const bestAttack = (family) => candidates
       .filter((candidate) => candidate.family === family)
       .sort((left, right) =>
@@ -1166,6 +1312,7 @@ export class ScriptedController {
         (right.action?.attackKind === 'ranged' ? 1 : 0) - (left.action?.attackKind === 'ranged' ? 1 : 0)
       )[0];
     const selected = bestAttack('attack_from_current')
+      || bestAttack('shoot_and_scoot')
       || bestAttack('move_and_attack')
       || candidates.find((candidate) => candidate.family === 'advance_to_attack')
       || candidates.find((candidate) => candidate.family === 'hold_position')
@@ -1198,7 +1345,11 @@ export class UtilityController {
     const encounter = normalizeEncounterState(input.encounter);
     const actor = encounter.actors.find((entry) => entry.id === (input.actorId || encounter.activeActorId));
     const stance = TACTICAL_STANCES.includes(input.stance) ? input.stance : 'opportunistic';
-    const candidates = generateCandidateActions(encounter, actor, { limit: input.candidateLimit || 24 });
+    const candidates = filterReservedCandidates(
+      generateCandidateActions(encounter, actor, { limit: input.candidateLimit || 24 }),
+      actor,
+      input.reservedDestinations || new Set()
+    );
     const scored = candidates.map((candidate) => ({ candidate, ...scoreCandidate(encounter, candidate, { stance }) }));
     scored.sort((left, right) => right.score - left.score || left.candidate.moveSteps - right.candidate.moveSteps);
     const selected = scored[0]?.candidate || candidates[0];
@@ -1333,13 +1484,20 @@ class SequentialGroupController {
     const actorIds = (group.actorIds || []).filter((actorId) =>
       encounter.actors.some((actor) => actor.id === actorId)
     );
+    const reservedDestinations = new Set();
     const outputs = [];
     for (const actorId of actorIds.length ? actorIds : [encounter.activeActorId].filter(Boolean)) {
-      outputs.push(await this.baseController.chooseAction({
+      const actor = encounter.actors.find((entry) => entry.id === actorId);
+      const output = await this.baseController.chooseAction({
         ...input,
         encounter,
-        actorId
-      }));
+        actorId,
+        reservedDestinations
+      });
+      const moveDestination = output.plan?.moves?.[0]?.to;
+      if (moveDestination) reservedDestinations.add(`${moveDestination[0]},${moveDestination[1]}`);
+      else if (actor?.cell) reservedDestinations.add(cellKey(actor.cell));
+      outputs.push(output);
     }
     const moves = outputs.flatMap((output) => output.plan?.moves || []);
     const actions = outputs.flatMap((output) => output.plan?.actions || []);
@@ -1350,7 +1508,8 @@ class SequentialGroupController {
         message: `${this.label} ran ${outputs.length} grouped activations through ${this.baseController.label}.`,
         data: {
           activationGroup: group,
-          selectedCandidateIds: outputs.map((output) => output.selectedCandidateId).filter(Boolean)
+          selectedCandidateIds: outputs.map((output) => output.selectedCandidateId).filter(Boolean),
+          reservedDestinations: [...reservedDestinations]
         }
       }),
       ...outputs.flatMap((output) => output.logs || [])

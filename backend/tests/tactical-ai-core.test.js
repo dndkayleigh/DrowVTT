@@ -173,7 +173,7 @@ test('candidate generation avoids ranged shots through blocking edges', () => {
   );
 
   assert.equal(rangedCandidates.some((candidate) => candidate.fromCell.x === 0 && candidate.fromCell.y === 0), false);
-  assert.equal(rangedCandidates.every((candidate) => hasLineOfSight(encounter, goblin, hero, candidate.fromCell)), true);
+  assert.equal(rangedCandidates.every((candidate) => hasLineOfSight(encounter, goblin, hero, candidate.action?.from || candidate.fromCell)), true);
   assert.ok(candidates.some((candidate) => candidate.family === 'hold_position'));
 });
 
@@ -460,12 +460,13 @@ test('ranged move-and-attack preserves distance on equal-cost shots', async () =
   const output = await new ScriptedController().chooseAction({ encounter });
   const selectedMove = output.plan.moves[0];
 
-  assert.match(output.selectedCandidateId, /^move_and_attack:/);
-  assert.equal(selectedMove.path.length, 1);
-  const selectedDistance = Math.max(Math.abs(selectedMove.to[0] - 4), Math.abs(selectedMove.to[1] - 4));
+  assert.match(output.selectedCandidateId, /^(move_and_attack|shoot_and_scoot):/);
+  assert.ok(selectedMove.path.length >= 1);
+  const attackOrigin = output.plan.actions[0].from || selectedMove.to;
+  const selectedDistance = Math.max(Math.abs(attackOrigin[0] - 4), Math.abs(attackOrigin[1] - 4));
   assert.ok(selectedDistance >= 2);
-  assert.notDeepEqual(selectedMove.to, [3, 1]);
-  assert.match(output.logs[0].message, /move_and_attack@\(/);
+  assert.notDeepEqual(attackOrigin, [3, 1]);
+  assert.match(output.logs[0].message, /(move_and_attack|shoot_and_scoot)@\(/);
 });
 
 test('long barrier encounter lets an orc route to an open javelin lane without occupying an ally cell', async () => {
@@ -512,17 +513,17 @@ test('long barrier encounter lets an orc route to an open javelin lane without o
   });
   const output = await new ScriptedController().chooseAction({ encounter });
 
-  assert.match(output.selectedCandidateId, /^move_and_attack:/);
+  assert.match(output.selectedCandidateId, /^(move_and_attack|shoot_and_scoot):/);
   assert.equal(output.plan.actions[0].type, 'attack');
   assert.equal(output.plan.actions[0].details, 'Javelin');
   assert.equal(output.plan.actions[0].attack_kind, 'ranged');
   assert.notDeepEqual(output.plan.moves[0].to, [7, 0]);
-  assert.equal(hasLineOfSight(encounter, encounter.actors[0], encounter.actors[2], {
-    x: output.plan.moves[0].to[0],
-    y: output.plan.moves[0].to[1]
-  }), true);
+  const attackOrigin = output.plan.actions[0].from
+    ? { x: output.plan.actions[0].from[0], y: output.plan.actions[0].from[1] }
+    : { x: output.plan.moves[0].to[0], y: output.plan.moves[0].to[1] };
+  assert.equal(hasLineOfSight(encounter, encounter.actors[0], encounter.actors[2], attackOrigin), true);
   assert.equal(output.logs[0].data.selected.pathLength, output.plan.moves[0].path.length);
-  assert.match(output.logs[0].message, /move_and_attack@\(/);
+  assert.match(output.logs[0].message, /(move_and_attack|shoot_and_scoot)@\(/);
 });
 
 test('tactical candidates do not choose occupied final destinations', async () => {
@@ -624,7 +625,7 @@ test('visible YAML encounter fixture asserts long barrier tactical behavior', as
   const fixturePaths = [
     '../../packages/tactical-ai-content/encounters/long-barrier-ranged-pressure.yaml',
     '../../packages/tactical-ai-content/encounters/files/bandit-doorway-ambush-2026-04-26.yaml',
-    '../../packages/tactical-ai-content/encounters/files/pillar-room-crossfire-2026-04-26.yaml'
+    '../../packages/tactical-ai-content/encounters/files/shrine-of-the-mosswater-bandit-encounter-2026-04-28.yaml'
   ];
 
   for (const fixturePath of fixturePaths) {
@@ -633,7 +634,8 @@ test('visible YAML encounter fixture asserts long barrier tactical behavior', as
 
     assert.ok(fixture.id);
     assert.ok(fixture.encounter.battlefield.edges.length > 0);
-    assert.deepEqual(fixture.controllers, ['scripted_baseline', 'utility_baseline']);
+    assert.ok(fixture.controllers.includes('scripted_baseline'));
+    assert.ok(fixture.controllers.includes('utility_baseline'));
 
     for (const controllerId of fixture.controllers) {
       const report = await runControllerFixture({ controllerId, fixture });

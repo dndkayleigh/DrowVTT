@@ -517,6 +517,7 @@ Benchmark artifacts and summaries are stored in [`backend/benchmark-results/`](b
 - Autosave polish. Improve autosave history labels, make restore intent clearer, and decide whether autosave should be enabled by default.
 - Token UX cleanup. Make common token actions like art editing, selection, and future status markers faster to reach during play.
 - Better tactical packet shaping. Reduce unnecessary prompt bulk while keeping enough board context for reliable movement and action choices.
+- Scenario library for SaaS. Package tactical fixtures with playable board snapshots, durable map/token assets, preview images, and release metadata so SaaS can offer a polished `Encounter of the Week` style gallery that launches a fresh `/app` session from an immutable scenario template.
 
 ## Backend Contract
 

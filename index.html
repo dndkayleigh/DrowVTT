@@ -1812,8 +1812,8 @@ import {
     return Math.max(Math.abs(toCell.x - fromCell.x), Math.abs(toCell.y - fromCell.y));
   }
 
-  function minTokenDistanceCells(attacker, target) {
-    const attackerCell = gridCoords(attacker);
+  function minTokenDistanceCells(attacker, target, fromCellOverride = null) {
+    const attackerCell = fromCellOverride || gridCoords(attacker);
     const targetCell = gridCoords(target);
     const attackerCells = cellsOccupiedAt(attackerCell.x, attackerCell.y, attacker.sizeCells);
     const targetCells = cellsOccupiedAt(targetCell.x, targetCell.y, target.sizeCells);
@@ -2207,9 +2207,10 @@ import {
     const target = state.tokens.find((token) => token.name === targetName);
     if (!target) return { ok: false, reason: `${tokenName} attack ignored: target not found (${targetName}).` };
     const { attackKind, rangeFt } = resolveAttackProfileForAction(actor, a);
+    const originCell = parseGridCellTuple(a?.from) || null;
     if (attackKind === 'melee') {
       const maxCells = attackRangeCells(rangeFt ?? 5);
-      const actualCells = minTokenDistanceCells(actor, target);
+      const actualCells = minTokenDistanceCells(actor, target, originCell);
       if (actualCells > maxCells) {
         const shownFeet = Number.isFinite(rangeFt) ? rangeFt : 5;
         return {
@@ -2219,7 +2220,7 @@ import {
       }
     } else if (attackKind === 'ranged') {
       const blockedLine = findBlockedLineCrossing({
-        fromPoint: tokenAimPoint(actor),
+        fromPoint: tokenAimPoint(actor, originCell),
         toPoint: tokenAimPoint(target),
         blockingEdges: getBlockingEdgeKeys()
       });
@@ -3876,8 +3877,9 @@ import {
       const actionTarget = actionTargetName ? state.tokens.find((entry) => entry.name === actionTargetName) : null;
       const actionProfile = actionActor ? resolveAttackProfileForAction(actionActor, a) : { attackKind: '' };
       const isRangedAttack = type.toLowerCase() === 'attack' && actionProfile.attackKind === 'ranged';
+      const actionOriginCell = parseGridCellTuple(a?.from) || null;
       if (isRangedAttack && actionActor && actionTarget) {
-        const from = tokenAimPoint(actionActor);
+        const from = tokenAimPoint(actionActor, actionOriginCell);
         const to = tokenAimPoint(actionTarget);
         nextSightLines.push({
           tokenId: actionActor.id,
