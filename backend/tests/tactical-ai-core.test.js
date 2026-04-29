@@ -625,7 +625,8 @@ test('visible YAML encounter fixture asserts long barrier tactical behavior', as
   const fixturePaths = [
     '../../packages/tactical-ai-content/encounters/long-barrier-ranged-pressure.yaml',
     '../../packages/tactical-ai-content/encounters/files/bandit-doorway-ambush-2026-04-26.yaml',
-    '../../packages/tactical-ai-content/encounters/files/shrine-of-the-mosswater-bandit-encounter-2026-04-28.yaml'
+    '../../packages/tactical-ai-content/encounters/files/shrine-of-the-mosswater-bandit-encounter-2026-04-28.yaml',
+    '../../packages/tactical-ai-content/encounters/files/the-sinkhole-watch-2026-04-29.yaml'
   ];
 
   for (const fixturePath of fixturePaths) {

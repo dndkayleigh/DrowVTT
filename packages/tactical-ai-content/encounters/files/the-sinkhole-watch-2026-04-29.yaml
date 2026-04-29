@@ -1,0 +1,455 @@
+id: the_sinkhole_watch_2026_04_29
+title: The Sinkhole Watch - 2026-04-29
+category: custom
+description: |
+  name: "The Sinkhole Watch"
+  
+  map_source: "Dyson Logos - Index Card Dungeon II, Map 2: Northern Ruins"
+  
+  encounter_purpose: >
+    This encounter tests whether the tactical controller can manage a layered ruin ambush on an
+    irregular outdoor map with partial walls, trees, rubble, open lanes, and a central sinkhole.
+    The monsters should not simply rush the player characters. They should use the ruined walls,
+    trees, and rubble to create a defensive screen around the right-side ruin while skirmishers
+    harass from cover and an ambusher punishes overextension.
+  
+  setup: >
+    The player characters enter from the left or southwest side of the map, following the trail
+    toward the northern ruins. The enemy group is defending the larger ruined structure on the
+    right side of the map, near the abandoned campsite and trap door. The sinkhole in the center
+    of the map is a major tactical hazard and should shape movement decisions.
+  
+  monsters:
+    - 2 hobgoblins
+    - 3 goblins
+    - 1 bugbear
+    - 1 acolyte
+  
+  starting_positions: >
+    Place the two hobgoblins near the broken wall and main approach to the large right-side ruin.
+    They should be positioned to block direct access to the caster and prevent the party from
+    easily entering the ruin.
+  
+    Place the goblins in separated covered positions: one near the small ruined structure on the
+    upper-left side of the map, one near rubble or cover overlooking the sinkhole, and one near
+    the larger right-side ruin. They should begin with partial cover or nearby cover if possible.
+  
+    Place the bugbear hidden behind a large tree, wall fragment, or rubble pile near the lower or
+    right side of the sinkhole. It should not begin as the most visible threat.
+  
+    Place the acolyte inside or just behind the large right-side ruin, close to the abandoned
+    campsite or trap door. The acolyte should begin protected by the hobgoblins and terrain.
+  
+  ideal_behavior:
+    summary: >
+      The monsters should behave as a coordinated ruin ambush rather than a
+      disorganized mob. This scenario builds on prior lessons from doorway,
+      barrier, and room-crossfire fixtures: respect blocking edges, avoid
+      occupied destinations, prefer legal ranged lanes over blind charges,
+      preserve movement reserve, use shoot-and-scoot when firing from cover,
+      and reserve final squares so allies do not collide.
+
+    terrain_read:
+      sinkhole: >
+        The central sinkhole is a tactical divider. Monsters should not treat
+        the map as open ground. They should keep the party split by the hazard,
+        avoid unnecessary exposed crossings, and punish PCs who route around the
+        sinkhole alone.
+      ruins_and_trees: >
+        The ruined walls, trees, rubble, and campsite geometry are defensive
+        assets. Ranged monsters should lean out to fire and end behind line-of-
+        sight-blocking geometry when movement remains.
+      right_ruin: >
+        The large right-side ruin is the defended objective. The enemy should
+        preserve this position unless a PC creates an obvious flank or caster
+        threat.
+
+    role_plan:
+      hobgoblin_screen:
+        count: 2
+        behavior: >
+          Hobgoblins are disciplined blockers. They should anchor the broken-
+          wall approach to the large ruin, keep a screen between the party and
+          the acolyte, and avoid chasing so far left that they open the backline.
+          If they have legal longbow lanes, they can fire from the screen, but
+          they should not abandon the ruin to pursue low-value targets.
+        preferred_actions:
+          - "Hold or step to wall-adjacent blocking positions near the right ruin."
+          - "Use Longbow from a legal lane if no PC is adjacent."
+          - "Use Longsword only when a PC has breached or become adjacent."
+          - "Leave room for goblins and the bugbear to pass without occupying the same destination."
+        avoid:
+          - "Full-speed charge toward the starting party cluster."
+          - "Vacating the caster screen before a PC threatens the ruin."
+          - "Blocking every allied ranged lane through the ruin approach."
+
+      goblin_skirmishers:
+        count: 3
+        behavior: >
+          Goblins should behave like mobile ranged skirmishers. The ideal
+          pattern is shortbow shoot-and-scoot: move just far enough to gain
+          legal line of sight, fire, then use remaining movement to end behind a
+          tree, wall, rubble edge, or sinkhole-side blocker. Goblins should
+          spread across different firing lanes instead of clustering behind one
+          wall.
+        preferred_actions:
+          - "Use Shortbow when a legal target is visible."
+          - "After firing, break line of sight if a legal destination is reachable."
+          - "Maintain spacing and avoid ending on allied destinations."
+          - "Disengage or retreat from melee instead of trading blows in the open."
+        avoid:
+          - "Standing exposed after a ranged attack when nearby cover is reachable."
+          - "Choosing Scimitar when a safer shortbow shot exists."
+          - "Crossing the sinkhole-side open ground without tactical payoff."
+
+      bugbear_ambusher:
+        count: 1
+        behavior: >
+          The bugbear is a reserve ambusher, not the opening charger. It should
+          remain hidden or hold behind cover until a PC becomes isolated, routes
+          around the sinkhole, slips past the hobgoblin screen, or threatens the
+          acolyte. If no such trigger exists on round 1, holding, dodging, or
+          shifting slightly deeper into ambush cover is better than advancing
+          toward the party.
+        trigger_conditions:
+          - "A PC ends isolated from allies near the sinkhole."
+          - "A PC bypasses or flanks the hobgoblin screen."
+          - "A PC threatens the acolyte or right-side ruin."
+          - "The bugbear can attack this turn without exposing itself to the whole party."
+        avoid:
+          - "Being the first monster to reveal by crossing open ground."
+          - "Moving toward a future attack square that still leaves it far from action."
+          - "Abandoning ambush cover before a PC creates a vulnerability."
+
+      acolyte_support:
+        count: 1
+        behavior: >
+          The acolyte should remain inside or behind the large ruin. It should
+          support the screen, preserve distance, and retreat deeper behind the
+          hobgoblins if threatened. It should not path into melee or become the
+          closest visible target.
+        preferred_actions:
+          - "Hold protected position if no safe support action exists."
+          - "Retreat deeper into the ruin if a PC breaches the screen."
+          - "Avoid occupying front-line or goblin firing-lane destinations."
+
+    phase_behavior:
+      opening_contact:
+        goals:
+          - "Hobgoblins anchor the right-side ruin approach."
+          - "Goblins take legal shortbow lanes and break line of sight after firing when possible."
+          - "Bugbear remains a reserve unless a PC is isolated or threatening the caster."
+          - "Acolyte stays protected behind the screen."
+        avoid:
+          - "All monsters rush directly toward the nearest PC."
+          - "Bugbear advances early just because a future attack path exists."
+          - "Backline caster becomes exposed."
+
+      pcs_split_around_sinkhole:
+        goals:
+          - "Focus pressure on the isolated side of the split."
+          - "Use bugbear ambush against the separated PC."
+          - "Keep hobgoblins between the main party and the acolyte."
+        avoid:
+          - "Leaving the ruin undefended to chase the wrong flank."
+
+      pcs_breach_right_ruin:
+        goals:
+          - "Hobgoblins engage or block the breach."
+          - "Acolyte retreats behind remaining blockers."
+          - "Bugbear counterattacks the intruding or isolated PC."
+          - "Goblins reposition to side-angle shots without blocking each other."
+
+    scoring_hints:
+      reward:
+        - "Legal ranged attack from a non-occupied firing lane."
+        - "Shoot-and-scoot that ends outside PC line of sight."
+        - "Hobgoblin movement that preserves the caster screen."
+        - "Bugbear hold/dodge/reposition when no ambush trigger is present."
+        - "Bugbear attack or close move only after an isolation, flank, or caster-threat trigger."
+        - "Group plans with distinct final destinations and preserved allied lanes."
+        - "Movement that uses the sinkhole as a divider instead of ignoring it."
+      penalize:
+        - "Bugbear advances first across open ground with no immediate attack."
+        - "Hobgoblins abandon the ruin approach on round 1."
+        - "Goblins stand exposed after firing when cover is reachable."
+        - "Any ranged attack through blocking terrain."
+        - "Any move through blocking terrain or onto an occupied destination."
+        - "All monsters converge on the same route or final square."
+
+  success_criteria: >
+    A strong tactical controller should keep the hobgoblins near the ruin
+    approach, move goblins between covered firing positions, delay the bugbear's
+    reveal until there is an overextended target, and keep the acolyte
+    protected. A weak controller will rush all monsters directly at the nearest
+    player character, abandon cover, expose the caster, or ignore the sinkhole's
+    effect on movement and line of approach.
+
+controllers:
+  - scripted_baseline
+  - scripted_baseline_group
+  - supervisor_scripted_single
+  - supervisor_scripted_group
+  - utility_baseline
+  - utility_baseline_group
+
+battlefield:
+  width: 30
+  height: 18
+  gridSize: 300
+  blockingEdges:
+    - orientation: h
+      x: 5
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 5
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 6
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 6
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 7
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 14
+      y: 5
+      length: 3
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 16
+      y: 14
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 16
+      y: 15
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 17
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 17
+      y: 9
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 19
+      y: 5
+      length: 3
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 5
+      y: 5
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 7
+      y: 5
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 15
+      y: 5
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 16
+      y: 14
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 17
+      y: 14
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 22
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+
+activeActor: z1xkam45
+
+activationGroups:
+  - id: sinkhole_watch_defenders
+    actorIds: [cbnpkbyw, "2h8mcd0e", huv5yotk, "2emieq7f", bggpdl26, z1xkam45, "5631482c"]
+    activationMode: coordinated_sequential
+
+actors:
+  - id: cp05pyfz
+    name: Aria
+    side: heroes
+    position: [0, 0]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: cbnpkbyw
+    name: Goblin A
+    side: monsters
+    position: [16, 6]
+    speed: 30
+    attacks:
+      - name: Scimitar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Shortbow
+        kind: ranged
+        rangeFt: 80
+        expectedDamage: 5
+  - id: "2h8mcd0e"
+    name: Goblin
+    side: monsters
+    position: [17, 9]
+    speed: 30
+    attacks:
+      - name: Scimitar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Shortbow
+        kind: ranged
+        rangeFt: 80
+        expectedDamage: 5
+  - id: huv5yotk
+    name: Goblin B
+    side: monsters
+    position: [7, 6]
+    speed: 30
+    attacks:
+      - name: Scimitar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Shortbow
+        kind: ranged
+        rangeFt: 80
+        expectedDamage: 5
+  - id: "2emieq7f"
+    name: Hobgoblin
+    side: monsters
+    position: [14, 6]
+    speed: 30
+    attacks:
+      - name: Longsword
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Longbow
+        kind: ranged
+        rangeFt: 150
+        expectedDamage: 5
+  - id: bggpdl26
+    name: Hobgoblin A
+    side: monsters
+    position: [21, 6]
+    speed: 30
+    attacks:
+      - name: Longsword
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Longbow
+        kind: ranged
+        rangeFt: 150
+        expectedDamage: 5
+  - id: z1xkam45
+    name: Bugbear
+    side: monsters
+    position: [17, 14]
+    speed: 30
+    attacks:
+      - name: Morningstar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Javelin
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Javelin
+        kind: ranged
+        rangeFt: 30
+        expectedDamage: 5
+  - id: "5631482c"
+    name: Acolyte
+    side: monsters
+    position: [17, 6]
+    speed: 30
+    attacks:
+      - name: Club
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+  - id: z9jja5p7
+    name: Ben
+    side: heroes
+    position: [0, 1]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: zesnii8i
+    name: Cam
+    side: heroes
+    position: [1, 0]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: x8y8j910
+    name: Dirk
+    side: heroes
+    position: [1, 1]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+
+expected:
+  must:
+    - noOccupiedDestination: true
+    - moveDoesNotCrossBlocking: true
+  mustNot: []

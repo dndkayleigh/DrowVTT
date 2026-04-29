@@ -77,12 +77,12 @@ export function evaluateTacticalFixtureExpectations({ fixture, report } = {}) {
   const destination = move?.to ? { x: Number(move.to[0]), y: Number(move.to[1]) } : actor?.cell;
 
   for (const rule of fixture?.expected?.must || []) {
-    if (!matchesExpectation(rule, { fixture, encounter, actor, action, move, destination, positive: true })) {
+    if (!matchesExpectation(rule, { fixture, encounter, actor, action, move, destination, plan, positive: true })) {
       failures.push(`must ${formatRule(rule)}`);
     }
   }
   for (const rule of fixture?.expected?.mustNot || []) {
-    if (matchesExpectation(rule, { fixture, encounter, actor, action, move, destination, positive: false })) {
+    if (matchesExpectation(rule, { fixture, encounter, actor, action, move, destination, plan, positive: false })) {
       failures.push(`must not ${formatRule(rule)}`);
     }
   }
@@ -95,7 +95,7 @@ export function evaluateTacticalFixtureExpectations({ fixture, report } = {}) {
 
 function matchesExpectation(rule, context) {
   const [key, value] = Object.entries(rule)[0] || [];
-  const { encounter, actor, action, move, destination } = context;
+  const { encounter, actor, action, move, destination, plan = {} } = context;
   if (!key) return true;
   if (key === 'actionType') return action?.type === value;
   if (key === 'attackName') return action?.details === value;
@@ -104,24 +104,44 @@ function matchesExpectation(rule, context) {
   if (key === 'moveTo') return Array.isArray(value) && move?.to?.[0] === value[0] && move?.to?.[1] === value[1];
   if (key === 'noMove') return Boolean(value) === !move;
   if (key === 'lineOfSight') {
-    const target = encounter?.actors?.find((entry) => entry.id === action?.targetId || entry.name === action?.target);
-    const attackOrigin = action?.from ? normalizePlanCell(action.from) : destination;
-    return Boolean(value) === Boolean(target && hasLineOfSight(encounter, actor, target, attackOrigin));
+    const actions = planActions(context);
+    if (!actions.length) return Boolean(value) === false;
+    const legal = actions.every((candidateAction) => {
+      const actionActor = actorForPlanToken(encounter, candidateAction.token) || actor;
+      const target = encounter?.actors?.find((entry) => entry.id === candidateAction?.targetId || entry.name === candidateAction?.target);
+      const relatedMove = plan.moves?.find((candidateMove) => candidateMove.token === candidateAction.token);
+      const actionDestination = relatedMove?.to ? normalizePlanCell(relatedMove.to) : actionActor?.cell;
+      const attackOrigin = candidateAction?.from ? normalizePlanCell(candidateAction.from) : actionDestination;
+      return Boolean(target && actionActor && hasLineOfSight(encounter, actionActor, target, attackOrigin));
+    });
+    return Boolean(value) === legal;
   }
   if (key === 'moveDoesNotCrossBlocking') {
-    const blocked = move?.path?.length
-      ? move.path.some((cell, index) => {
+    const blocked = (plan.moves || []).some((candidateMove) => {
+      const moveActor = actorForPlanToken(encounter, candidateMove.token) || actor;
+      return candidateMove?.path?.length
+        ? candidateMove.path.some((cell, index) => {
         const normalizedCell = normalizePlanCell(cell);
-        const from = index === 0 ? actor.cell : normalizePlanCell(move.path[index - 1]);
+        const from = index === 0 ? moveActor.cell : normalizePlanCell(candidateMove.path[index - 1]);
         return hasBlockedMovementPath(encounter, from, normalizedCell);
       })
-      : false;
+        : false;
+    });
     return Boolean(value) === !blocked;
   }
   if (key === 'noOccupiedDestination') {
-    const occupied = encounter?.actors?.some((entry) =>
-      entry.id !== actor?.id && destination && entry.cell.x === destination.x && entry.cell.y === destination.y
-    );
+    const destinations = new Map();
+    const occupied = (plan.moves || []).some((candidateMove) => {
+      const moveActor = actorForPlanToken(encounter, candidateMove.token) || actor;
+      const moveDestination = candidateMove?.to ? normalizePlanCell(candidateMove.to) : moveActor?.cell;
+      if (!moveDestination) return false;
+      const key = `${moveDestination.x},${moveDestination.y}`;
+      if (destinations.has(key)) return true;
+      destinations.set(key, moveActor?.id || candidateMove.token || key);
+      return encounter?.actors?.some((entry) =>
+        entry.id !== moveActor?.id && entry.cell.x === moveDestination.x && entry.cell.y === moveDestination.y
+      );
+    });
     return Boolean(value) === !occupied;
   }
   throw new Error(`Unknown tactical fixture expectation: ${key}`);
@@ -135,6 +155,17 @@ function normalizePlanCell(cell) {
   return Array.isArray(cell)
     ? { x: Number(cell[0]), y: Number(cell[1]) }
     : { x: Number(cell?.x), y: Number(cell?.y) };
+}
+
+function actorForPlanToken(encounter, tokenName = '') {
+  const normalized = String(tokenName || '');
+  return encounter?.actors?.find((entry) => entry.name === normalized || entry.id === normalized) || null;
+}
+
+function planActions(context) {
+  const actions = context?.plan?.actions || [];
+  if (actions.length) return actions;
+  return context?.action ? [context.action] : [];
 }
 
 function performanceNow() {
