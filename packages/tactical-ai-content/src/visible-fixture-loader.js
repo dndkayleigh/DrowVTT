@@ -32,6 +32,14 @@ export function parseVisibleEncounterFixture(source) {
         attackKind: String(attack.kind || attack.attackKind || 'melee'),
         rangeFt: Number(attack.rangeFt || 5),
         expectedDamage: Number(attack.expectedDamage || 0)
+      })),
+      spells: (actor.spells || []).map((spell) => ({
+        name: String(spell.name),
+        kind: String(spell.kind || spell.spellKind || 'support'),
+        target: String(spell.target || spell.targetSide || 'ally'),
+        rangeFt: Number(spell.rangeFt || 30),
+        expectedValue: Number(spell.expectedValue ?? spell.expectedDamage ?? 4),
+        requiresLineOfSight: spell.requiresLineOfSight !== false
       }))
     }))
   });

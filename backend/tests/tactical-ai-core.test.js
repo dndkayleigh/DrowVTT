@@ -597,6 +597,40 @@ test('utility baseline explains top candidates and does not hold when a legal at
   assert.ok(output.logs[0].data.selected.features.attackValue > 0);
 });
 
+test('support casters can choose spells without advancing into melee', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'caster-support',
+    activeActorId: 'acolyte',
+    battlefield: { width: 12, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'acolyte',
+        name: 'Acolyte',
+        side: 'monsters',
+        cell: { x: 7, y: 4 },
+        speed: 30,
+        attacks: [{ name: 'Club', attackKind: 'melee', rangeFt: 5, expectedDamage: 3 }],
+        spells: [
+          { name: 'Bless', kind: 'support', target: 'ally', rangeFt: 30, expectedValue: 5, requiresLineOfSight: false },
+          { name: 'Sacred Flame', kind: 'damage', target: 'enemy', rangeFt: 60, expectedValue: 4 }
+        ]
+      },
+      { id: 'guard', name: 'Hobgoblin', side: 'monsters', cell: { x: 6, y: 4 }, speed: 30, attacks: [] },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 0, y: 0 }, speed: 30, attacks: [] }
+    ]
+  });
+
+  const candidates = generateCandidateActions(encounter, encounter.actors[0]);
+  assert.ok(candidates.some((candidate) => candidate.family === 'spell_from_current' && candidate.action?.details === 'Bless'));
+
+  const output = await new UtilityController().chooseAction({ encounter, stance: 'protective' });
+  assert.match(output.selectedCandidateId, /^spell_from_current:acolyte:guard:Bless/);
+  assert.deepEqual(output.plan.moves, []);
+  assert.equal(output.plan.actions[0].type, 'spell');
+  assert.equal(output.plan.actions[0].details, 'Bless');
+  assert.equal(output.plan.actions[0].target, 'Hobgoblin');
+});
+
 test('content normalization tracks provenance for missing custom monster fields', () => {
   const profile = normalizeMonsterProfile({ id: 'custom', name: 'Custom Archer', statblock: '- Sling: +3 to hit, range 30/120, 1d4+1 bludgeoning' }, { archetype: 'archer' });
 

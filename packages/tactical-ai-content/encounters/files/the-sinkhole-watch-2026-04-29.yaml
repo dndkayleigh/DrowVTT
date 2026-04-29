@@ -417,6 +417,25 @@ actors:
         kind: melee
         rangeFt: 5
         expectedDamage: 6
+    spells:
+      - name: Bless
+        kind: support
+        target: ally
+        rangeFt: 30
+        expectedValue: 5
+        requiresLineOfSight: false
+      - name: Sacred Flame
+        kind: damage
+        target: enemy
+        rangeFt: 60
+        expectedValue: 4
+        requiresLineOfSight: true
+      - name: Sanctuary
+        kind: defensive
+        target: ally
+        rangeFt: 30
+        expectedValue: 4
+        requiresLineOfSight: false
   - id: z9jja5p7
     name: Ben
     side: heroes

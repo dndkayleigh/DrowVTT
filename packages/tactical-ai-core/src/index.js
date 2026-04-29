@@ -64,6 +64,7 @@ function normalizeActor(actor = {}) {
     hp: actor.hp == null ? '' : String(actor.hp),
     speed: Math.max(0, Math.round(normalizeNumber(actor.speed, 30))),
     attacks: Array.isArray(actor.attacks) ? actor.attacks.map(normalizeAttackProfile) : [],
+    spells: Array.isArray(actor.spells) ? actor.spells.map(normalizeSpellProfile) : [],
     traits: uniqueStrings(actor.traits),
     tags: uniqueStrings(actor.tags),
     statblock: String(actor.statblock || ''),
@@ -79,6 +80,20 @@ function normalizeAttackProfile(attack = {}) {
     rangeFt: Math.max(5, Math.round(normalizeNumber(attack.rangeFt, attackKind === 'ranged' ? 60 : 5))),
     expectedDamage: Math.max(0, normalizeNumber(attack.expectedDamage, 4)),
     tags: uniqueStrings(attack.tags)
+  };
+}
+
+function normalizeSpellProfile(spell = {}) {
+  const kind = String(spell.kind || spell.spellKind || 'support').toLowerCase();
+  const target = String(spell.target || spell.targetSide || '').toLowerCase();
+  return {
+    name: String(spell.name || 'Spell'),
+    kind: ['damage', 'control', 'support', 'healing', 'defensive'].includes(kind) ? kind : 'support',
+    target: ['ally', 'enemy', 'self'].includes(target) ? target : kind === 'damage' || kind === 'control' ? 'enemy' : 'ally',
+    rangeFt: Math.max(0, Math.round(normalizeNumber(spell.rangeFt, target === 'self' ? 0 : 30))),
+    expectedValue: Math.max(0, normalizeNumber(spell.expectedValue ?? spell.expectedDamage, 4)),
+    requiresLineOfSight: spell.requiresLineOfSight !== false,
+    tags: uniqueStrings(spell.tags)
   };
 }
 
@@ -778,6 +793,40 @@ function attackAction(actor, target, attack, fromCell, family, moveSteps = 0, me
   };
 }
 
+function spellAction(actor, target, spell, fromCell, family, moveSteps = 0, metadata = {}) {
+  const movePath = metadata.path?.length ? metadata.path.map(normalizeCell) : pathCellsBetween(actor.cell, fromCell);
+  const move = gridDistance(actor.cell, fromCell) > 0
+    ? { actorId: actor.id, to: normalizeCell(fromCell), path: movePath }
+    : null;
+  return {
+    id: `${family}:${actor.id}:${target?.id || 'self'}:${spell.name}:${fromCell.x},${fromCell.y}`,
+    family,
+    actorId: actor.id,
+    label: `${actor.name} casts ${spell.name}${target ? ` on ${target.name}` : ''}`,
+    move,
+    action: {
+      type: 'spell',
+      actorId: actor.id,
+      targetId: target?.id || actor.id,
+      details: spell.name,
+      spellKind: spell.kind,
+      targetSide: spell.target,
+      rangeFt: spell.rangeFt
+    },
+    targetIds: target?.id ? [target.id] : [],
+    fromCell: normalizeCell(fromCell),
+    expectedDamage: spell.kind === 'damage' ? spell.expectedValue : 0,
+    moveSteps,
+    legal: true,
+    metadata: {
+      ...metadata,
+      spellKind: spell.kind,
+      spellTarget: spell.target,
+      spellValue: spell.expectedValue
+    }
+  };
+}
+
 function shootAndScootAction(actor, target, attack, attackCell, hideCell, attackPath, hidePath, metadata = {}) {
   const normalizedAttackCell = normalizeCell(attackCell);
   const normalizedHideCell = normalizeCell(hideCell);
@@ -839,6 +888,22 @@ function visibleEnemiesFromCell(encounter, actor, cell) {
   return enemiesFor(encounter, actor).filter((enemy) => hasLineOfSight(encounter, enemy, actorAtCell, enemy.cell));
 }
 
+function targetsForSpell(encounter, actor, spell) {
+  if (spell.target === 'self') return [actor];
+  if (spell.target === 'ally') return alliesFor(encounter, actor);
+  return enemiesFor(encounter, actor);
+}
+
+function spellCanTargetFrom(encounter, actor, target, spell, fromCell) {
+  if (!target) return false;
+  const rangeCells = Math.max(0, Math.ceil(Number(spell.rangeFt || 0) / 5));
+  if (spell.target !== 'self' && gridDistance(fromCell, target.cell) > rangeCells) return false;
+  if (spell.target === 'enemy' && spell.requiresLineOfSight) {
+    return hasLineOfSight(encounter, actor, target, fromCell);
+  }
+  return true;
+}
+
 function findShootAndScootDestination(encounter, actor, attackCell, attackPath, reachable, pathfindingService, maxSteps) {
   const attackSteps = attackPath.length;
   const remainingSteps = Math.max(0, maxSteps - attackSteps);
@@ -898,6 +963,7 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
   const movementEnvelopeLimit = Math.max(1, (maxSteps * 2 + 1) ** 2);
   const reachable = resolvedRulesAdapter.reachableTiles(encounter, actor, { limit: Math.max(limit * 3, movementEnvelopeLimit) });
   const attacks = actor.attacks.length ? actor.attacks : [normalizeAttackProfile({ name: 'Strike', attackKind: 'melee', rangeFt: 5 })];
+  const spells = actor.spells || [];
 
   for (const enemy of enemies) {
     for (const attack of attacks) {
@@ -956,6 +1022,29 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
             }));
           }
         }
+      }
+    }
+  }
+
+  for (const spell of spells) {
+    const spellTargets = targetsForSpell(encounter, actor, spell);
+    for (const target of spellTargets) {
+      if (spellCanTargetFrom(encounter, actor, target, spell, actor.cell)) {
+        candidates.push(spellAction(actor, target, spell, actor.cell, 'spell_from_current', 0));
+      }
+      const moveSpellCells = reachable
+        .filter((cell) => gridDistance(cell, actor.cell) > 0)
+        .filter((cell) => spellCanTargetFrom(encounter, actor, target, spell, cell))
+        .sort((left, right) => {
+          const stepDelta = (left.steps || 0) - (right.steps || 0);
+          if (stepDelta) return stepDelta;
+          return gridDistance(right, target.cell) - gridDistance(left, target.cell);
+        })
+        .slice(0, 4);
+      for (const cell of moveSpellCells) {
+        candidates.push(spellAction(actor, target, spell, cell, 'move_and_spell', cell.steps, {
+          path: cell.path || pathCellsBetween(actor.cell, cell)
+        }));
       }
     }
   }
@@ -1039,10 +1128,14 @@ export function extractScoringFeatures(encounterInput, candidate) {
   return {
     expectedDamage: normalizeNumber(candidate.expectedDamage, 0),
     attackValue: candidate.action?.type === 'attack' ? 1 : 0,
+    spellValue: candidate.action?.type === 'spell' ? normalizeNumber(candidate.metadata?.spellValue, 0) : 0,
+    supportSpellValue: candidate.action?.type === 'spell' && ['support', 'healing', 'defensive'].includes(candidate.action?.spellKind) ? 1 : 0,
+    controlSpellValue: candidate.action?.type === 'spell' && candidate.action?.spellKind === 'control' ? 1 : 0,
+    damageSpellValue: candidate.action?.type === 'spell' && candidate.action?.spellKind === 'damage' ? 1 : 0,
     rangedAttackValue: candidate.action?.type === 'attack' && candidate.action?.attackKind === 'ranged' ? 1 : 0,
     longRangedAttackValue: candidate.action?.type === 'attack' && candidate.action?.attackKind === 'ranged' && Number(candidate.action?.rangeFt) >= 60 ? 1 : 0,
     currentPositionValue: candidate.family === 'attack_from_current' ? 1 : 0,
-    repositionValue: candidate.family === 'move_and_attack' || candidate.family === 'advance_to_attack' || candidate.family === 'shoot_and_scoot' ? 1 : 0,
+    repositionValue: candidate.family === 'move_and_attack' || candidate.family === 'advance_to_attack' || candidate.family === 'shoot_and_scoot' || candidate.family === 'move_and_spell' ? 1 : 0,
     shootAndScootValue: candidate.family === 'shoot_and_scoot' ? 1 : 0,
     lineOfSightBreakValue: Math.max(0, normalizeNumber(candidate.metadata?.visibilityReduction, 0)),
     exposedAfterActionPenalty: candidate.action?.attackKind === 'ranged' && normalizeNumber(candidate.metadata?.visibleEnemiesAfterScoot, 0) > 0 ? 1 : 0,
@@ -1057,7 +1150,9 @@ export function extractScoringFeatures(encounterInput, candidate) {
     defensiveValue: candidate.family === 'disengage_retreat' || candidate.action?.type === 'dodge' ? 1 : 0,
     coverGain: 0,
     objectiveProgress: candidate.family === 'objective_reposition' ? 1 : 0,
-    allySupport: allies.some((ally) => gridDistance(candidate.fromCell || actor?.cell || {}, ally.cell) <= 1) ? 1 : 0,
+    allySupport: candidate.action?.type === 'spell'
+      ? ['support', 'healing', 'defensive'].includes(candidate.action?.spellKind) ? 1 : 0
+      : allies.some((ally) => gridDistance(candidate.fromCell || actor?.cell || {}, ally.cell) <= 1) ? 1 : 0,
     terrainAdvantage: 0,
     chokeControl: candidate.family === 'move_to_chokepoint' ? 1 : 0,
     interactableUtility: candidate.family === 'use_interactable' ? 1 : 0,
@@ -1070,12 +1165,12 @@ export function extractScoringFeatures(encounterInput, candidate) {
 
 export function scoreCandidate(encounter, candidate, { stance = 'opportunistic' } = {}) {
   const weightsByStance = {
-    aggressive: { expectedDamage: 2.2, attackValue: 4, rangedAttackValue: 0.4, longRangedAttackValue: 0.6, currentPositionValue: 0.8, repositionValue: 0.4, shootAndScootValue: 1.8, lineOfSightBreakValue: 0.6, exposedAfterActionPenalty: -1, killChance: 1.5, retaliationRisk: -0.4, meleeClosingPenalty: -1.2, holdPenalty: -3, retreatPenalty: -2 },
-    cautious: { expectedDamage: 1.2, attackValue: 3, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.3, shootAndScootValue: 2.6, lineOfSightBreakValue: 1.1, exposedAfterActionPenalty: -1.8, defensiveValue: 0.8, retaliationRisk: -1.4, meleeClosingPenalty: -1.8, holdPenalty: -2, retreatPenalty: -1.2 },
-    evasive: { expectedDamage: 0.7, attackValue: 2, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, shootAndScootValue: 3, lineOfSightBreakValue: 1.4, exposedAfterActionPenalty: -2, defensiveValue: 1.2, retaliationRisk: -2, meleeClosingPenalty: -2, holdPenalty: -1.5, retreatPenalty: -0.4 },
-    protective: { expectedDamage: 1, attackValue: 3, rangedAttackValue: 0.4, longRangedAttackValue: 0.8, currentPositionValue: 0.6, shootAndScootValue: 1.6, lineOfSightBreakValue: 0.7, exposedAfterActionPenalty: -1.2, allySupport: 1.8, formationValue: 1.2, meleeClosingPenalty: -1.4, holdPenalty: -2, retreatPenalty: -1 },
-    desperate: { expectedDamage: 2.4, attackValue: 5, currentPositionValue: 0.8, shootAndScootValue: 0.8, lineOfSightBreakValue: 0.3, killChance: 2, retaliationRisk: -0.1, meleeClosingPenalty: -0.8, holdPenalty: -4, retreatPenalty: -3 },
-    opportunistic: { expectedDamage: 1.6, attackValue: 4, rangedAttackValue: 0.6, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.4, shootAndScootValue: 2.5, lineOfSightBreakValue: 1, exposedAfterActionPenalty: -1.5, killChance: 1.2, defensiveValue: 0.2, retaliationRisk: -0.8, meleeClosingPenalty: -1.6, holdPenalty: -1, retreatPenalty: -2.5 }
+    aggressive: { expectedDamage: 2.2, attackValue: 4, spellValue: 0.7, controlSpellValue: 1.2, damageSpellValue: 1.6, rangedAttackValue: 0.4, longRangedAttackValue: 0.6, currentPositionValue: 0.8, repositionValue: 0.4, shootAndScootValue: 1.8, lineOfSightBreakValue: 0.6, exposedAfterActionPenalty: -1, killChance: 1.5, retaliationRisk: -0.4, meleeClosingPenalty: -1.2, holdPenalty: -3, retreatPenalty: -2 },
+    cautious: { expectedDamage: 1.2, attackValue: 3, spellValue: 1, supportSpellValue: 1.8, controlSpellValue: 1.4, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.3, shootAndScootValue: 2.6, lineOfSightBreakValue: 1.1, exposedAfterActionPenalty: -1.8, defensiveValue: 0.8, retaliationRisk: -1.4, meleeClosingPenalty: -1.8, holdPenalty: -2, retreatPenalty: -1.2 },
+    evasive: { expectedDamage: 0.7, attackValue: 2, spellValue: 0.9, supportSpellValue: 1.4, controlSpellValue: 1.8, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, shootAndScootValue: 3, lineOfSightBreakValue: 1.4, exposedAfterActionPenalty: -2, defensiveValue: 1.2, retaliationRisk: -2, meleeClosingPenalty: -2, holdPenalty: -1.5, retreatPenalty: -0.4 },
+    protective: { expectedDamage: 1, attackValue: 3, spellValue: 1.2, supportSpellValue: 2.6, controlSpellValue: 1.6, rangedAttackValue: 0.4, longRangedAttackValue: 0.8, currentPositionValue: 0.6, shootAndScootValue: 1.6, lineOfSightBreakValue: 0.7, exposedAfterActionPenalty: -1.2, allySupport: 1.8, formationValue: 1.2, meleeClosingPenalty: -1.4, holdPenalty: -2, retreatPenalty: -1 },
+    desperate: { expectedDamage: 2.4, attackValue: 5, spellValue: 0.8, damageSpellValue: 1.8, currentPositionValue: 0.8, shootAndScootValue: 0.8, lineOfSightBreakValue: 0.3, killChance: 2, retaliationRisk: -0.1, meleeClosingPenalty: -0.8, holdPenalty: -4, retreatPenalty: -3 },
+    opportunistic: { expectedDamage: 1.6, attackValue: 4, spellValue: 1, supportSpellValue: 1.5, controlSpellValue: 1.5, damageSpellValue: 1.2, rangedAttackValue: 0.6, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.4, shootAndScootValue: 2.5, lineOfSightBreakValue: 1, exposedAfterActionPenalty: -1.5, killChance: 1.2, defensiveValue: 0.2, retaliationRisk: -0.8, meleeClosingPenalty: -1.6, holdPenalty: -1, retreatPenalty: -2.5 }
   };
   const features = extractScoringFeatures(encounter, candidate);
   const weights = weightsByStance[stance] || weightsByStance.opportunistic;
@@ -1090,6 +1185,8 @@ function summarizeCandidate(candidate, scored = null) {
     label: candidate.label,
     actionType: candidate.action?.type || null,
     attackKind: candidate.action?.attackKind || null,
+    spellKind: candidate.action?.spellKind || null,
+    spellValue: candidate.metadata?.spellValue ?? null,
     targetIds: candidate.targetIds || [],
     moveTo: candidate.move?.to || null,
     pathLength: candidate.move?.path?.length ?? 0,
@@ -1149,11 +1246,14 @@ function scriptedAttackPriority(encounter, actor, candidate) {
     : Infinity;
   const longRangedBonus = candidate.action?.attackKind === 'ranged' && Number(candidate.action?.rangeFt) >= 60 ? 2 : 0;
   const shootAndScootBonus = candidate.family === 'shoot_and_scoot' ? 3 + normalizeNumber(candidate.metadata?.visibilityReduction, 0) : 0;
+  const spellBonus = candidate.action?.type === 'spell'
+    ? 4 + normalizeNumber(candidate.metadata?.spellValue, 0) + (candidate.action?.spellKind === 'support' ? 2 : 0)
+    : 0;
   const avoidUnforcedMelee = actorHasLongRangedAttack &&
     candidate.family === 'move_and_attack' &&
     candidate.action?.attackKind === 'melee' &&
     currentNearestEnemyDistance > 1 ? -2 : 0;
-  return normalizeNumber(candidate.expectedDamage, 0) + longRangedBonus + shootAndScootBonus + avoidUnforcedMelee;
+  return normalizeNumber(candidate.expectedDamage, 0) + longRangedBonus + shootAndScootBonus + spellBonus + avoidUnforcedMelee;
 }
 
 function supervisedCandidateScore(encounter, actor, candidate, { stance = 'opportunistic', reservedDestinations = new Set() } = {}) {
@@ -1165,16 +1265,20 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
     : Infinity;
   const safeRangedBonus = candidate.action?.attackKind === 'ranged' && currentEnemyDistance > 1 ? 1.5 : 0;
   const shootAndScootBonus = candidate.family === 'shoot_and_scoot' ? 3 + normalizeNumber(candidate.metadata?.visibilityReduction, 0) : 0;
+  const spellBonus = candidate.action?.type === 'spell'
+    ? 3 + normalizeNumber(candidate.metadata?.spellValue, 0) + (candidate.action?.spellKind === 'support' ? 2 : 0)
+    : 0;
   const attackBonus = candidate.action?.type === 'attack' ? 2 : 0;
   const holdWhenNoPressureBonus = candidate.family === 'hold_position' ? 0.4 : 0;
   const retreatPenalty = candidate.family === 'disengage_retreat' ? -2 : 0;
   const reservationPenalty = destinationKey && reservedDestinations.has(destinationKey) ? -100 : 0;
   return {
     ...scored,
-    score: scored.score + safeRangedBonus + shootAndScootBonus + attackBonus + holdWhenNoPressureBonus + retreatPenalty + reservationPenalty,
+    score: scored.score + safeRangedBonus + shootAndScootBonus + spellBonus + attackBonus + holdWhenNoPressureBonus + retreatPenalty + reservationPenalty,
     supervisorFeatures: {
       safeRangedBonus,
       shootAndScootBonus,
+      spellBonus,
       attackBonus,
       holdWhenNoPressureBonus,
       retreatPenalty,
@@ -1205,6 +1309,7 @@ function decisionSummary({ controllerLabel, selected, candidates, topCandidates 
   if (!selected) return `${controllerLabel} found no legal candidates.`;
   const counts = candidateFamilyCounts(candidates);
   const attackCount = (counts.attack_from_current || 0) + (counts.move_and_attack || 0) + (counts.shoot_and_scoot || 0);
+  const spellCount = (counts.spell_from_current || 0) + (counts.move_and_spell || 0);
   const topLine = topCandidates
     .slice(0, 3)
     .map((candidate) => {
@@ -1213,7 +1318,7 @@ function decisionSummary({ controllerLabel, selected, candidates, topCandidates 
       return `${candidate.family}${destination}${score}`;
     })
     .join(', ');
-  return `${controllerLabel} selected ${selected.family} from ${candidates.length} candidates (${attackCount} attacks, ${counts.advance_to_attack || 0} advances, ${counts.disengage_retreat || 0} retreats, ${counts.hold_position || 0} holds). Top candidates: ${topLine || 'none'}.`;
+  return `${controllerLabel} selected ${selected.family} from ${candidates.length} candidates (${attackCount} attacks, ${spellCount} spells, ${counts.advance_to_attack || 0} advances, ${counts.disengage_retreat || 0} retreats, ${counts.hold_position || 0} holds). Top candidates: ${topLine || 'none'}.`;
 }
 
 function outputFromCandidate({ encounter, controllerId, candidate, candidates = [], logs = [], stance = 'opportunistic' }) {
@@ -1239,6 +1344,16 @@ function outputFromCandidate({ encounter, controllerId, candidate, candidates = 
         attack_kind: candidate.action.attackKind,
         range_ft: candidate.action.rangeFt,
         from: candidate.action.from ? [candidate.action.from.x, candidate.action.from.y] : undefined
+      }
+    : candidate.action?.type === 'spell'
+    ? {
+        token: actor.name,
+        type: 'spell',
+        target: encounter.actors.find((entry) => entry.id === candidate.action.targetId)?.name || null,
+        details: candidate.action.details,
+        rationale: candidate.label,
+        spell_kind: candidate.action.spellKind,
+        range_ft: candidate.action.rangeFt
       }
     : {
         token: actor.name,
