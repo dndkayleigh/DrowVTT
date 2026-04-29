@@ -1224,6 +1224,81 @@ function dedupeScoredEntries(scored = [], actor = null) {
   return unique;
 }
 
+function coordLabel(coord = null) {
+  return coord ? `(${coord.x},${coord.y})` : '';
+}
+
+function tacticalGroupKey(candidate = {}, actor = null) {
+  const destination = candidate.move?.to || candidate.fromCell || actor?.cell || {};
+  const endPosture = candidate.family === 'shoot_and_scoot'
+    ? 'hide'
+    : candidate.family === 'disengage_retreat'
+    ? 'retreat'
+    : candidate.family === 'hold_position' ? 'hold' : 'active';
+  return [
+    candidate.actorId || actor?.id || '',
+    candidate.action?.type || '',
+    candidate.family || '',
+    candidateActionName(candidate),
+    `${destination.x ?? ''},${destination.y ?? ''}`,
+    (candidate.targetIds || []).join(','),
+    endPosture
+  ].join('|');
+}
+
+function buildTacticalSummaryGroups(uniqueScored = [], actor = null, encounter = null, limit = 5) {
+  const groups = new Map();
+  for (const entry of uniqueScored) {
+    const candidate = entry.candidate;
+    const key = tacticalGroupKey(candidate, actor);
+    const destination = candidate.move?.to || candidate.fromCell || actor?.cell || null;
+    const firingCell = candidate.metadata?.attackCell || candidate.action?.from || candidate.fromCell || null;
+    const existing = groups.get(key);
+    const next = existing || {
+      key,
+      family: candidate.family,
+      actionName: candidateActionName(candidate),
+      actionType: candidate.action?.type || null,
+      destination,
+      endPosture: candidate.family === 'shoot_and_scoot' ? 'hide' : candidate.family,
+      targetLabels: candidateTargetLabels(candidate, encounter),
+      bestScore: entry.score,
+      variantCount: 0,
+      firingCells: [],
+      bestCandidate: summarizeCandidate(candidate, entry, encounter)
+    };
+    next.variantCount += 1;
+    if (firingCell && !next.firingCells.some((cell) => cell.x === firingCell.x && cell.y === firingCell.y)) {
+      next.firingCells.push(firingCell);
+    }
+    if (entry.score > next.bestScore) {
+      next.bestScore = entry.score;
+      next.bestCandidate = summarizeCandidate(candidate, entry, encounter);
+    }
+    groups.set(key, next);
+  }
+  return [...groups.values()]
+    .sort((left, right) => right.bestScore - left.bestScore || right.variantCount - left.variantCount)
+    .slice(0, limit);
+}
+
+function buildScoreFlatnessDiagnostic(scored = [], topLimit = 8) {
+  if (!scored.length) return { status: 'ok', identicalTopCount: 0 };
+  const topScore = Number(scored[0].score.toFixed(2));
+  const identicalTopCount = scored
+    .slice(0, topLimit)
+    .filter((entry) => Number(entry.score.toFixed(2)) === topScore).length;
+  return {
+    status: identicalTopCount >= 3 ? 'warning' : 'ok',
+    topScore,
+    identicalTopCount,
+    inspectedTopCount: Math.min(topLimit, scored.length),
+    possibleMissingDifferentiators: identicalTopCount >= 3
+      ? ['target_priority', 'cover_quality', 'path_safety', 'role_objective_alignment']
+      : []
+  };
+}
+
 function candidateCategory(candidate = {}) {
   if (candidate.action?.type === 'attack') return 'attack';
   if (candidate.action?.type === 'spell') return 'spell';
@@ -1272,6 +1347,7 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
 
 function buildSpellTargetExplanation(encounter, actor, selected, uniqueScored = []) {
   const spellName = selected.action?.details || 'spell';
+  const simplifiedMultiTargetSpells = new Set(['bless']);
   const sameSpellCandidates = uniqueScored.filter((entry) =>
     entry.candidate.action?.type === 'spell' &&
     entry.candidate.action?.details === spellName
@@ -1289,6 +1365,9 @@ function buildSpellTargetExplanation(encounter, actor, selected, uniqueScored = 
   return {
     spell: spellName,
     modeledTargeting: 'single_target',
+    modelWarning: simplifiedMultiTargetSpells.has(spellName.toLowerCase())
+      ? `${spellName} modeled as single_target; support-caster behavior may be distorted compared with full multi-target spell behavior`
+      : null,
     selectedTarget: actorLabelById(encounter, selectedTargetId),
     selectedReason: targetOptions.length > 1
       ? 'selected target had the strongest scored spell candidate after movement, range, and supervisor bonuses'
@@ -1384,10 +1463,14 @@ function buildCandidateDiagnostics(encounter, actor, scored = [], selected = nul
     ? scored.find((entry) => entry.candidate.id === selected.id) || uniqueScored.find((entry) => candidateDiagnosticKey(entry.candidate, actor) === selectedKey)
     : null;
   const candidateSetHealth = buildCandidateSetHealth(actor, uniqueScored);
+  const tacticalSummaryGroups = buildTacticalSummaryGroups(uniqueScored, actor, encounter, 5);
+  const scoreFlatness = buildScoreFlatnessDiagnostic(scored);
 
   return {
     rawCandidateCount: scored.length,
+    mechanicallyDistinctCandidateCount: uniqueScored.length,
     deduplicatedCandidateCount: uniqueScored.length,
+    tacticalGroupCount: new Set(uniqueScored.map((entry) => tacticalGroupKey(entry.candidate, actor))).size,
     selectedRawRank,
     selectedDeduplicatedRank: selectedDedupRank || null,
     rawCategoryCounts,
@@ -1398,6 +1481,8 @@ function buildCandidateDiagnostics(encounter, actor, scored = [], selected = nul
     topByCategory,
     topRejectedAlternatives,
     reservationRejected,
+    tacticalSummaryGroups,
+    scoreFlatness,
     candidateSetHealth,
     spellTargetExplanation: selected?.action?.type === 'spell' ? buildSpellTargetExplanation(encounter, actor, selected, uniqueScored) : null,
     roleCompliance: selected ? roleComplianceForCandidate(actor, selected, candidateSetHealth) : null
@@ -1588,7 +1673,7 @@ function decisionSummary({ controllerLabel, selected, candidates, topCandidates 
   const attackCount = (counts.attack_from_current || 0) + (counts.move_and_attack || 0) + (counts.shoot_and_scoot || 0);
   const spellCount = (counts.spell_from_current || 0) + (counts.move_and_spell || 0);
   const countLine = diagnostics
-    ? `${diagnostics.rawCandidateCount} raw / ${diagnostics.deduplicatedCandidateCount} deduplicated candidates`
+    ? `${diagnostics.rawCandidateCount} raw / ${diagnostics.mechanicallyDistinctCandidateCount || diagnostics.deduplicatedCandidateCount} mechanically distinct / ${diagnostics.tacticalGroupCount ?? '?'} tactical groups`
     : `${candidates.length} candidates`;
   const rankLine = diagnostics?.selectedDeduplicatedRank
     ? ` Rank ${diagnostics.selectedDeduplicatedRank}/${diagnostics.deduplicatedCandidateCount}.`
@@ -1627,6 +1712,15 @@ function formatCandidateBrief(candidate = {}) {
   return `${candidate.family}:${candidate.actionName || 'action'}${destination}${origin}${hide}${score}${target}`;
 }
 
+function formatTacticalGroupBrief(group = {}) {
+  const destination = group.destination ? ` -> ${group.endPosture || 'to'} ${coordLabel(group.destination)}` : '';
+  const target = group.targetLabels?.length ? `, target=${group.targetLabels.join(',')}` : '';
+  const firingCells = group.firingCells?.length
+    ? `, from=${group.firingCells.slice(0, 4).map(coordLabel).join(',')}${group.firingCells.length > 4 ? ',...' : ''}`
+    : '';
+  return `${group.family}:${group.actionName}${destination}${target}, best=${Number(group.bestScore).toFixed(2)}, variants=${group.variantCount}${firingCells}`;
+}
+
 function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
   if (!actor || !diagnostics) return [];
   const logs = [];
@@ -1652,6 +1746,27 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       phase: 'alternatives',
       message: `${actor.name} top rejected alternatives: ${alternatives}.`,
       data: { topRejectedAlternatives: diagnostics.topRejectedAlternatives }
+    }));
+  }
+  const tacticalGroups = diagnostics.tacticalSummaryGroups?.slice(0, 3).map(formatTacticalGroupBrief).join('; ');
+  if (tacticalGroups) {
+    logs.push(createDecisionLogEntry({
+      controllerId,
+      actorId: actor.id,
+      phase: 'tactical_groups',
+      message: `${actor.name} top tactical groups: ${tacticalGroups}.`,
+      data: { tacticalSummaryGroups: diagnostics.tacticalSummaryGroups }
+    }));
+  }
+  const flatness = diagnostics.scoreFlatness;
+  if (flatness?.status === 'warning') {
+    logs.push(createDecisionLogEntry({
+      controllerId,
+      actorId: actor.id,
+      phase: 'score_flatness',
+      level: 'warning',
+      message: `${actor.name} score flatness WARNING: top ${flatness.identicalTopCount} candidates have identical score ${Number(flatness.topScore).toFixed(2)}; possible missing differentiators: ${flatness.possibleMissingDifferentiators.join(', ')}.`,
+      data: { scoreFlatness: flatness }
     }));
   }
   const role = diagnostics.roleCompliance;
@@ -1685,6 +1800,16 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       message: `${actor.name} spell targeting: ${spell.spell} is modeled as ${spell.modeledTargeting}; selected ${spell.selectedTarget}; ${spell.selectedReason}.`,
       data: { spellTargetExplanation: spell }
     }));
+    if (spell.modelWarning) {
+      logs.push(createDecisionLogEntry({
+        controllerId,
+        actorId: actor.id,
+        phase: 'spell_model_warning',
+        level: 'warning',
+        message: `${actor.name} spell model WARNING: ${spell.modelWarning}.`,
+        data: { spellTargetExplanation: spell }
+      }));
+    }
   }
   return logs;
 }
@@ -1720,6 +1845,15 @@ function buildDoctrineActionTension(battlefieldAssessment, actions = []) {
     targetCounts,
     dominantTarget: dominant ? { name: dominant[0], count: dominant[1] } : null,
     note
+  };
+}
+
+function buildDoctrineInfluence(battlefieldAssessment) {
+  return {
+    doctrine: battlefieldAssessment?.doctrine || 'unknown',
+    bonusesApplied: [],
+    penaltiesApplied: [],
+    note: 'doctrine is currently diagnostic only; it does not apply scoring bonuses or penalties'
   };
 }
 
@@ -1984,6 +2118,7 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
     const moves = outputs.flatMap((output) => output.plan?.moves || []);
     const actions = outputs.flatMap((output) => output.plan?.actions || []);
     const doctrineActionTension = buildDoctrineActionTension(battlefieldAssessment, actions);
+    const doctrineInfluence = buildDoctrineInfluence(battlefieldAssessment);
     const logs = [
       createDecisionLogEntry({
         controllerId: this.id,
@@ -1993,6 +2128,7 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
           activationGroup: group,
           battlefieldAssessment,
           doctrineActionTension,
+          doctrineInfluence,
           selectedCandidateIds: outputs.map((output) => output.selectedCandidateId).filter(Boolean),
           reservedDestinations: [...reservedDestinations],
           reservations,
@@ -2013,6 +2149,13 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
         level: doctrineActionTension.status === 'aligned' ? 'info' : 'warning',
         message: `${this.label} doctrine/action tension ${doctrineActionTension.status.toUpperCase()}: ${doctrineActionTension.note}.`,
         data: { doctrineActionTension }
+      }),
+      createDecisionLogEntry({
+        controllerId: this.id,
+        actorId: encounter.activeActorId,
+        phase: 'doctrine_influence',
+        message: `${this.label} doctrine influence: selected doctrine=${doctrineInfluence.doctrine}; doctrine bonuses applied=${doctrineInfluence.bonusesApplied.length ? doctrineInfluence.bonusesApplied.join(', ') : 'none'}; doctrine penalties applied=${doctrineInfluence.penaltiesApplied.length ? doctrineInfluence.penaltiesApplied.join(', ') : 'none'}; note=${doctrineInfluence.note}.`,
+        data: { doctrineInfluence }
       }),
       createDecisionLogEntry({
         controllerId: this.id,

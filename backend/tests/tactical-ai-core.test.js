@@ -247,15 +247,20 @@ test('supervisor scripted group emits one combined VTT plan for grouped actors',
   assert.match(output.logs[0].message, /supervised 2 grouped activations/);
   assert.ok(output.logs[0].data.battlefieldAssessment.doctrine);
   assert.ok(output.logs[0].data.doctrineActionTension.status);
+  assert.equal(output.logs[0].data.doctrineInfluence.note, 'doctrine is currently diagnostic only; it does not apply scoring bonuses or penalties');
   assert.equal(output.logs[0].data.reservations.length, 2);
   const actorLog = output.logs.find((log) => log.data?.diagnostics);
-  assert.match(actorLog.message, /raw .*deduplicated candidates/);
+  assert.match(actorLog.message, /raw .*mechanically distinct .*tactical groups/);
   assert.ok(actorLog.data.diagnostics.selectedDeduplicatedRank >= 1);
   assert.ok(actorLog.data.diagnostics.selectedScoreBreakdown);
+  assert.ok(actorLog.data.diagnostics.mechanicallyDistinctCandidateCount >= actorLog.data.diagnostics.tacticalGroupCount);
+  assert.ok(actorLog.data.diagnostics.tacticalSummaryGroups.length > 0);
   assert.ok(actorLog.data.diagnostics.topRejectedAlternatives[0].targetLabels[0].includes('Hero'));
   assert.ok(actorLog.data.diagnostics.candidateSetHealth.role);
   assert.ok(actorLog.data.diagnostics.topRejectedAlternatives.length > 0);
   assert.ok(actorLog.data.diagnostics.roleCompliance.role);
+  const doctrineInfluenceLog = output.logs.find((log) => log.phase === 'doctrine_influence');
+  assert.match(doctrineInfluenceLog.message, /doctrine bonuses applied=none/);
 });
 
 test('scripted baseline prefers a legal ranged attack over retreating', async () => {
@@ -645,6 +650,8 @@ test('support casters can choose spells without advancing into melee', async () 
   const spellLog = supervised.logs.find((log) => log.phase === 'spell_targeting');
   assert.match(spellLog.message, /Bless is modeled as single_target/);
   assert.match(spellLog.message, /Hobgoblin \[guard\]/);
+  const spellWarningLog = supervised.logs.find((log) => log.phase === 'spell_model_warning');
+  assert.match(spellWarningLog.message, /Bless modeled as single_target/);
 });
 
 test('content normalization tracks provenance for missing custom monster fields', () => {
