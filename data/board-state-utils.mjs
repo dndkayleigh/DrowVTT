@@ -15,6 +15,17 @@ function normalizeTokenArtSnapshot(art) {
   };
 }
 
+function normalizeTokenSpellSnapshot(spell = {}) {
+  return {
+    name: String(spell.name ?? ''),
+    kind: String(spell.kind ?? spell.spellKind ?? 'support'),
+    target: String(spell.target ?? spell.targetSide ?? 'ally'),
+    rangeFt: clampNumber(spell.rangeFt, 30),
+    expectedValue: clampNumber(spell.expectedValue ?? spell.expectedDamage, 4),
+    requiresLineOfSight: spell.requiresLineOfSight !== false
+  };
+}
+
 function normalizeTokenSnapshot(token = {}) {
   return {
     id: String(token.id ?? ''),
@@ -29,6 +40,7 @@ function normalizeTokenSnapshot(token = {}) {
     speed: clampNumber(token.speed, 30),
     notes: String(token.notes ?? ''),
     statblock: String(token.statblock ?? ''),
+    spells: Array.isArray(token.spells) ? token.spells.map(normalizeTokenSpellSnapshot) : [],
     art: normalizeTokenArtSnapshot(token.art)
   };
 }

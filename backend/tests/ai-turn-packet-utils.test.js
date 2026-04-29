@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   buildAiTurnPacketForStrategy,
   buildAiTurnPacketCompactFromState,
-  parseAttackProfiles
+  parseAttackProfiles,
+  parseSpellProfiles
 } from '../../data/ai-turn-packet-utils.mjs';
 
 test('parseAttackProfiles supports shorthand seed-style melee and ranged attack lines', () => {
@@ -51,6 +52,33 @@ test('parseAttackProfiles splits SRD melee-or-ranged attacks into both legal pro
       { name: 'Greataxe', attackKind: 'melee', rangeFt: 5 },
       { name: 'Javelin', attackKind: 'melee', rangeFt: 5 },
       { name: 'Javelin', attackKind: 'ranged', rangeFt: 30 }
+    ]
+  );
+});
+
+test('parseSpellProfiles extracts SRD acolyte support and offensive spells', () => {
+  const profiles = parseSpellProfiles(
+    [
+      'Acolyte (SRD 5.1)',
+      '- Traits:',
+      '  - Spellcasting: The acolyte has following cleric spells prepared: - Cantrips (at will): light, sacred flame, thaumaturgy - 1st level (3 slots): bless, cure wounds, sanctuary',
+      '- Actions:',
+      '  - Club: Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 2 (1d4) bludgeoning damage.'
+    ].join('\n')
+  );
+
+  assert.deepEqual(
+    profiles.map((profile) => ({
+      name: profile.name,
+      kind: profile.kind,
+      target: profile.target,
+      rangeFt: profile.rangeFt
+    })),
+    [
+      { name: 'Bless', kind: 'support', target: 'ally', rangeFt: 30 },
+      { name: 'Sacred Flame', kind: 'damage', target: 'enemy', rangeFt: 60 },
+      { name: 'Cure Wounds', kind: 'healing', target: 'ally', rangeFt: 5 },
+      { name: 'Sanctuary', kind: 'defensive', target: 'ally', rangeFt: 30 }
     ]
   );
 });

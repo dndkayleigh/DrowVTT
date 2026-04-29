@@ -612,6 +612,7 @@ import {
   normalizeBlockingEdgeKeys,
   parseAttackProfiles,
   parseBlockingEdgeKey,
+  parseSpellProfiles,
   resolveDragComplete,
   validateTokenMove as validateTokenMoveState
 } from '/packages/vtt-ui-shared/src/index.js';
@@ -1985,6 +1986,24 @@ import {
     }).attacks;
   }
 
+  function spellsForToken(token) {
+    const explicit = Array.isArray(token?.spells) ? token.spells : [];
+    const parsed = parseSpellProfiles(token?.statblock || '');
+    const known = new Map();
+    for (const spell of [...explicit, ...parsed]) {
+      if (!spell?.name) continue;
+      known.set(String(spell.name).toLowerCase(), {
+        name: String(spell.name),
+        kind: String(spell.kind || spell.spellKind || 'support'),
+        target: String(spell.target || spell.targetSide || 'ally'),
+        rangeFt: Number(spell.rangeFt || 30),
+        expectedValue: Number(spell.expectedValue ?? spell.expectedDamage ?? 4),
+        requiresLineOfSight: spell.requiresLineOfSight !== false
+      });
+    }
+    return [...known.values()];
+  }
+
   function buildEncounterStateFromBoard() {
     const mapWidthCells = state.map.w && state.map.scale
       ? Math.ceil((state.map.offX + (state.map.w * state.map.scale)) / state.gridSize)
@@ -2003,6 +2022,7 @@ import {
       hp: token.hp,
       speed: token.speed,
       attacks: attacksForToken(token),
+      spells: spellsForToken(token),
       traits: [],
       tags: [],
       statblock: token.statblock,
@@ -2117,6 +2137,19 @@ import {
         }
       } else {
         lines.push('    attacks: []');
+      }
+      if (actor.spells?.length) {
+        lines.push('    spells:');
+        for (const spell of actor.spells) {
+          lines.push(
+            `      - name: ${yamlScalar(spell.name)}`,
+            `        kind: ${yamlScalar(spell.kind || 'support')}`,
+            `        target: ${yamlScalar(spell.target || 'ally')}`,
+            `        rangeFt: ${Number(spell.rangeFt) || 30}`,
+            `        expectedValue: ${Number(spell.expectedValue) || 0}`,
+            `        requiresLineOfSight: ${spell.requiresLineOfSight !== false ? 'true' : 'false'}`
+          );
+        }
       }
     }
 

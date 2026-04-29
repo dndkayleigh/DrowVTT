@@ -273,6 +273,61 @@ export function parseAttackProfiles(statblockText) {
   return profiles;
 }
 
+export function parseSpellProfiles(statblockText) {
+  const text = (statblockText || '').toString();
+  if (!text) return [];
+
+  const normalized = text.toLowerCase();
+  const spells = [];
+  const addSpell = (spell) => {
+    if (spells.some((entry) => entry.name.toLowerCase() === spell.name.toLowerCase())) return;
+    spells.push(spell);
+  };
+
+  if (/\bbless\b/i.test(normalized)) {
+    addSpell({
+      name: 'Bless',
+      kind: 'support',
+      target: 'ally',
+      rangeFt: 30,
+      expectedValue: 5,
+      requiresLineOfSight: false
+    });
+  }
+  if (/\bsacred flame\b/i.test(normalized)) {
+    addSpell({
+      name: 'Sacred Flame',
+      kind: 'damage',
+      target: 'enemy',
+      rangeFt: 60,
+      expectedValue: 4,
+      requiresLineOfSight: true
+    });
+  }
+  if (/\bcure wounds\b/i.test(normalized)) {
+    addSpell({
+      name: 'Cure Wounds',
+      kind: 'healing',
+      target: 'ally',
+      rangeFt: 5,
+      expectedValue: 5,
+      requiresLineOfSight: false
+    });
+  }
+  if (/\bsanctuary\b/i.test(normalized)) {
+    addSpell({
+      name: 'Sanctuary',
+      kind: 'defensive',
+      target: 'ally',
+      rangeFt: 30,
+      expectedValue: 4,
+      requiresLineOfSight: false
+    });
+  }
+
+  return spells;
+}
+
 function bestEnemyDistance(state, token, cell, enemies) {
   if (!enemies.length) return Infinity;
   let best = Infinity;
