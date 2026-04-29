@@ -888,6 +888,71 @@ function visibleEnemiesFromCell(encounter, actor, cell) {
   return enemiesFor(encounter, actor).filter((enemy) => hasLineOfSight(encounter, enemy, actorAtCell, enemy.cell));
 }
 
+function distanceToSegment(cell, start, end) {
+  if (!cell || !start || !end) return Infinity;
+  const px = Number(cell.x);
+  const py = Number(cell.y);
+  const ax = Number(start.x);
+  const ay = Number(start.y);
+  const bx = Number(end.x);
+  const by = Number(end.y);
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSquared = dx * dx + dy * dy;
+  if (!lengthSquared) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+function isTargetIsolated(encounter, target) {
+  if (!target) return false;
+  return alliesFor(encounter, target).every((ally) => gridDistance(target.cell, ally.cell) > 2);
+}
+
+function isLikelyCaster(actor = {}) {
+  const name = String(actor.name || '').toLowerCase();
+  return Boolean(actor.spells?.length) || /\b(acolyte|mage|wizard|cleric|priest|druid|warlock|sorcerer)\b/.test(name);
+}
+
+function currentHpValue(actor = {}) {
+  const match = String(actor.hp || '').match(/^\s*(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+function holdHiddenAction(actor, metadata = {}) {
+  return {
+    id: `hold_hidden:${actor.id}`,
+    family: 'hold_hidden',
+    actorId: actor.id,
+    label: `${actor.name} holds hidden`,
+    move: null,
+    action: { type: 'hide', actorId: actor.id },
+    targetIds: [],
+    fromCell: normalizeCell(actor.cell),
+    expectedDamage: 0,
+    moveSteps: 0,
+    legal: true,
+    metadata
+  };
+}
+
+function stalkToCoverAction(actor, cell, metadata = {}) {
+  return {
+    id: `stalk_to_cover:${actor.id}:${cell.x},${cell.y}`,
+    family: 'stalk_to_cover',
+    actorId: actor.id,
+    label: `${actor.name} stalks to cover`,
+    move: { actorId: actor.id, to: normalizeCell(cell), path: metadata.path || pathCellsBetween(actor.cell, cell) },
+    action: { type: 'hide', actorId: actor.id },
+    targetIds: [],
+    fromCell: normalizeCell(cell),
+    expectedDamage: 0,
+    moveSteps: cell.steps || 0,
+    legal: true,
+    metadata
+  };
+}
+
 function targetsForSpell(encounter, actor, spell) {
   if (spell.target === 'self') return [actor];
   if (spell.target === 'ally') return alliesFor(encounter, actor);
@@ -964,12 +1029,21 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
   const reachable = resolvedRulesAdapter.reachableTiles(encounter, actor, { limit: Math.max(limit * 3, movementEnvelopeLimit) });
   const attacks = actor.attacks.length ? actor.attacks : [normalizeAttackProfile({ name: 'Strike', attackKind: 'melee', rangeFt: 5 })];
   const spells = actor.spells || [];
+  const role = inferActorRole(actor);
+  const currentNearestEnemyDistance = enemies.length
+    ? Math.min(...enemies.map((enemy) => gridDistance(actor.cell, enemy.cell)))
+    : Infinity;
 
   for (const enemy of enemies) {
     for (const attack of attacks) {
       const rangeCells = Math.max(1, Math.ceil(attack.rangeFt / 5));
       if (gridDistance(actor.cell, enemy.cell) <= rangeCells && resolvedRulesAdapter.lineOfSight(encounter, actor, enemy, actor.cell)) {
         candidates.push(attackAction(actor, enemy, attack, actor.cell, 'attack_from_current', 0));
+        if (role === 'ambusher_bruiser' && isTargetIsolated(encounter, enemy)) {
+          candidates.push(attackAction(actor, enemy, attack, actor.cell, 'attack_isolated_target', 0, {
+            isolatedTarget: true
+          }));
+        }
         if (attack.attackKind === 'ranged') {
           const scoot = findShootAndScootDestination(encounter, actor, actor.cell, [], reachable, pathfindingService, maxSteps);
           if (scoot) {
@@ -1010,6 +1084,12 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
         candidates.push(attackAction(actor, enemy, attack, cell, 'move_and_attack', cell.steps, {
           path: cell.path || pathCellsBetween(actor.cell, cell)
         }));
+        if (role === 'ambusher_bruiser' && isTargetIsolated(encounter, enemy)) {
+          candidates.push(attackAction(actor, enemy, attack, cell, 'attack_isolated_target', cell.steps, {
+            path: cell.path || pathCellsBetween(actor.cell, cell),
+            isolatedTarget: true
+          }));
+        }
         if (attack.attackKind === 'ranged') {
           const attackPath = cell.path || pathCellsBetween(actor.cell, cell);
           const scoot = findShootAndScootDestination(encounter, actor, cell, attackPath, reachable, pathfindingService, maxSteps);
@@ -1086,6 +1166,33 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
         moveSteps: retreat.steps,
         legal: true
       });
+    }
+  }
+
+  if (role === 'ambusher_bruiser' && currentNearestEnemyDistance > 1) {
+    candidates.push(holdHiddenAction(actor, {
+      engaged: false,
+      visibleEnemiesAtCurrent: visibleEnemiesFromCell(encounter, actor, actor.cell).length
+    }));
+    const currentVisibility = visibleEnemiesFromCell(encounter, actor, actor.cell).length;
+    const stalkCell = reachable
+      .filter((cell) => gridDistance(cell, actor.cell) > 0)
+      .map((cell) => ({
+        ...cell,
+        visibleEnemies: visibleEnemiesFromCell(encounter, actor, cell).length
+      }))
+      .filter((cell) => cell.visibleEnemies <= currentVisibility)
+      .sort((left, right) =>
+        left.visibleEnemies - right.visibleEnemies ||
+        (left.steps || 0) - (right.steps || 0) ||
+        gridDistance(left, nearestEnemy?.cell || actor.cell) - gridDistance(right, nearestEnemy?.cell || actor.cell)
+      )[0];
+    if (stalkCell) {
+      candidates.push(stalkToCoverAction(actor, stalkCell, {
+        path: stalkCell.path || pathCellsBetween(actor.cell, stalkCell),
+        visibleEnemiesBefore: currentVisibility,
+        visibleEnemiesAfter: stalkCell.visibleEnemies
+      }));
     }
   }
 
@@ -1598,6 +1705,105 @@ function filterReservedCandidates(candidates = [], actor = null, reservedDestina
   });
 }
 
+function candidateFinalCell(candidate, actor = null) {
+  return candidate?.move?.to || candidate?.fromCell || actor?.cell || null;
+}
+
+function doctrineActors(encounter, doctrineContext = {}) {
+  const protectedAsset = doctrineContext.protectedAsset?.id
+    ? encounter.actors.find((actor) => actor.id === doctrineContext.protectedAsset.id)
+    : null;
+  const mainThreat = doctrineContext.primaryFocusTarget?.id
+    ? encounter.actors.find((actor) => actor.id === doctrineContext.primaryFocusTarget.id)
+    : null;
+  return { protectedAsset, mainThreat };
+}
+
+function isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat) {
+  const finalCell = candidateFinalCell(candidate, actor);
+  if (!finalCell || !protectedAsset || !mainThreat) return false;
+  const nearLine = distanceToSegment(finalCell, protectedAsset.cell, mainThreat.cell) <= 1.25;
+  const nearProtected = gridDistance(finalCell, protectedAsset.cell) <= 4;
+  const between = gridDistance(finalCell, mainThreat.cell) < gridDistance(protectedAsset.cell, mainThreat.cell);
+  return nearLine && nearProtected && between;
+}
+
+function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}) {
+  const role = inferActorRole(actor);
+  const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
+  const finalCell = candidateFinalCell(candidate, actor);
+  const currentProtectedDistance = protectedAsset ? gridDistance(actor.cell, protectedAsset.cell) : Infinity;
+  const finalProtectedDistance = protectedAsset && finalCell ? gridDistance(finalCell, protectedAsset.cell) : Infinity;
+  const screening = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
+  const visibleAfter = normalizeNumber(candidate.metadata?.visibleEnemiesAfterScoot, visibleEnemiesFromCell(encounter, actor, finalCell || actor.cell).length);
+  const breakdown = {};
+
+  if (role === 'skirmisher') {
+    if (candidate.family === 'shoot_and_scoot') breakdown.roleSkirmisherShootAndScootBonus = 3;
+    if (normalizeNumber(candidate.metadata?.visibilityReduction, 0) > 0 || visibleAfter === 0) breakdown.roleSkirmisherBreakLosBonus = 2;
+    if (candidate.action?.attackKind === 'melee' || visibleAfter > 0) breakdown.roleSkirmisherExposedPenalty = -5;
+  } else if (role === 'disciplined_blocker') {
+    if (candidate.family === 'hold_position' && finalProtectedDistance <= 4) breakdown.roleBlockerHoldLineBonus = 4;
+    if (candidate.family === 'attack_from_current' && currentProtectedDistance <= 4) breakdown.roleBlockerCurrentLineAttackBonus = 3;
+    if (screening) breakdown.roleBlockerScreenBonus = 3;
+    if (candidate.family === 'shoot_and_scoot' && finalProtectedDistance > currentProtectedDistance) breakdown.roleBlockerSkirmishAwayPenalty = -4;
+    if (protectedAsset && currentProtectedDistance <= 4 && finalProtectedDistance > currentProtectedDistance + 1) breakdown.roleBlockerAbandonScreenPenalty = -3;
+  } else if (role === 'ambusher_bruiser') {
+    if (candidate.family === 'hold_hidden') breakdown.roleAmbusherHoldHiddenBonus = 4;
+    if (candidate.family === 'stalk_to_cover') breakdown.roleAmbusherStalkToCoverBonus = 3;
+    if (candidate.family === 'attack_isolated_target' || candidate.metadata?.isolatedTarget) breakdown.roleAmbusherAttackIsolatedBonus = 5;
+    if (!candidate.metadata?.isolatedTarget && ['advance_to_attack', 'move_and_attack'].includes(candidate.family)) breakdown.roleAmbusherEarlyRevealPenalty = -3;
+  } else if (role === 'support_caster') {
+    if (protectedAsset?.id === actor.id || finalProtectedDistance <= currentProtectedDistance) breakdown.roleSupportStaysProtectedBonus = 4;
+    if (candidate.action?.type === 'spell' && ['support', 'healing', 'defensive'].includes(candidate.action?.spellKind)) breakdown.roleSupportBuffBonus = 3;
+    const currentThreatDistance = mainThreat ? gridDistance(actor.cell, mainThreat.cell) : Infinity;
+    const finalThreatDistance = mainThreat && finalCell ? gridDistance(finalCell, mainThreat.cell) : Infinity;
+    if (finalThreatDistance > currentThreatDistance) breakdown.roleSupportMovesAwayFromThreatBonus = 3;
+    if (finalThreatDistance <= 1 || visibleAfter > 0) breakdown.roleSupportExposedPenalty = -5;
+  }
+
+  return breakdown;
+}
+
+function targetPriorityModifiers(encounter, actor, candidate, doctrineContext = {}) {
+  const target = encounter.actors.find((entry) => candidate.targetIds?.includes(entry.id));
+  if (!target) return {};
+  const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
+  const breakdown = {};
+  if (mainThreat?.id && target.id === mainThreat.id) breakdown.targetPriorityMainThreatBonus = 4;
+  const hp = currentHpValue(target);
+  if (hp != null && hp <= 10) breakdown.targetPriorityLowHpBonus = 3;
+  if (isLikelyCaster(target)) breakdown.targetPriorityCasterBonus = 3;
+  if (isTargetIsolated(encounter, target)) breakdown.targetPriorityIsolatedBonus = 2;
+  if (doctrineContext.primaryFocusTarget?.id && target.id === doctrineContext.primaryFocusTarget.id) breakdown.targetPriorityGroupFocusBonus = 1.5;
+  if (normalizeNumber(candidate.expectedDamage, 0) < 3) breakdown.targetPriorityPoorDamagePenalty = -2;
+  if (protectedAsset && target.id === mainThreat?.id && gridDistance(target.cell, protectedAsset.cell) <= 8) {
+    breakdown.targetPriorityThreatensProtectedBonus = 4;
+  }
+  return breakdown;
+}
+
+function doctrineScoreModifiers(encounter, actor, candidate, doctrineContext = {}) {
+  if (doctrineContext.doctrine !== 'protect_caster') return {};
+  const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
+  if (!protectedAsset || !mainThreat) return {};
+  const targetId = candidate.targetIds?.[0] || null;
+  const finalCell = candidateFinalCell(candidate, actor);
+  const currentProtectedDistance = gridDistance(actor.cell, protectedAsset.cell);
+  const finalProtectedDistance = finalCell ? gridDistance(finalCell, protectedAsset.cell) : currentProtectedDistance;
+  const screening = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
+  const role = inferActorRole(actor);
+  const breakdown = {};
+
+  if (candidate.action?.type === 'attack' && targetId === mainThreat.id) breakdown.doctrineProtectCasterThreatBonus = 3;
+  if (screening) breakdown.doctrineProtectCasterInterceptBonus = 3;
+  if (finalProtectedDistance <= currentProtectedDistance && finalProtectedDistance <= 4) breakdown.doctrineProtectCasterScreenBonus = 2;
+  if (role === 'disciplined_blocker' && screening) breakdown.doctrineBlockerLaneBonus = 2;
+  if (role === 'disciplined_blocker' && finalProtectedDistance > currentProtectedDistance + 1) breakdown.doctrineBlockerAwayPenalty = -3;
+  if (targetId && targetId !== mainThreat.id && gridDistance(mainThreat.cell, protectedAsset.cell) <= 8) breakdown.doctrineIgnoreMainThreatPenalty = -2;
+  return breakdown;
+}
+
 function scriptedAttackPriority(encounter, actor, candidate) {
   const actorHasLongRangedAttack = actor?.attacks?.some((attack) =>
     attack.attackKind === 'ranged' && Number(attack.rangeFt) >= 60
@@ -1617,7 +1823,11 @@ function scriptedAttackPriority(encounter, actor, candidate) {
   return normalizeNumber(candidate.expectedDamage, 0) + longRangedBonus + shootAndScootBonus + spellBonus + avoidUnforcedMelee;
 }
 
-function supervisedCandidateScore(encounter, actor, candidate, { stance = 'opportunistic', reservedDestinations = new Set() } = {}) {
+function sumBreakdown(breakdown = {}) {
+  return Object.values(breakdown).reduce((sum, value) => sum + normalizeNumber(value, 0), 0);
+}
+
+function supervisedCandidateScore(encounter, actor, candidate, { stance = 'opportunistic', reservedDestinations = new Set(), doctrineContext = null } = {}) {
   const scored = scoreCandidate(encounter, candidate, { stance });
   const destination = candidate.move?.to || candidate.fromCell || actor?.cell;
   const destinationKey = destination ? cellKey(destination) : '';
@@ -1633,9 +1843,22 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
   const holdWhenNoPressureBonus = candidate.family === 'hold_position' ? 0.4 : 0;
   const retreatPenalty = candidate.family === 'disengage_retreat' ? -2 : 0;
   const reservationPenalty = destinationKey && reservedDestinations.has(destinationKey) ? -100 : 0;
+  const roleModifiers = roleScoreModifiers(encounter, actor, candidate, doctrineContext || {});
+  const targetPriorityModifiersForCandidate = targetPriorityModifiers(encounter, actor, candidate, doctrineContext || {});
+  const doctrineModifiers = doctrineScoreModifiers(encounter, actor, candidate, doctrineContext || {});
   return {
     ...scored,
-    score: scored.score + safeRangedBonus + shootAndScootBonus + spellBonus + attackBonus + holdWhenNoPressureBonus + retreatPenalty + reservationPenalty,
+    score: scored.score +
+      safeRangedBonus +
+      shootAndScootBonus +
+      spellBonus +
+      attackBonus +
+      holdWhenNoPressureBonus +
+      retreatPenalty +
+      reservationPenalty +
+      sumBreakdown(roleModifiers) +
+      sumBreakdown(targetPriorityModifiersForCandidate) +
+      sumBreakdown(doctrineModifiers),
     supervisorFeatures: {
       safeRangedBonus,
       shootAndScootBonus,
@@ -1643,16 +1866,19 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
       attackBonus,
       holdWhenNoPressureBonus,
       retreatPenalty,
-      reservationPenalty
+      reservationPenalty,
+      ...roleModifiers,
+      ...targetPriorityModifiersForCandidate,
+      ...doctrineModifiers
     }
   };
 }
 
-function selectSupervisedCandidate(encounter, actor, { candidateLimit = 36, stance = 'opportunistic', reservedDestinations = new Set() } = {}) {
+function selectSupervisedCandidate(encounter, actor, { candidateLimit = 36, stance = 'opportunistic', reservedDestinations = new Set(), doctrineContext = null } = {}) {
   const candidates = generateCandidateActions(encounter, actor, { limit: candidateLimit });
   const scored = candidates.map((candidate) => ({
     candidate,
-    ...supervisedCandidateScore(encounter, actor, candidate, { stance, reservedDestinations })
+    ...supervisedCandidateScore(encounter, actor, candidate, { stance, reservedDestinations, doctrineContext })
   }));
   scored.sort((left, right) =>
     right.score - left.score ||
@@ -1848,12 +2074,24 @@ function buildDoctrineActionTension(battlefieldAssessment, actions = []) {
   };
 }
 
-function buildDoctrineInfluence(battlefieldAssessment) {
+function buildDoctrineInfluence(battlefieldAssessment, outputs = []) {
+  const applied = outputs
+    .flatMap((output) => output.logs || [])
+    .flatMap((log) => Object.entries(log.data?.diagnostics?.selectedSupervisorBreakdown || {}))
+    .filter(([key, value]) => key.startsWith('doctrine') && Math.abs(Number(value)) > 0.0001);
+  const bonusesApplied = applied
+    .filter(([, value]) => Number(value) > 0)
+    .map(([key, value]) => `${key} +${Number(value).toFixed(2)}`);
+  const penaltiesApplied = applied
+    .filter(([, value]) => Number(value) < 0)
+    .map(([key, value]) => `${key} ${Number(value).toFixed(2)}`);
   return {
     doctrine: battlefieldAssessment?.doctrine || 'unknown',
-    bonusesApplied: [],
-    penaltiesApplied: [],
-    note: 'doctrine is currently diagnostic only; it does not apply scoring bonuses or penalties'
+    bonusesApplied,
+    penaltiesApplied,
+    note: applied.length
+      ? 'doctrine modifiers are applied as conservative supervisor score nudges'
+      : 'doctrine modifiers available, but none applied to selected candidates'
   };
 }
 
@@ -2034,7 +2272,8 @@ export class SupervisorScriptedController {
     const { candidates, scored, selected, topCandidates, diagnostics } = selectSupervisedCandidate(encounter, actor, {
       candidateLimit: input.candidateLimit || 36,
       stance,
-      reservedDestinations: input.reservedDestinations || new Set()
+      reservedDestinations: input.reservedDestinations || new Set(),
+      doctrineContext: input.doctrineContext || null
     });
     const logs = [createDecisionLogEntry({
       controllerId: this.id,
@@ -2090,7 +2329,8 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
         encounter,
         actorId,
         candidateLimit: input.candidateLimit || 36,
-        reservedDestinations
+        reservedDestinations,
+        doctrineContext: battlefieldAssessment
       });
       const moveDestination = output.plan?.moves?.[0]?.to;
       const reservationKey = moveDestination ? `${moveDestination[0]},${moveDestination[1]}` : actor?.cell ? cellKey(actor.cell) : '';
@@ -2118,7 +2358,7 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
     const moves = outputs.flatMap((output) => output.plan?.moves || []);
     const actions = outputs.flatMap((output) => output.plan?.actions || []);
     const doctrineActionTension = buildDoctrineActionTension(battlefieldAssessment, actions);
-    const doctrineInfluence = buildDoctrineInfluence(battlefieldAssessment);
+    const doctrineInfluence = buildDoctrineInfluence(battlefieldAssessment, outputs);
     const logs = [
       createDecisionLogEntry({
         controllerId: this.id,

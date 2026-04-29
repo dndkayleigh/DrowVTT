@@ -247,7 +247,7 @@ test('supervisor scripted group emits one combined VTT plan for grouped actors',
   assert.match(output.logs[0].message, /supervised 2 grouped activations/);
   assert.ok(output.logs[0].data.battlefieldAssessment.doctrine);
   assert.ok(output.logs[0].data.doctrineActionTension.status);
-  assert.equal(output.logs[0].data.doctrineInfluence.note, 'doctrine is currently diagnostic only; it does not apply scoring bonuses or penalties');
+  assert.match(output.logs[0].data.doctrineInfluence.note, /doctrine modifiers/);
   assert.equal(output.logs[0].data.reservations.length, 2);
   const actorLog = output.logs.find((log) => log.data?.diagnostics);
   assert.match(actorLog.message, /raw .*mechanically distinct .*tactical groups/);
@@ -260,7 +260,7 @@ test('supervisor scripted group emits one combined VTT plan for grouped actors',
   assert.ok(actorLog.data.diagnostics.topRejectedAlternatives.length > 0);
   assert.ok(actorLog.data.diagnostics.roleCompliance.role);
   const doctrineInfluenceLog = output.logs.find((log) => log.phase === 'doctrine_influence');
-  assert.match(doctrineInfluenceLog.message, /doctrine bonuses applied=none/);
+  assert.match(doctrineInfluenceLog.message, /doctrine bonuses applied=/);
 });
 
 test('scripted baseline prefers a legal ranged attack over retreating', async () => {
@@ -652,6 +652,70 @@ test('support casters can choose spells without advancing into melee', async () 
   assert.match(spellLog.message, /Hobgoblin \[guard\]/);
   const spellWarningLog = supervised.logs.find((log) => log.phase === 'spell_model_warning');
   assert.match(spellWarningLog.message, /Bless modeled as single_target/);
+});
+
+test('protect caster doctrine nudges target priority and logs score modifiers', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'protect-caster-priority',
+    activeActorId: 'goblin',
+    battlefield: { width: 12, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'goblin',
+        name: 'Goblin',
+        side: 'monsters',
+        cell: { x: 2, y: 2 },
+        speed: 30,
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      {
+        id: 'acolyte',
+        name: 'Acolyte',
+        side: 'monsters',
+        cell: { x: 3, y: 2 },
+        speed: 30,
+        attacks: [],
+        spells: [{ name: 'Bless', kind: 'support', target: 'ally', rangeFt: 30, expectedValue: 5 }]
+      },
+      { id: 'aria', name: 'Aria', side: 'heroes', cell: { x: 7, y: 2 }, speed: 30, hp: '18/18', attacks: [] },
+      { id: 'cam', name: 'Cam', side: 'heroes', cell: { x: 7, y: 4 }, speed: 30, hp: '18/18', attacks: [] }
+    ]
+  });
+
+  const doctrineContext = {
+    doctrine: 'protect_caster',
+    protectedAsset: { id: 'acolyte', name: 'Acolyte' },
+    primaryFocusTarget: { id: 'cam', name: 'Cam' }
+  };
+  const output = await new SupervisorScriptedController().chooseAction({ encounter, doctrineContext });
+  const selected = output.logs[0].data.selected;
+
+  assert.equal(selected.targetLabels[0], 'Cam [cam]');
+  assert.ok(output.logs[0].data.diagnostics.selectedSupervisorBreakdown.targetPriorityMainThreatBonus > 0);
+  assert.ok(output.logs[0].data.diagnostics.selectedSupervisorBreakdown.doctrineProtectCasterThreatBonus > 0);
+});
+
+test('bugbear ambusher candidates include hidden and stalking options', () => {
+  const encounter = normalizeEncounterState({
+    id: 'bugbear-ambush-options',
+    activeActorId: 'bugbear',
+    battlefield: { width: 12, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'bugbear',
+        name: 'Bugbear',
+        side: 'monsters',
+        cell: { x: 2, y: 2 },
+        speed: 30,
+        attacks: [{ name: 'Morningstar', attackKind: 'melee', rangeFt: 5, expectedDamage: 6 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 9, y: 2 }, speed: 30, attacks: [] }
+    ]
+  });
+  const families = new Set(generateCandidateActions(encounter, encounter.actors[0], { limit: 36 }).map((candidate) => candidate.family));
+
+  assert.equal(families.has('hold_hidden'), true);
+  assert.equal(families.has('stalk_to_cover'), true);
 });
 
 test('content normalization tracks provenance for missing custom monster fields', () => {
