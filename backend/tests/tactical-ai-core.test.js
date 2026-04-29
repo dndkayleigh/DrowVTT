@@ -245,6 +245,14 @@ test('supervisor scripted group emits one combined VTT plan for grouped actors',
   assert.equal(plan.actions.length, 2);
   assert.equal(plan._controller.id, 'supervisor_scripted_group');
   assert.match(output.logs[0].message, /supervised 2 grouped activations/);
+  assert.ok(output.logs[0].data.battlefieldAssessment.doctrine);
+  assert.equal(output.logs[0].data.reservations.length, 2);
+  const actorLog = output.logs.find((log) => log.data?.diagnostics);
+  assert.match(actorLog.message, /raw .*deduplicated candidates/);
+  assert.ok(actorLog.data.diagnostics.selectedDeduplicatedRank >= 1);
+  assert.ok(actorLog.data.diagnostics.selectedScoreBreakdown);
+  assert.ok(actorLog.data.diagnostics.topRejectedAlternatives.length > 0);
+  assert.ok(actorLog.data.diagnostics.roleCompliance.role);
 });
 
 test('scripted baseline prefers a legal ranged attack over retreating', async () => {
