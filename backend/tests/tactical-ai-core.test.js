@@ -246,11 +246,14 @@ test('supervisor scripted group emits one combined VTT plan for grouped actors',
   assert.equal(plan._controller.id, 'supervisor_scripted_group');
   assert.match(output.logs[0].message, /supervised 2 grouped activations/);
   assert.ok(output.logs[0].data.battlefieldAssessment.doctrine);
+  assert.ok(output.logs[0].data.doctrineActionTension.status);
   assert.equal(output.logs[0].data.reservations.length, 2);
   const actorLog = output.logs.find((log) => log.data?.diagnostics);
   assert.match(actorLog.message, /raw .*deduplicated candidates/);
   assert.ok(actorLog.data.diagnostics.selectedDeduplicatedRank >= 1);
   assert.ok(actorLog.data.diagnostics.selectedScoreBreakdown);
+  assert.ok(actorLog.data.diagnostics.topRejectedAlternatives[0].targetLabels[0].includes('Hero'));
+  assert.ok(actorLog.data.diagnostics.candidateSetHealth.role);
   assert.ok(actorLog.data.diagnostics.topRejectedAlternatives.length > 0);
   assert.ok(actorLog.data.diagnostics.roleCompliance.role);
 });
@@ -474,7 +477,7 @@ test('ranged move-and-attack preserves distance on equal-cost shots', async () =
   const selectedDistance = Math.max(Math.abs(attackOrigin[0] - 4), Math.abs(attackOrigin[1] - 4));
   assert.ok(selectedDistance >= 2);
   assert.notDeepEqual(attackOrigin, [3, 1]);
-  assert.match(output.logs[0].message, /(move_and_attack|shoot_and_scoot)@\(/);
+  assert.match(output.logs[0].message, /(move_and_attack|shoot_and_scoot).*@\(/);
 });
 
 test('long barrier encounter lets an orc route to an open javelin lane without occupying an ally cell', async () => {
@@ -531,7 +534,7 @@ test('long barrier encounter lets an orc route to an open javelin lane without o
     : { x: output.plan.moves[0].to[0], y: output.plan.moves[0].to[1] };
   assert.equal(hasLineOfSight(encounter, encounter.actors[0], encounter.actors[2], attackOrigin), true);
   assert.equal(output.logs[0].data.selected.pathLength, output.plan.moves[0].path.length);
-  assert.match(output.logs[0].message, /(move_and_attack|shoot_and_scoot)@\(/);
+  assert.match(output.logs[0].message, /(move_and_attack|shoot_and_scoot).*@\(/);
 });
 
 test('tactical candidates do not choose occupied final destinations', async () => {
@@ -637,6 +640,11 @@ test('support casters can choose spells without advancing into melee', async () 
   assert.equal(output.plan.actions[0].type, 'spell');
   assert.equal(output.plan.actions[0].details, 'Bless');
   assert.equal(output.plan.actions[0].target, 'Hobgoblin');
+
+  const supervised = await new SupervisorScriptedController().chooseAction({ encounter, stance: 'protective' });
+  const spellLog = supervised.logs.find((log) => log.phase === 'spell_targeting');
+  assert.match(spellLog.message, /Bless is modeled as single_target/);
+  assert.match(spellLog.message, /Hobgoblin \[guard\]/);
 });
 
 test('content normalization tracks provenance for missing custom monster fields', () => {

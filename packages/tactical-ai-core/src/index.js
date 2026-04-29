@@ -1187,6 +1187,15 @@ function candidateActionName(candidate) {
   return candidate?.action?.details || candidate?.metadata?.attackName || candidate?.family || 'action';
 }
 
+function actorLabelById(encounter, actorId) {
+  const actor = encounter?.actors?.find((entry) => entry.id === actorId);
+  return actor ? `${actor.name} [${actor.id}]` : String(actorId || 'none');
+}
+
+function candidateTargetLabels(candidate = {}, encounter = null) {
+  return (candidate.targetIds || []).map((targetId) => actorLabelById(encounter, targetId));
+}
+
 function candidateDiagnosticKey(candidate = {}, actor = null) {
   const destination = candidate.move?.to || candidate.fromCell || actor?.cell || {};
   const from = candidate.action?.from || candidate.metadata?.attackCell || {};
@@ -1236,7 +1245,59 @@ function inferActorRole(actor = {}) {
   return 'soldier';
 }
 
-function roleComplianceForCandidate(actor, candidate) {
+function expectedCandidateFamiliesForRole(role) {
+  if (role === 'skirmisher') return ['shoot_and_scoot', 'attack_from_current', 'move_and_attack'];
+  if (role === 'disciplined_blocker') return ['hold_position', 'advance_to_attack', 'move_and_attack', 'attack_from_current'];
+  if (role === 'ambusher_bruiser') return ['hold_hidden', 'stalk_to_cover', 'intercept_flanker', 'attack_isolated_target', 'move_and_attack'];
+  if (role === 'support_caster') return ['spell_from_current', 'move_and_spell'];
+  return ['attack_from_current', 'move_and_attack', 'advance_to_attack'];
+}
+
+function buildCandidateSetHealth(actor, uniqueScored = []) {
+  const role = inferActorRole(actor);
+  const availableFamilies = [...new Set(uniqueScored.map((entry) => entry.candidate.family).filter(Boolean))].sort();
+  const expectedFamilies = expectedCandidateFamiliesForRole(role);
+  const missingExpectedCandidates = expectedFamilies.filter((family) => !availableFamilies.includes(family));
+  const status = missingExpectedCandidates.length >= Math.max(2, Math.ceil(expectedFamilies.length / 2))
+    ? 'warning'
+    : missingExpectedCandidates.length ? 'weak_pass' : 'pass';
+  return {
+    role,
+    status,
+    availableFamilies,
+    expectedFamilies,
+    missingExpectedCandidates
+  };
+}
+
+function buildSpellTargetExplanation(encounter, actor, selected, uniqueScored = []) {
+  const spellName = selected.action?.details || 'spell';
+  const sameSpellCandidates = uniqueScored.filter((entry) =>
+    entry.candidate.action?.type === 'spell' &&
+    entry.candidate.action?.details === spellName
+  );
+  const targetOptions = sameSpellCandidates.map((entry) => {
+    const targetId = entry.candidate.targetIds?.[0] || entry.candidate.action?.targetId;
+    return {
+      target: actorLabelById(encounter, targetId),
+      score: Number(entry.score.toFixed(2)),
+      family: entry.candidate.family,
+      destination: entry.candidate.move?.to || entry.candidate.fromCell || actor?.cell || null
+    };
+  });
+  const selectedTargetId = selected.targetIds?.[0] || selected.action?.targetId;
+  return {
+    spell: spellName,
+    modeledTargeting: 'single_target',
+    selectedTarget: actorLabelById(encounter, selectedTargetId),
+    selectedReason: targetOptions.length > 1
+      ? 'selected target had the strongest scored spell candidate after movement, range, and supervisor bonuses'
+      : 'only one legal target option was generated for this spell',
+    targetOptions
+  };
+}
+
+function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null) {
   const role = inferActorRole(actor);
   const checks = [];
   let status = 'pass';
@@ -1264,6 +1325,12 @@ function roleComplianceForCandidate(actor, candidate) {
     if (attackKind === 'ranged' || family === 'shoot_and_scoot') {
       status = 'warning';
       concern = 'ambusher bruiser is taking a ranged/skirmish line instead of preserving melee threat';
+    } else if (candidateSetHealth?.status === 'warning') {
+      status = 'warning';
+      concern = 'ambusher bruiser selected a plausible action, but the candidate set lacks ambush-specific options';
+    } else if (candidateSetHealth?.status === 'weak_pass') {
+      status = 'weak_pass';
+      concern = 'ambusher bruiser selected a plausible action, but candidate coverage is thin';
     }
   } else if (role === 'support_caster') {
     checks.push({ label: 'usesSupportOrDefensiveSpell', ok: actionType === 'spell' && ['support', 'healing', 'defensive'].includes(spellKind) });
@@ -1296,25 +1363,27 @@ function buildCandidateDiagnostics(encounter, actor, scored = [], selected = nul
   const topByCategory = {};
   for (const entry of uniqueScored) {
     const category = candidateCategory(entry.candidate);
-    if (!topByCategory[category]) topByCategory[category] = summarizeCandidate(entry.candidate, entry);
+    if (!topByCategory[category]) topByCategory[category] = summarizeCandidate(entry.candidate, entry, encounter);
   }
   const topRejectedAlternatives = uniqueScored
     .filter((entry) => !selectedKey || candidateDiagnosticKey(entry.candidate, actor) !== selectedKey)
     .slice(0, 3)
-    .map((entry) => summarizeCandidate(entry.candidate, entry));
+    .map((entry) => summarizeCandidate(entry.candidate, entry, encounter));
   const reservationRejected = scored
     .filter((entry) => entry.supervisorFeatures?.reservationPenalty < 0)
     .slice(0, 5)
-    .map((entry) => summarizeCandidate(entry.candidate, entry));
+    .map((entry) => summarizeCandidate(entry.candidate, entry, encounter));
   const targetsRepresented = uniqueScored.reduce((targets, entry) => {
     const targetId = entry.candidate.targetIds?.[0] || 'none';
     const target = encounter.actors.find((actorEntry) => actorEntry.id === targetId);
-    targets[target?.name || targetId] = (targets[target?.name || targetId] || 0) + 1;
+    const label = target ? `${target.name} [${target.id}]` : targetId;
+    targets[label] = (targets[label] || 0) + 1;
     return targets;
   }, {});
   const selectedScored = selected
     ? scored.find((entry) => entry.candidate.id === selected.id) || uniqueScored.find((entry) => candidateDiagnosticKey(entry.candidate, actor) === selectedKey)
     : null;
+  const candidateSetHealth = buildCandidateSetHealth(actor, uniqueScored);
 
   return {
     rawCandidateCount: scored.length,
@@ -1329,7 +1398,9 @@ function buildCandidateDiagnostics(encounter, actor, scored = [], selected = nul
     topByCategory,
     topRejectedAlternatives,
     reservationRejected,
-    roleCompliance: selected ? roleComplianceForCandidate(actor, selected) : null
+    candidateSetHealth,
+    spellTargetExplanation: selected?.action?.type === 'spell' ? buildSpellTargetExplanation(encounter, actor, selected, uniqueScored) : null,
+    roleCompliance: selected ? roleComplianceForCandidate(actor, selected, candidateSetHealth) : null
   };
 }
 
@@ -1378,7 +1449,7 @@ function buildSupervisorBattlefieldAssessment(encounter, actorIds = []) {
   };
 }
 
-function summarizeCandidate(candidate, scored = null) {
+function summarizeCandidate(candidate, scored = null, encounter = null) {
   return {
     id: candidate.id,
     family: candidate.family,
@@ -1388,6 +1459,8 @@ function summarizeCandidate(candidate, scored = null) {
     spellKind: candidate.action?.spellKind || null,
     spellValue: candidate.metadata?.spellValue ?? null,
     targetIds: candidate.targetIds || [],
+    targetLabels: candidateTargetLabels(candidate, encounter),
+    actionName: candidateActionName(candidate),
     moveTo: candidate.move?.to || null,
     pathLength: candidate.move?.path?.length ?? 0,
     moveSteps: candidate.moveSteps || 0,
@@ -1417,7 +1490,7 @@ function topCandidateSummaries(encounter, candidates, { stance = 'opportunistic'
     .sort((left, right) => right.score - left.score || left.candidate.moveSteps - right.candidate.moveSteps);
   return dedupeScoredEntries(scored)
     .slice(0, limit)
-    .map((entry) => summarizeCandidate(entry.candidate, entry));
+    .map((entry) => summarizeCandidate(entry.candidate, entry, encounter));
 }
 
 function candidateFamilyCounts(candidates = []) {
@@ -1504,7 +1577,7 @@ function selectSupervisedCandidate(encounter, actor, { candidateLimit = 36, stan
     candidates,
     scored,
     selected: scored[0]?.candidate || candidates[0] || null,
-    topCandidates: dedupeScoredEntries(scored, actor).slice(0, 5).map((entry) => summarizeCandidate(entry.candidate, entry)),
+    topCandidates: dedupeScoredEntries(scored, actor).slice(0, 5).map((entry) => summarizeCandidate(entry.candidate, entry, encounter)),
     diagnostics: buildCandidateDiagnostics(encounter, actor, scored, scored[0]?.candidate || candidates[0] || null)
   };
 }
@@ -1524,8 +1597,11 @@ function decisionSummary({ controllerLabel, selected, candidates, topCandidates 
     .slice(0, 3)
     .map((candidate) => {
       const destination = candidate.moveTo ? `@(${candidate.moveTo.x},${candidate.moveTo.y})` : '';
+      const origin = candidate.attackCell ? ` from=(${candidate.attackCell.x},${candidate.attackCell.y})` : '';
+      const hide = candidate.hideCell ? ` hide=(${candidate.hideCell.x},${candidate.hideCell.y})` : '';
+      const target = candidate.targetLabels?.length ? ` target=${candidate.targetLabels.join(',')}` : '';
       const score = candidate.score == null ? '' : `=${candidate.score.toFixed(2)}`;
-      return `${candidate.family}${destination}${score}`;
+      return `${candidate.family}:${candidate.actionName || 'action'}${destination}${origin}${hide}${score}${target}`;
     })
     .join(', ');
   return `${controllerLabel} selected ${selected.family} from ${countLine} (${attackCount} attacks, ${spellCount} spells, ${counts.advance_to_attack || 0} advances, ${counts.disengage_retreat || 0} retreats, ${counts.hold_position || 0} holds).${rankLine} Top candidates: ${topLine || 'none'}.`;
@@ -1542,9 +1618,13 @@ function formatScoreBreakdown(breakdown = {}, limit = 6) {
 
 function formatCandidateBrief(candidate = {}) {
   const destination = candidate.moveTo ? `@(${candidate.moveTo.x},${candidate.moveTo.y})` : '';
+  const origin = candidate.attackCell ? ` from=(${candidate.attackCell.x},${candidate.attackCell.y})` : '';
+  const hide = candidate.hideCell ? ` hide=(${candidate.hideCell.x},${candidate.hideCell.y})` : '';
   const score = candidate.score == null ? '' : `=${Number(candidate.score).toFixed(2)}`;
-  const target = candidate.targetIds?.length ? ` target=${candidate.targetIds.join(',')}` : '';
-  return `${candidate.family}${destination}${score}${target}`;
+  const target = candidate.targetLabels?.length
+    ? ` target=${candidate.targetLabels.join(',')}`
+    : candidate.targetIds?.length ? ` target=${candidate.targetIds.join(',')}` : '';
+  return `${candidate.family}:${candidate.actionName || 'action'}${destination}${origin}${hide}${score}${target}`;
 }
 
 function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
@@ -1580,9 +1660,30 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       controllerId,
       actorId: actor.id,
       phase: 'role_compliance',
-      level: role.status === 'warning' ? 'warning' : 'info',
+      level: role.status === 'pass' ? 'info' : 'warning',
       message: `${actor.name} role compliance ${role.status.toUpperCase()}: role=${role.role}${role.concern ? `; concern=${role.concern}` : ''}.`,
       data: { roleCompliance: role }
+    }));
+  }
+  const health = diagnostics.candidateSetHealth;
+  if (health && health.status !== 'pass') {
+    logs.push(createDecisionLogEntry({
+      controllerId,
+      actorId: actor.id,
+      phase: 'candidate_health',
+      level: health.status === 'pass' ? 'info' : 'warning',
+      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}.`,
+      data: { candidateSetHealth: health }
+    }));
+  }
+  const spell = diagnostics.spellTargetExplanation;
+  if (spell) {
+    logs.push(createDecisionLogEntry({
+      controllerId,
+      actorId: actor.id,
+      phase: 'spell_targeting',
+      message: `${actor.name} spell targeting: ${spell.spell} is modeled as ${spell.modeledTargeting}; selected ${spell.selectedTarget}; ${spell.selectedReason}.`,
+      data: { spellTargetExplanation: spell }
     }));
   }
   return logs;
@@ -1592,6 +1693,34 @@ function formatReservationSummary(reservations = []) {
   return reservations
     .map((reservation) => `${reservation.actorName} -> (${reservation.destination?.[0]},${reservation.destination?.[1]})`)
     .join('; ');
+}
+
+function buildDoctrineActionTension(battlefieldAssessment, actions = []) {
+  const targetCounts = actions.reduce((counts, action) => {
+    if (!action?.target || action.target === 'null') return counts;
+    const key = String(action.target);
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+  const dominant = Object.entries(targetCounts).sort((left, right) => right[1] - left[1])[0] || null;
+  const focusName = battlefieldAssessment?.primaryFocusTarget?.name || null;
+  let status = 'aligned';
+  let note = 'selected actions are consistent with the heuristic doctrine focus';
+  if (dominant && focusName && dominant[0] !== focusName) {
+    status = 'tension';
+    note = `doctrine focus is ${focusName}, but ${dominant[1]} selected actions target ${dominant[0]}; likely local scoring/focus-fire override`;
+  } else if (battlefieldAssessment?.doctrine === 'protect_caster' && actions.filter((action) => action.type === 'attack').length >= Math.max(3, actions.length - 1)) {
+    status = 'watch';
+    note = 'protect_caster doctrine is active, but most selections are attacks; verify the protected asset remains safe';
+  }
+  return {
+    status,
+    doctrine: battlefieldAssessment?.doctrine || 'unknown',
+    focusTarget: focusName,
+    targetCounts,
+    dominantTarget: dominant ? { name: dominant[0], count: dominant[1] } : null,
+    note
+  };
 }
 
 function outputFromCandidate({ encounter, controllerId, candidate, candidates = [], logs = [], stance = 'opportunistic' }) {
@@ -1714,7 +1843,7 @@ export class ScriptedController {
       data: {
         ruleOrder: ['best attack from current position', 'best move and attack', 'advance toward attack range', 'hold defensively if no pressure action is available', 'retreat only as fallback', 'fallback'],
         familyCounts: candidateFamilyCounts(candidates),
-        selected: selected ? summarizeCandidate(selected) : null,
+        selected: selected ? summarizeCandidate(selected, null, encounter) : null,
         topCandidates
       }
     })];
@@ -1741,7 +1870,7 @@ export class UtilityController {
     const scored = candidates.map((candidate) => ({ candidate, ...scoreCandidate(encounter, candidate, { stance }) }));
     scored.sort((left, right) => right.score - left.score || left.candidate.moveSteps - right.candidate.moveSteps);
     const selected = scored[0]?.candidate || candidates[0];
-    const topCandidates = scored.slice(0, 5).map((entry) => summarizeCandidate(entry.candidate, entry));
+    const topCandidates = scored.slice(0, 5).map((entry) => summarizeCandidate(entry.candidate, entry, encounter));
     const logs = [createDecisionLogEntry({
       controllerId: this.id,
       actorId: actor?.id,
@@ -1749,7 +1878,7 @@ export class UtilityController {
       data: {
         stance,
         familyCounts: candidateFamilyCounts(candidates),
-        selected: selected ? summarizeCandidate(selected, scored.find((entry) => entry.candidate.id === selected.id)) : null,
+        selected: selected ? summarizeCandidate(selected, scored.find((entry) => entry.candidate.id === selected.id), encounter) : null,
         topCandidates
       }
     })];
@@ -1790,7 +1919,7 @@ export class SupervisorScriptedController {
           }
         },
         familyCounts: candidateFamilyCounts(candidates),
-        selected: selected ? summarizeCandidate(selected, scored.find((entry) => entry.candidate.id === selected.id)) : null,
+        selected: selected ? summarizeCandidate(selected, scored.find((entry) => entry.candidate.id === selected.id), encounter) : null,
         topCandidates,
         diagnostics
       }
@@ -1854,6 +1983,7 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
     }
     const moves = outputs.flatMap((output) => output.plan?.moves || []);
     const actions = outputs.flatMap((output) => output.plan?.actions || []);
+    const doctrineActionTension = buildDoctrineActionTension(battlefieldAssessment, actions);
     const logs = [
       createDecisionLogEntry({
         controllerId: this.id,
@@ -1862,6 +1992,7 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
         data: {
           activationGroup: group,
           battlefieldAssessment,
+          doctrineActionTension,
           selectedCandidateIds: outputs.map((output) => output.selectedCandidateId).filter(Boolean),
           reservedDestinations: [...reservedDestinations],
           reservations,
@@ -1874,6 +2005,14 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
         phase: 'battlefield_assessment',
         message: `${this.label} battlefield assessment: doctrine=${battlefieldAssessment.doctrine}; focus=${battlefieldAssessment.primaryFocusTarget?.name || 'none'}; protected=${battlefieldAssessment.protectedAsset?.name || 'none'}; risk=${battlefieldAssessment.mainRisk}.`,
         data: { battlefieldAssessment }
+      }),
+      createDecisionLogEntry({
+        controllerId: this.id,
+        actorId: encounter.activeActorId,
+        phase: 'doctrine_action_tension',
+        level: doctrineActionTension.status === 'aligned' ? 'info' : 'warning',
+        message: `${this.label} doctrine/action tension ${doctrineActionTension.status.toUpperCase()}: ${doctrineActionTension.note}.`,
+        data: { doctrineActionTension }
       }),
       createDecisionLogEntry({
         controllerId: this.id,
