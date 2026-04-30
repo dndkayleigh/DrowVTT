@@ -1276,6 +1276,108 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
   }).slice(0, limit);
 }
 
+/**
+ * @typedef {object} ScoreBreakdownNamespaces
+ * @property {ScoreBreakdown} universal General tactical terms that are not tied to one ruleset.
+ * @property {ScoreBreakdown} targeting Target-priority terms.
+ * @property {ScoreBreakdown} role Tactical-role terms.
+ * @property {ScoreBreakdown} doctrine Supervisor doctrine terms.
+ * @property {ScoreBreakdown} dnd5e Terms currently shaped by the D&D/SRD reference implementation.
+ * @property {ScoreBreakdown} uncategorized Terms without an assigned namespace.
+ */
+
+const SCORE_BREAKDOWN_NAMESPACE_KEYS = [
+  'universal',
+  'targeting',
+  'role',
+  'doctrine',
+  'dnd5e',
+  'uncategorized'
+];
+
+const BASE_SCORE_TERM_NAMESPACES = {
+  expectedDamage: 'dnd5e',
+  attackValue: 'universal',
+  spellValue: 'dnd5e',
+  supportSpellValue: 'dnd5e',
+  controlSpellValue: 'dnd5e',
+  damageSpellValue: 'dnd5e',
+  rangedAttackValue: 'dnd5e',
+  longRangedAttackValue: 'dnd5e',
+  currentPositionValue: 'universal',
+  repositionValue: 'universal',
+  shootAndScootValue: 'universal',
+  lineOfSightBreakValue: 'universal',
+  exposedAfterActionPenalty: 'universal',
+  meleeClosingPenalty: 'dnd5e',
+  killChance: 'dnd5e',
+  retaliationRisk: 'universal',
+  defensiveValue: 'universal',
+  coverGain: 'universal',
+  objectiveProgress: 'universal',
+  allySupport: 'dnd5e',
+  terrainAdvantage: 'universal',
+  chokeControl: 'universal',
+  interactableUtility: 'universal',
+  formationValue: 'universal',
+  overkillPenalty: 'dnd5e',
+  holdPenalty: 'universal',
+  retreatPenalty: 'universal'
+};
+
+const SUPERVISOR_SCORE_TERM_NAMESPACES = {
+  safeRangedBonus: 'universal',
+  shootAndScootBonus: 'universal',
+  spellBonus: 'dnd5e',
+  attackBonus: 'universal',
+  holdWhenNoPressureBonus: 'universal',
+  retreatPenalty: 'universal',
+  reservationPenalty: 'universal',
+  roleSkirmisherShootAndScootBonus: 'role',
+  roleSkirmisherBreakLosBonus: 'role',
+  roleSkirmisherExposedPenalty: 'role',
+  roleBlockerHoldLineBonus: 'role',
+  roleBlockerCurrentLineAttackBonus: 'role',
+  roleBlockerScreenBonus: 'role',
+  roleBlockerSkirmishAwayPenalty: 'role',
+  roleBlockerAbandonScreenPenalty: 'role',
+  roleAmbusherHoldHiddenBonus: 'role',
+  roleAmbusherStalkToCoverBonus: 'role',
+  roleAmbusherAttackIsolatedBonus: 'role',
+  roleAmbusherEarlyRevealPenalty: 'role',
+  roleSupportStaysProtectedBonus: 'role',
+  roleSupportBuffBonus: 'role',
+  roleSupportMovesAwayFromThreatBonus: 'role',
+  roleSupportExposedPenalty: 'role',
+  targetPriorityMainThreatBonus: 'targeting',
+  targetPriorityLowHpBonus: 'dnd5e',
+  targetPriorityCasterBonus: 'dnd5e',
+  targetPriorityIsolatedBonus: 'targeting',
+  targetPriorityGroupFocusBonus: 'targeting',
+  targetPriorityPoorDamagePenalty: 'dnd5e',
+  targetPriorityThreatensProtectedBonus: 'targeting',
+  doctrineProtectCasterThreatBonus: 'doctrine',
+  doctrineProtectCasterInterceptBonus: 'doctrine',
+  doctrineProtectCasterScreenBonus: 'doctrine',
+  doctrineBlockerLaneBonus: 'doctrine',
+  doctrineBlockerAwayPenalty: 'doctrine',
+  doctrineIgnoreMainThreatPenalty: 'doctrine'
+};
+
+function namespaceScoreBreakdown(breakdown = {}, termNamespaceMap = {}) {
+  const namespaced = SCORE_BREAKDOWN_NAMESPACE_KEYS.reduce((groups, key) => {
+    groups[key] = {};
+    return groups;
+  }, {});
+  for (const [term, value] of Object.entries(breakdown || {})) {
+    const namespace = SCORE_BREAKDOWN_NAMESPACE_KEYS.includes(termNamespaceMap[term])
+      ? termNamespaceMap[term]
+      : 'uncategorized';
+    namespaced[namespace][term] = value;
+  }
+  return namespaced;
+}
+
 export function extractScoringFeatures(encounterInput, candidate) {
   const encounter = normalizeEncounterState(encounterInput);
   const actor = encounter.actors.find((entry) => entry.id === candidate.actorId);
