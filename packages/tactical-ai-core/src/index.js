@@ -25,6 +25,64 @@ export const TACTICAL_STANCES = [
   'opportunistic'
 ];
 
+/**
+ * Portable tactical vocabulary seam.
+ *
+ * D&D/SRD remains the reference rules implementation in this module. These
+ * typedefs name game-neutral concepts already present in the deterministic
+ * controller so future adapters can depend on concepts rather than monster or
+ * statblock terminology.
+ *
+ * @typedef {object} UnitTacticalProfile
+ * @property {string} id Stable unit id.
+ * @property {string} name Display name.
+ * @property {string} side Encounter side or faction.
+ * @property {{x:number,y:number}} cell Current board cell.
+ * @property {number} speed Native movement budget, currently D&D feet.
+ * @property {Array<object>} attacks Native offensive options normalized for tactical use.
+ * @property {Array<object>} spells Native spell or ability options normalized for tactical use.
+ * @property {object} [provenance] Source metadata for inferred tactical fields.
+ *
+ * @typedef {string} TacticalRole
+ * A deterministic tactical role id such as skirmisher, disciplined_blocker,
+ * ambusher_bruiser, support_caster, or soldier.
+ *
+ * @typedef {object} TacticalCandidate
+ * @property {string} id Stable candidate id.
+ * @property {string} family Candidate family used for deterministic selection and diagnostics.
+ * @property {string} actorId Acting unit id.
+ * @property {object|null} move Legal movement component, if any.
+ * @property {object} action Legal action component.
+ * @property {string[]} targetIds Target unit ids.
+ * @property {number} expectedDamage Current reference expected-damage estimate.
+ * @property {boolean} legal Whether the deterministic rules layer considers the candidate legal.
+ * @property {object} [metadata] Extra candidate diagnostics.
+ *
+ * @typedef {Record<string, number>} ScoreBreakdown
+ * Numeric scoring contributions keyed by scoring term.
+ *
+ * @typedef {object} RoleComplianceResult
+ * @property {TacticalRole} role Inferred tactical role.
+ * @property {string} status pass, weak_pass, warning, or another diagnostic status.
+ * @property {string} concern Human-readable concern when status is not clean.
+ * @property {Array<{label:string,ok:boolean}>} checks Deterministic role checks.
+ *
+ * @typedef {object} CandidateHealthReport
+ * @property {TacticalRole} role Inferred tactical role.
+ * @property {string} status pass, weak_pass, warning, or another diagnostic status.
+ * @property {string[]} availableFamilies Candidate families present in the generated set.
+ * @property {string[]} expectedFamilies Candidate families expected for the role.
+ * @property {string[]} missingExpectedCandidates Expected families not generated.
+ *
+ * @typedef {object} DoctrineAssessment
+ * @property {string} doctrine Deterministic doctrine id.
+ * @property {Record<string, number>} roles Role counts for supervised units.
+ * @property {{id:string,name:string}|null} primaryFocusTarget Current focus target.
+ * @property {{id:string,name:string,role:TacticalRole}|null} protectedAsset Unit the doctrine is trying to protect.
+ * @property {string} posture Broad tactical posture.
+ * @property {string} mainRisk Main deterministic planning risk.
+ */
+
 function uniqueStrings(values = []) {
   return [...new Set((Array.isArray(values) ? values : []).map((value) => String(value || '').trim()).filter(Boolean))];
 }
@@ -1880,6 +1938,10 @@ function selectSupervisedCandidate(encounter, actor, { candidateLimit = 36, stan
     candidate,
     ...supervisedCandidateScore(encounter, actor, candidate, { stance, reservedDestinations, doctrineContext })
   }));
+  // Future CandidateSelectionPolicy or ImprovisationPolicy hooks belong here,
+  // after legal candidate generation and scoring. They must only choose,
+  // annotate, or vary already-generated legal candidates; they must not invent
+  // actions, paths, targets, spells, or attacks.
   scored.sort((left, right) =>
     right.score - left.score ||
     (left.candidate.moveSteps || 0) - (right.candidate.moveSteps || 0)
