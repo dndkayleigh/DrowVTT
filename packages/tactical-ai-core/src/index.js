@@ -1380,10 +1380,12 @@ const SUPERVISOR_SCORE_TERM_NAMESPACES = {
   roleAmbusherStalkToCoverBonus: 'role',
   roleAmbusherAttackIsolatedBonus: 'role',
   roleAmbusherEarlyRevealPenalty: 'role',
+  roleAmbusherRangedSkirmishPenalty: 'role',
   roleSupportStaysProtectedBonus: 'role',
   roleSupportBuffBonus: 'role',
   roleSupportMovesAwayFromThreatBonus: 'role',
   roleSupportExposedPenalty: 'role',
+  roleSupportMeleeFallbackPenalty: 'role',
   targetPriorityMainThreatBonus: 'targeting',
   targetPriorityLowHpBonus: 'dnd5e',
   targetPriorityCasterBonus: 'dnd5e',
@@ -1904,6 +1906,39 @@ function candidateFinalCell(candidate, actor = null) {
   return candidate?.move?.to || candidate?.fromCell || actor?.cell || null;
 }
 
+function buildRoleGateContext(encounter = {}, actor = {}, candidates = []) {
+  const role = inferActorRole(actor);
+  const candidateList = Array.isArray(candidates) ? candidates : [];
+  const currentNearestEnemyDistance = actor
+    ? Math.min(...enemiesFor(encounter, actor).map((enemy) => gridDistance(actor.cell, enemy.cell)), Infinity)
+    : Infinity;
+  const hasSafeHold = candidateList.some((candidate) =>
+    candidate.family === 'hold_position' &&
+    candidate.actorId === actor.id &&
+    (Number.isFinite(currentNearestEnemyDistance) ? currentNearestEnemyDistance > 1 : true)
+  );
+  const hasSupportPreferredAlternative = role === 'support_caster' && candidateList.some((candidate) =>
+    candidate.actorId === actor.id &&
+    (
+      ['spell_from_current', 'move_and_spell'].includes(candidate.family) ||
+      candidate.family === 'disengage_retreat' ||
+      hasSafeHold
+    )
+  );
+  const hasAmbusherRoleShapedAlternative = role === 'ambusher_bruiser' && candidateList.some((candidate) =>
+    candidate.actorId === actor.id &&
+    (
+      ['hold_hidden', 'stalk_to_cover', 'attack_isolated_target', 'intercept_flanker'].includes(candidate.family) ||
+      (['attack_from_current', 'move_and_attack'].includes(candidate.family) && candidate.action?.attackKind === 'melee')
+    )
+  );
+  return {
+    role,
+    hasSupportPreferredAlternative,
+    hasAmbusherRoleShapedAlternative
+  };
+}
+
 function doctrineActors(encounter, doctrineContext = {}) {
   const protectedAsset = doctrineContext.protectedAsset?.id
     ? encounter.actors.find((actor) => actor.id === doctrineContext.protectedAsset.id)
@@ -1923,7 +1958,7 @@ function isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat)
   return nearLine && nearProtected && between;
 }
 
-function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}) {
+function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, roleGateContext = null) {
   const role = inferActorRole(actor);
   const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
   const finalCell = candidateFinalCell(candidate, actor);
@@ -1948,6 +1983,13 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}) {
     if (candidate.family === 'stalk_to_cover') breakdown.roleAmbusherStalkToCoverBonus = 3;
     if (candidate.family === 'attack_isolated_target' || candidate.metadata?.isolatedTarget) breakdown.roleAmbusherAttackIsolatedBonus = 5;
     if (!candidate.metadata?.isolatedTarget && ['advance_to_attack', 'move_and_attack'].includes(candidate.family)) breakdown.roleAmbusherEarlyRevealPenalty = -3;
+    if (
+      roleGateContext?.hasAmbusherRoleShapedAlternative &&
+      !candidate.metadata?.isolatedTarget &&
+      (candidate.family === 'shoot_and_scoot' || candidate.action?.attackKind === 'ranged')
+    ) {
+      breakdown.roleAmbusherRangedSkirmishPenalty = -18;
+    }
   } else if (role === 'support_caster') {
     if (protectedAsset?.id === actor.id || finalProtectedDistance <= currentProtectedDistance) breakdown.roleSupportStaysProtectedBonus = 4;
     if (candidate.action?.type === 'spell' && ['support', 'healing', 'defensive'].includes(candidate.action?.spellKind)) breakdown.roleSupportBuffBonus = 3;
@@ -1955,6 +1997,13 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}) {
     const finalThreatDistance = mainThreat && finalCell ? gridDistance(finalCell, mainThreat.cell) : Infinity;
     if (finalThreatDistance > currentThreatDistance) breakdown.roleSupportMovesAwayFromThreatBonus = 3;
     if (finalThreatDistance <= 1 || visibleAfter > 0) breakdown.roleSupportExposedPenalty = -5;
+    if (
+      roleGateContext?.hasSupportPreferredAlternative &&
+      candidate.action?.type === 'attack' &&
+      candidate.action?.attackKind === 'melee'
+    ) {
+      breakdown.roleSupportMeleeFallbackPenalty = -14;
+    }
   }
 
   return breakdown;
@@ -2022,7 +2071,7 @@ function sumBreakdown(breakdown = {}) {
   return Object.values(breakdown).reduce((sum, value) => sum + normalizeNumber(value, 0), 0);
 }
 
-function supervisedCandidateScore(encounter, actor, candidate, { stance = 'opportunistic', reservedDestinations = new Set(), doctrineContext = null } = {}) {
+function supervisedCandidateScore(encounter, actor, candidate, { stance = 'opportunistic', reservedDestinations = new Set(), doctrineContext = null, roleGateContext = null } = {}) {
   const scored = scoreCandidate(encounter, candidate, { stance });
   const destination = candidate.move?.to || candidate.fromCell || actor?.cell;
   const destinationKey = destination ? cellKey(destination) : '';
@@ -2038,7 +2087,7 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
   const holdWhenNoPressureBonus = candidate.family === 'hold_position' ? 0.4 : 0;
   const retreatPenalty = candidate.family === 'disengage_retreat' ? -2 : 0;
   const reservationPenalty = destinationKey && reservedDestinations.has(destinationKey) ? -100 : 0;
-  const roleModifiers = roleScoreModifiers(encounter, actor, candidate, doctrineContext || {});
+  const roleModifiers = roleScoreModifiers(encounter, actor, candidate, doctrineContext || {}, roleGateContext);
   const targetPriorityModifiersForCandidate = targetPriorityModifiers(encounter, actor, candidate, doctrineContext || {});
   const doctrineModifiers = doctrineScoreModifiers(encounter, actor, candidate, doctrineContext || {});
   return {
@@ -2071,9 +2120,10 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
 
 function selectSupervisedCandidate(encounter, actor, { candidateLimit = 36, stance = 'opportunistic', reservedDestinations = new Set(), doctrineContext = null } = {}) {
   const candidates = generateCandidateActions(encounter, actor, { limit: candidateLimit });
+  const roleGateContext = buildRoleGateContext(encounter, actor, candidates);
   const scored = candidates.map((candidate) => ({
     candidate,
-    ...supervisedCandidateScore(encounter, actor, candidate, { stance, reservedDestinations, doctrineContext })
+    ...supervisedCandidateScore(encounter, actor, candidate, { stance, reservedDestinations, doctrineContext, roleGateContext })
   }));
   // Future CandidateSelectionPolicy or ImprovisationPolicy hooks belong here,
   // after legal candidate generation and scoring. They must only choose,

@@ -695,6 +695,75 @@ test('protect caster doctrine nudges target priority and logs score modifiers', 
   assert.ok(output.logs[0].data.diagnostics.selectedSupervisorBreakdown.doctrineProtectCasterThreatBonus > 0);
 });
 
+test('supervisor role gate keeps support caster from club-charging when spells are viable', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'support-caster-role-gate',
+    activeActorId: 'acolyte',
+    battlefield: { width: 12, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'acolyte',
+        name: 'Acolyte',
+        side: 'monsters',
+        cell: { x: 5, y: 4 },
+        speed: 30,
+        attacks: [{ name: 'Club', attackKind: 'melee', rangeFt: 5, expectedDamage: 16 }],
+        spells: [
+          { name: 'Bless', kind: 'support', target: 'ally', rangeFt: 30, expectedValue: 5, requiresLineOfSight: false },
+          { name: 'Sacred Flame', kind: 'damage', target: 'enemy', rangeFt: 60, expectedValue: 4 }
+        ]
+      },
+      { id: 'guard', name: 'Hobgoblin', side: 'monsters', cell: { x: 4, y: 4 }, speed: 30, attacks: [] },
+      { id: 'ben', name: 'Ben', side: 'heroes', cell: { x: 6, y: 4 }, speed: 30, hp: '8/8', attacks: [] }
+    ]
+  });
+
+  const doctrineContext = {
+    doctrine: 'protect_caster',
+    protectedAsset: { id: 'acolyte', name: 'Acolyte' },
+    primaryFocusTarget: { id: 'ben', name: 'Ben' }
+  };
+  const output = await new SupervisorScriptedController().chooseAction({
+    encounter,
+    doctrineContext,
+    stance: 'protective',
+    candidateLimit: 36
+  });
+
+  assert.doesNotMatch(output.selectedCandidateId, /Club/);
+  assert.equal(output.plan.actions[0].type, 'spell');
+  assert.equal(output.logs[0].data.diagnostics.topByCategory.attack.supervisorBreakdown.roleSupportMeleeFallbackPenalty, -14);
+});
+
+test('supervisor role gate keeps ambusher bruiser from defaulting to ranged skirmish', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'ambusher-role-gate',
+    activeActorId: 'bugbear',
+    battlefield: { width: 12, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'bugbear',
+        name: 'Bugbear',
+        side: 'monsters',
+        cell: { x: 2, y: 2 },
+        speed: 30,
+        attacks: [
+          { name: 'Morningstar', attackKind: 'melee', rangeFt: 5, expectedDamage: 6 },
+          { name: 'Javelin', attackKind: 'ranged', rangeFt: 30, expectedDamage: 6 }
+        ]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 7, y: 2 }, speed: 30, attacks: [] },
+      { id: 'ben', name: 'Ben', side: 'heroes', cell: { x: 7, y: 3 }, speed: 30, attacks: [] }
+    ]
+  });
+
+  const output = await new SupervisorScriptedController().chooseAction({ encounter, candidateLimit: 36 });
+
+  assert.doesNotMatch(output.selectedCandidateId, /^shoot_and_scoot:.*Javelin/);
+  assert.equal(output.plan.actions[0].attack_kind, 'melee');
+  assert.equal(output.plan.actions[0].details, 'Morningstar');
+});
+
 test('bugbear ambusher candidates include hidden and stalking options', () => {
   const encounter = normalizeEncounterState({
     id: 'bugbear-ambush-options',
