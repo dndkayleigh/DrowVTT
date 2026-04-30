@@ -513,6 +513,16 @@ function legacyReachableCells(encounterInput, actorInput, { limit = 24 } = {}) {
   return reachable;
 }
 
+/**
+ * @typedef {object} PathfindingAdapter
+ * @property {(request: object) => {found: boolean, path: Array<object>, cost: number, reason?: string, adapterId?: string}} findPath
+ * Finds a legal path for a serializable path request.
+ * @property {(request: object) => {tiles: Array<object>, adapterId?: string}} reachable
+ * Returns reachable tiles with movement cost, path, and legal-stop metadata.
+ * @property {(request: object) => number|null} distance
+ * Returns path cost when a path exists, otherwise null.
+ */
+
 export class LegacyPathfindingAdapter {
   id = 'legacy';
 
@@ -764,6 +774,26 @@ export function rankApproachCells(encounterInput, actorInput, targetInput, attac
     .slice(0, limit);
 }
 
+/**
+ * @typedef {object} TacticalRulesAdapter
+ * @property {(encounterInput: object, actor: object, options?: object) => Array<object>} reachableTiles
+ * Returns legal or reachable board cells for a unit.
+ * @property {(encounterInput: object, actor: object, options?: object) => Array<TacticalCandidate>} legalActions
+ * Returns deterministic legal tactical candidates.
+ * @property {(encounterInput: object, fromActor: object, toActor: object, fromCell?: object|null) => boolean} lineOfSight
+ * Tests whether one unit can see another from an optional origin cell.
+ * @property {(request?: object) => string} cover
+ * Reports cover information for a tactical query.
+ * @property {(encounterInput: object, actor: object, cell: object) => number} opportunityRisk
+ * Reports opportunity or adjacency risk for a destination cell.
+ * @property {(request?: object) => {ok: boolean, reason: string}} interactableLegality
+ * Reports whether an interactable action is legal.
+ */
+
+// Board/rules hybrid adapter for the current D&D/SRD reference implementation.
+// It intentionally mixes grid movement, line of sight, cover placeholders,
+// pathfinding, and D&D-like assumptions such as speed-to-tile conversion.
+// Keep it intact until the adapter boundaries are proven by later patches.
 export class SimpleGridRulesAdapter {
   constructor({ pathfinding = null } = {}) {
     this.pathfinding = pathfinding || createPathfindingService();
@@ -813,6 +843,9 @@ export class SimpleGridRulesAdapter {
   }
 }
 
+// Compatibility placeholder for 5e-like behavior. A future Dnd5eSrdAdapter
+// should wrap or subclass existing behavior rather than replacing this export
+// in place.
 export class FiveELikeRulesAdapter extends SimpleGridRulesAdapter {}
 
 function enemiesFor(encounter, actor) {
@@ -1074,6 +1107,8 @@ function findShootAndScootDestination(encounter, actor, attackCell, attackPath, 
   return candidates[0] || null;
 }
 
+// Candidate generation still owns most tactical behavior. Do not move it
+// wholesale until rules and board adapter boundaries are better proven.
 export function generateCandidateActions(encounterInput, actorInput, { rulesAdapter = null, limit = 24, pathfinding = null } = {}) {
   const encounter = normalizeEncounterState(encounterInput);
   const actor = normalizeActor(actorInput || encounter.actors.find((entry) => entry.id === encounter.activeActorId));
