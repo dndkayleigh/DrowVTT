@@ -27,6 +27,7 @@ export function parseVisibleEncounterFixture(source) {
       side: String(actor.side || 'monsters'),
       cell: { x: Number(actor.position?.[0] || 0), y: Number(actor.position?.[1] || 0) },
       speed: Number(actor.speed || 30),
+      tactical: actor.tactical || null,
       attacks: (actor.attacks || []).map((attack) => ({
         name: String(attack.name),
         attackKind: String(attack.kind || attack.attackKind || 'melee'),

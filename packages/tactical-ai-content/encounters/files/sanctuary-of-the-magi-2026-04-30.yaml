@@ -1097,6 +1097,11 @@ actors:
     side: monsters
     position: [11, 9]
     speed: 30
+    tactical:
+      role: boss_caster
+      protected_asset: true
+      objective_role: ritual_actor
+      role_notes: "Protected boss caster stabilizing the Ossuary Gate rite."
     attacks:
       - name: Dagger
         kind: melee
@@ -1132,6 +1137,9 @@ actors:
     side: monsters
     position: [11, 7]
     speed: 40
+    tactical:
+      role: brute_blocker
+      role_notes: "Heavy bodyguard holding the northern approach to the Mage."
     attacks:
       - name: Greatclub
         kind: melee
@@ -1150,6 +1158,9 @@ actors:
     side: monsters
     position: [11, 11]
     speed: 40
+    tactical:
+      role: brute_blocker
+      role_notes: "Heavy bodyguard holding the southern approach to the Mage."
     attacks:
       - name: Greatclub
         kind: melee
@@ -1168,6 +1179,9 @@ actors:
     side: monsters
     position: [13, 6]
     speed: 30
+    tactical:
+      role: disciplined_soldier
+      role_notes: "Disciplined ranged-to-melee guard preserving the defensive screen."
     attacks:
       - name: Longsword
         kind: melee
@@ -1182,6 +1196,9 @@ actors:
     side: monsters
     position: [13, 12]
     speed: 30
+    tactical:
+      role: disciplined_soldier
+      role_notes: "Disciplined ranged-to-melee guard preserving the defensive screen."
     attacks:
       - name: Longsword
         kind: melee
@@ -1196,6 +1213,9 @@ actors:
     side: monsters
     position: [16, 6]
     speed: 30
+    tactical:
+      role: melee_disrupter
+      role_notes: "Aggressive melee disrupter that punishes isolated intruders."
     attacks:
       - name: Bite
         kind: melee
@@ -1210,6 +1230,9 @@ actors:
     side: monsters
     position: [16, 12]
     speed: 30
+    tactical:
+      role: melee_disrupter
+      role_notes: "Aggressive melee disrupter that punishes isolated intruders."
     attacks:
       - name: Bite
         kind: melee
@@ -1224,6 +1247,9 @@ actors:
     side: monsters
     position: [19, 2]
     speed: 30
+    tactical:
+      role: held_ambusher
+      role_notes: "Statue-like interceptor; elevation is text-only in this fixture."
     attacks:
       - name: Bite
         kind: melee
@@ -1238,6 +1264,9 @@ actors:
     side: monsters
     position: [19, 16]
     speed: 30
+    tactical:
+      role: held_ambusher
+      role_notes: "Statue-like interceptor; elevation is text-only in this fixture."
     attacks:
       - name: Bite
         kind: melee
@@ -1252,6 +1281,9 @@ actors:
     side: monsters
     position: [7, 13]
     speed: 60
+    tactical:
+      role: mobile_striker
+      role_notes: "Mobile terror and backline assassin, not a static front-line guard."
     attacks:
       - name: Life Drain
         kind: melee

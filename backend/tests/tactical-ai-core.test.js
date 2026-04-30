@@ -836,7 +836,7 @@ test('visible YAML encounter fixture asserts long barrier tactical behavior', as
   }
 });
 
-test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', () => {
+test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () => {
   const source = fs.readFileSync(
     path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/sanctuary-of-the-magi-2026-04-30.yaml'),
     'utf8'
@@ -849,6 +849,9 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', () => {
     return counts;
   }, {});
   const mage = monsters.find((actor) => actor.name === 'Mage');
+  const ogre = monsters.find((actor) => actor.name === 'Ogre A');
+  const gargoyle = monsters.find((actor) => actor.name === 'Gargoyle A');
+  const wraith = monsters.find((actor) => actor.name === 'Wraith');
   const description = fixture.description.toLowerCase();
 
   assert.equal(fixture.id, 'sanctuary_of_the_magi_2026_04_30');
@@ -863,6 +866,17 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', () => {
   });
   assert.ok(mage);
   assert.equal(mage.spells.some((spell) => ['support', 'defensive'].includes(spell.kind)), true);
+  assert.equal(mage.tactical.role, 'boss_caster');
+  assert.equal(mage.tactical.authoredRole, 'boss_caster');
+  assert.equal(mage.tactical.coreRole, 'support_caster');
+  assert.equal(mage.tactical.protectedAsset, true);
+  assert.equal(mage.tactical.objectiveRole, 'ritual_actor');
+  assert.equal(ogre.tactical.role, 'brute_blocker');
+  assert.equal(ogre.tactical.coreRole, 'disciplined_blocker');
+  assert.equal(wraith.tactical.role, 'mobile_striker');
+  assert.equal(wraith.tactical.coreRole, 'ambusher_bruiser');
+  assert.equal(gargoyle.tactical.role, 'held_ambusher');
+  assert.equal(gargoyle.tactical.coreRole, 'ambusher_bruiser');
   assert.equal(fixture.encounter.activeActorId, 'mage_ossuary_gate');
   assert.equal(fixture.encounter.activationGroups[0]?.id, 'ossuary_gate_defenders');
   assert.equal(fixture.encounter.activationGroups[0]?.actorIds.length, 10);
@@ -872,6 +886,43 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', () => {
   assert.equal(description.includes('ideal_behavior'), true);
   assert.equal(description.includes('protected_asset'), true);
   assert.equal(description.includes('unsupported_doctrine_gaps_future_work'), true);
+
+  const mageOutput = await new SupervisorScriptedController().chooseAction({
+    encounter: fixture.encounter,
+    actorId: mage.id,
+    candidateLimit: 36
+  });
+  assert.equal(mageOutput.logs[0].data.diagnostics.candidateSetHealth.role, 'support_caster');
+
+  const ogreOutput = await new SupervisorScriptedController().chooseAction({
+    encounter: fixture.encounter,
+    actorId: ogre.id,
+    candidateLimit: 36
+  });
+  assert.equal(ogreOutput.logs[0].data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
+
+  const wraithCandidates = generateCandidateActions(fixture.encounter, wraith, { limit: 36 });
+  assert.equal(wraithCandidates.some((candidate) => candidate.family === 'hold_hidden'), true);
+  assert.equal(wraithCandidates.some((candidate) => candidate.family === 'stalk_to_cover'), true);
+});
+
+test('visible fixture actors without tactical metadata keep inferred roles', async () => {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/bandit-doorway-ambush-2026-04-26.yaml'),
+    'utf8'
+  );
+  const fixture = parseVisibleEncounterFixture(source);
+  const actor = fixture.encounter.actors.find((entry) => entry.id === fixture.encounter.activeActorId);
+
+  assert.equal(actor.tactical.role, '');
+  assert.equal(actor.tactical.coreRole, '');
+
+  const output = await new SupervisorScriptedController().chooseAction({
+    encounter: fixture.encounter,
+    actorId: actor.id,
+    candidateLimit: 36
+  });
+  assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'skirmisher');
 });
 
 test('shrine of the broken columns fixture targets deterministic controller iteration', async () => {

@@ -110,6 +110,39 @@ function coordToCell(coord = {}) {
   };
 }
 
+const AUTHORED_TACTICAL_ROLE_TO_CORE_ROLE = {
+  boss_caster: 'support_caster',
+  brute_blocker: 'disciplined_blocker',
+  mobile_striker: 'ambusher_bruiser',
+  held_ambusher: 'ambusher_bruiser',
+  disciplined_soldier: 'disciplined_blocker',
+  melee_disrupter: 'ambusher_bruiser'
+};
+
+function normalizeTacticalMetadata(tactical = null) {
+  const empty = {
+    role: '',
+    authoredRole: '',
+    coreRole: '',
+    protectedAsset: false,
+    objectiveRole: '',
+    roleNotes: ''
+  };
+  if (!tactical || typeof tactical !== 'object') return empty;
+  const authoredRole = String(tactical.role || tactical.authoredRole || '').trim();
+  const coreRole = AUTHORED_TACTICAL_ROLE_TO_CORE_ROLE[authoredRole] || '';
+  return {
+    ...empty,
+    ...tactical,
+    role: authoredRole,
+    authoredRole,
+    coreRole,
+    protectedAsset: Boolean(tactical.protected_asset ?? tactical.protectedAsset),
+    objectiveRole: String(tactical.objective_role ?? tactical.objectiveRole ?? '').trim(),
+    roleNotes: String(tactical.role_notes ?? tactical.roleNotes ?? '').trim()
+  };
+}
+
 function normalizeActor(actor = {}) {
   return {
     id: String(actor.id || actor.name || ''),
@@ -125,6 +158,7 @@ function normalizeActor(actor = {}) {
     spells: Array.isArray(actor.spells) ? actor.spells.map(normalizeSpellProfile) : [],
     traits: uniqueStrings(actor.traits),
     tags: uniqueStrings(actor.tags),
+    tactical: normalizeTacticalMetadata(actor.tactical),
     statblock: String(actor.statblock || ''),
     provenance: actor.provenance || {}
   };
@@ -1613,6 +1647,8 @@ function candidateCategory(candidate = {}) {
 }
 
 function inferActorRole(actor = {}) {
+  const explicitCoreRole = normalizeTacticalMetadata(actor.tactical).coreRole;
+  if (explicitCoreRole) return explicitCoreRole;
   const name = String(actor.name || '').toLowerCase();
   const attacks = actor.attacks || [];
   const spells = actor.spells || [];
