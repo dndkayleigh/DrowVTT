@@ -1,0 +1,1265 @@
+id: sanctuary_of_the_magi_2026_04_30
+title: The Ossuary Gate Rite
+category: mixed-role protected caster benchmark
+map:
+  title: Sanctuary of the Magi
+  creator: Dyson Logos
+  attribution: "Sanctuary of the Magi by Dyson Logos"
+  source_url: "https://dysonlogos.blog/maps/commercial-maps/"
+  image_source_url: "https://dysonlogos.blog/wp-content/uploads/2020/11/sanctuary-of-the-magi.png"
+  local_image: false
+description: |
+  encounter_name: "The Ossuary Gate Rite"
+  map: "Sanctuary of the Magi"
+  map_attribution: "Sanctuary of the Magi by Dyson Logos"
+  map_source_url: "https://dysonlogos.blog/maps/commercial-maps/"
+  map_image_source_url: "https://dysonlogos.blog/wp-content/uploads/2020/11/sanctuary-of-the-magi.png"
+
+  encounter_purpose:
+    This higher-CR mixed-role benchmark tests whether the portable tactical
+    controller can defend a protected boss caster and ritual structure without
+    turning every monster into a focus-fire skirmisher. The map image is not
+    stored locally in this fixture; this file preserves source attribution and
+    references the public source URLs only.
+
+  monster_roster:
+    - 1 Mage
+    - 1 Wraith
+    - 2 Ogres
+    - 2 Ghasts
+    - 2 Gargoyles
+    - 2 Veterans
+
+  protected_asset:
+    actor: "Mage"
+    active_doctrine: "protect_caster"
+    current_inference_note: >
+      The Mage includes support/defensive spell metadata so current supervisor
+      inference can identify a support_caster and activate protect_caster.
+
+  desired_doctrines:
+    primary_text_only: "complete_ritual / preserve_objective"
+    secondary_active_if_inferred: "protect_asset / protect_caster"
+    tertiary_text_only: "hold_defensive_line"
+    quaternary_text_only: "punish_overextension"
+
+  unsupported_doctrine_gaps_future_work:
+    - "complete_ritual and preserve_objective are text-only in this fixture."
+    - "hold_defensive_line is described but not forced as a multi-doctrine objective."
+    - "punish_overextension is described but not implemented as a doctrine."
+    - "Gargoyle elevation/statue posture is text-only until verticality exists."
+
+  ideal_behavior:
+    mage:
+      role: "protected boss caster / ritual actor / controller-artillery"
+      behavior: >
+        The Mage is the protected asset and ritual actor. It should avoid melee,
+        preserve distance, use spells to control or punish dangerous player
+        characters, and retreat toward secondary cover if the front line
+        collapses. If a ritual objective is active in a future system, it should
+        prefer preserving the rite unless immediate defense is required.
+
+    ogres:
+      role: "heavy blockers / bodyguards / lane holders"
+      behavior: >
+        Ogres should occupy the main approaches into the central ritual chamber,
+        prevent player characters from reaching the Mage, and avoid chasing
+        distant targets so far that they open a path through the defensive line.
+
+    veterans:
+      role: "disciplined soldiers / ranged-to-melee guards"
+      behavior: >
+        Veterans should hold assigned defensive posts, use ranged attacks when
+        the party is at distance, and switch to melee when the line is breached.
+        They should preserve the screen around the Mage rather than skirmishing
+        randomly across the map.
+
+    ghasts:
+      role: "melee disrupters / punish overextension"
+      behavior: >
+        Ghasts should attack player characters who become isolated, flank through
+        side chambers, or threaten the Mage. They should not replace the Ogres as
+        static blockers; their job is to punish overextension and exploit
+        openings.
+
+    gargoyles:
+      role: "elevated or statue-like ambushers / interceptors"
+      behavior: >
+        Gargoyles should begin in defensive or side-alcove positions and should
+        not immediately abandon those positions unless they can intercept a
+        vulnerable or overextended player character. Elevation is text-only in
+        this fixture because the current tactical model has no verticality
+        mechanics.
+
+    wraith:
+      role: "mobile terror / backline assassin / high-threat striker"
+      behavior: >
+        The Wraith should not hold the front line like a soldier. It should
+        threaten vulnerable characters, punish isolated targets, and pressure
+        spellcasters or ranged attackers. If no vulnerable target is available,
+        it should maintain a threatening ritual-adjacent position rather than
+        making low-value attacks.
+
+  success_criteria_text_only:
+    - "Keep the Mage protected."
+    - "Preserve the central ritual structure."
+    - "Use Ogres and Veterans to hold approaches."
+    - "Use Ghasts and Gargoyles to punish overextension."
+    - "Use the Wraith as a mobile high-threat striker."
+    - "Avoid sending the Mage into melee."
+    - "Avoid sending Ogres chasing distant skirmishers."
+    - "Avoid turning every monster into a ranged focus-fire unit."
+
+controllers:
+  - supervisor_scripted_single
+  - utility_baseline
+
+battlefield:
+  width: 30
+  height: 20
+  gridSize: 300
+  blockingEdges:
+    - orientation: h
+      x: 2
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 2
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 3
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 3
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 4
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 4
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 5
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 5
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 6
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 6
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 6
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 6
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 6
+      y: 14
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 6
+      y: 16
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 7
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 7
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 7
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 7
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 7
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 7
+      y: 16
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 8
+      y: 15
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 9
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 9
+      y: 15
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 10
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 10
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 10
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 10
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 10
+      y: 14
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 10
+      y: 16
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 11
+      y: 2
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 11
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 11
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 11
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 11
+      y: 14
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 11
+      y: 17
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 12
+      y: 18
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 13
+      y: 2
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 13
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 13
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 13
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 13
+      y: 14
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 13
+      y: 17
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 14
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 14
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 14
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 14
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 14
+      y: 14
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 14
+      y: 15
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 15
+      y: 15
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 16
+      y: 4
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 16
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 16
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 16
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 16
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 16
+      y: 15
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 17
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 17
+      y: 16
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 14
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 18
+      y: 16
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 19
+      y: 2
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 19
+      y: 17
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 20
+      y: 2
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 20
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 20
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 20
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 20
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 20
+      y: 17
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 2
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
+      y: 17
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 22
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 22
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 23
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 23
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 24
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 24
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 25
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 25
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 25
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 25
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 26
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 26
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 27
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 27
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 28
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 28
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 2
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 3
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 3
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 4
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 4
+      y: 11
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 5
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 5
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 6
+      y: 3
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 6
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 6
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 6
+      y: 14
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 7
+      y: 5
+      length: 3
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 7
+      y: 11
+      length: 3
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 8
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 8
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 8
+      y: 10
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 8
+      y: 15
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 9
+      y: 7
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 9
+      y: 10
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 10
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 10
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 10
+      y: 15
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 11
+      y: 2
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 11
+      y: 16
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 12
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 12
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 12
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 12
+      y: 17
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 13
+      y: 1
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 13
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 13
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 13
+      y: 17
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 14
+      y: 2
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 14
+      y: 15
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 15
+      y: 5
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 15
+      y: 13
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 16
+      y: 7
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 16
+      y: 10
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 17
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 17
+      y: 7
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 17
+      y: 10
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 17
+      y: 15
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 18
+      y: 5
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 18
+      y: 12
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 19
+      y: 2
+      length: 5
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 19
+      y: 12
+      length: 5
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 20
+      y: 6
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 20
+      y: 12
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 22
+      y: 2
+      length: 4
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 22
+      y: 7
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 22
+      y: 10
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 22
+      y: 13
+      length: 4
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 24
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 24
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 25
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 26
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 27
+      y: 8
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 27
+      y: 10
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 29
+      y: 9
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+
+activeActor: mage_ossuary_gate
+
+activationGroups:
+  - id: ossuary_gate_defenders
+    actorIds: [mage_ossuary_gate, ogre_gate_left, ogre_gate_right, veteran_west_post, veteran_east_post, ghast_north_alcove, ghast_south_alcove, gargoyle_north_statue, gargoyle_south_statue, wraith_ritual_shadow]
+    activationMode: coordinated_sequential
+
+actors:
+  - id: hero_vanguard
+    name: Vanguard
+    side: heroes
+    position: [0, 0]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: mage_ossuary_gate
+    name: Mage
+    side: monsters
+    position: [11, 9]
+    speed: 30
+    attacks:
+      - name: Dagger
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Dagger
+        kind: ranged
+        rangeFt: 20
+        expectedDamage: 5
+    spells:
+      - name: Shield
+        kind: defensive
+        target: self
+        rangeFt: 0
+        expectedValue: 5
+      - name: Counterspell
+        kind: defensive
+        target: ally
+        rangeFt: 60
+        expectedValue: 6
+      - name: Fireball
+        kind: damage
+        target: enemy
+        rangeFt: 150
+        expectedValue: 21
+      - name: Hold Person
+        kind: control
+        target: enemy
+        rangeFt: 60
+        expectedValue: 8
+  - id: ogre_gate_left
+    name: Ogre A
+    side: monsters
+    position: [11, 7]
+    speed: 40
+    attacks:
+      - name: Greatclub
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Javelin
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Javelin
+        kind: ranged
+        rangeFt: 30
+        expectedDamage: 5
+  - id: ogre_gate_right
+    name: Ogre B
+    side: monsters
+    position: [11, 11]
+    speed: 40
+    attacks:
+      - name: Greatclub
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 13
+      - name: Javelin
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 11
+      - name: Javelin
+        kind: ranged
+        rangeFt: 30
+        expectedDamage: 11
+  - id: veteran_west_post
+    name: Veteran A
+    side: monsters
+    position: [13, 6]
+    speed: 30
+    attacks:
+      - name: Longsword
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 7
+      - name: Heavy Crossbow
+        kind: ranged
+        rangeFt: 100
+        expectedDamage: 6
+  - id: veteran_east_post
+    name: Veteran B
+    side: monsters
+    position: [13, 12]
+    speed: 30
+    attacks:
+      - name: Longsword
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 7
+      - name: Heavy Crossbow
+        kind: ranged
+        rangeFt: 100
+        expectedDamage: 6
+  - id: ghast_north_alcove
+    name: Ghast A
+    side: monsters
+    position: [16, 6]
+    speed: 30
+    attacks:
+      - name: Bite
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Claws
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+  - id: ghast_south_alcove
+    name: Ghast B
+    side: monsters
+    position: [16, 12]
+    speed: 30
+    attacks:
+      - name: Bite
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Claws
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+  - id: gargoyle_north_statue
+    name: Gargoyle A
+    side: monsters
+    position: [19, 2]
+    speed: 30
+    attacks:
+      - name: Bite
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Claws
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+  - id: gargoyle_south_statue
+    name: Gargoyle B
+    side: monsters
+    position: [19, 16]
+    speed: 30
+    attacks:
+      - name: Bite
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Claws
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+  - id: wraith_ritual_shadow
+    name: Wraith
+    side: monsters
+    position: [7, 13]
+    speed: 60
+    attacks:
+      - name: Life Drain
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 21
+
+expected:
+  must:
+    - noOccupiedDestination: true
+    - moveDoesNotCrossBlocking: true
+  mustNot: []

@@ -836,6 +836,44 @@ test('visible YAML encounter fixture asserts long barrier tactical behavior', as
   }
 });
 
+test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', () => {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/sanctuary-of-the-magi-2026-04-30.yaml'),
+    'utf8'
+  );
+  const fixture = parseVisibleEncounterFixture(source);
+  const monsters = fixture.encounter.actors.filter((actor) => actor.side === 'monsters');
+  const monsterCounts = monsters.reduce((counts, actor) => {
+    const baseName = actor.name.replace(/ [A-Z]$/, '');
+    counts[baseName] = (counts[baseName] || 0) + 1;
+    return counts;
+  }, {});
+  const mage = monsters.find((actor) => actor.name === 'Mage');
+  const description = fixture.description.toLowerCase();
+
+  assert.equal(fixture.id, 'sanctuary_of_the_magi_2026_04_30');
+  assert.equal(fixture.label, 'The Ossuary Gate Rite');
+  assert.deepEqual(monsterCounts, {
+    Mage: 1,
+    Ogre: 2,
+    Veteran: 2,
+    Ghast: 2,
+    Gargoyle: 2,
+    Wraith: 1
+  });
+  assert.ok(mage);
+  assert.equal(mage.spells.some((spell) => ['support', 'defensive'].includes(spell.kind)), true);
+  assert.equal(fixture.encounter.activeActorId, 'mage_ossuary_gate');
+  assert.equal(fixture.encounter.activationGroups[0]?.id, 'ossuary_gate_defenders');
+  assert.equal(fixture.encounter.activationGroups[0]?.actorIds.length, 10);
+  assert.equal(fixture.raw.map?.source_url, 'https://dysonlogos.blog/maps/commercial-maps/');
+  assert.equal(fixture.raw.map?.image_source_url, 'https://dysonlogos.blog/wp-content/uploads/2020/11/sanctuary-of-the-magi.png');
+  assert.match(fixture.raw.map?.attribution || '', /Dyson Logos/);
+  assert.equal(description.includes('ideal_behavior'), true);
+  assert.equal(description.includes('protected_asset'), true);
+  assert.equal(description.includes('unsupported_doctrine_gaps_future_work'), true);
+});
+
 test('shrine of the broken columns fixture targets deterministic controller iteration', async () => {
   const source = fs.readFileSync(
     path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/shrine-of-the-broken-columns-2026-04-26.yaml'),
