@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { SupervisorScriptedGroupController } from '../../packages/tactical-ai-core/src/index.js';
 import { parseVisibleEncounterFixture } from '../../packages/tactical-ai-content/src/index.js';
+import {
+  LEGACY_BOARD_SNAPSHOT_WITHOUT_TACTICAL,
+  LIVE_TACTICAL_METADATA_SNAPSHOT,
+  cloneBoardSnapshot
+} from './fixtures/live-tactical-metadata-board-snapshots.fixture.mjs';
 
 async function openDetails(page, selector) {
   const sectionMap = {
@@ -1506,6 +1512,70 @@ test('OSS can export the current board as a visible tactical fixture yaml', asyn
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('long-barrier-export.yaml');
   await expect(page.locator('#saveStateStatus')).toContainText('Exported tactical fixture');
+});
+
+test('imported board snapshot tactical metadata reaches tactical fixture yaml', async ({ page }) => {
+  const snapshot = cloneBoardSnapshot(LIVE_TACTICAL_METADATA_SNAPSHOT);
+
+  await page.evaluate(async (text) => {
+    await window.__VTT_DEBUG__.importBoardSnapshotText(text);
+  }, JSON.stringify(snapshot));
+
+  const yaml = await page.evaluate(() => window.__VTT_DEBUG__.getTacticalFixtureYaml());
+  const fixture = parseVisibleEncounterFixture(yaml);
+  const mage = fixture.encounter.actors.find((actor) => actor.name === 'Mage');
+
+  expect(yaml).toContain('tactical:');
+  expect(yaml).toContain('role: boss_caster');
+  expect(yaml).toContain('protected_asset: true');
+  expect(yaml).toContain('objective_role: ritual_actor');
+  expect(yaml).toContain('role_notes: Protected ritual caster');
+  expect(yaml).toContain('attacks:');
+  expect(yaml).toContain('name: Dagger');
+  expect(yaml).toContain('spells:');
+  expect(yaml).toContain('name: Shield');
+  expect(mage?.tactical?.role).toBe('boss_caster');
+  expect(mage?.tactical?.protectedAsset).toBe(true);
+  expect(mage?.spells?.map((spell) => spell.name)).toContain('Shield');
+  expect(mage?.attacks?.map((attack) => attack.name)).toContain('Dagger');
+
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter: fixture.encounter,
+    actorId: fixture.encounter.activeActorId,
+    activationGroup: fixture.encounter.activationGroups[0],
+    candidateLimit: 24
+  });
+  const assessment = output.logs.find((entry) => entry.phase === 'battlefield_assessment')?.data?.battlefieldAssessment;
+  const roleDiagnostic = output.logs.find((entry) => entry.data?.diagnostics)?.data?.diagnostics?.candidateSetHealth;
+  expect(assessment?.protectedAsset).toMatchObject({ id: 'mage-token', name: 'Mage', role: 'support_caster' });
+  expect(roleDiagnostic?.role).toBe('support_caster');
+  expect(roleDiagnostic?.role).not.toBe('soldier');
+  expect(roleDiagnostic?.availableFamilies).toEqual(expect.arrayContaining(['spell_from_current']));
+});
+
+test('legacy board snapshot omits tactical fixture metadata and warns about missing structure', async ({ page }) => {
+  const snapshot = cloneBoardSnapshot(LEGACY_BOARD_SNAPSHOT_WITHOUT_TACTICAL);
+
+  await page.evaluate(async (text) => {
+    await window.__VTT_DEBUG__.importBoardSnapshotText(text);
+  }, JSON.stringify(snapshot));
+
+  const yaml = await page.evaluate(() => window.__VTT_DEBUG__.getTacticalFixtureYaml());
+  const fixture = parseVisibleEncounterFixture(yaml);
+  const mage = fixture.encounter.actors.find((actor) => actor.name === 'Mage');
+
+  expect(yaml).not.toContain('tactical:');
+  expect(yaml).not.toContain('spells:');
+  expect(mage?.tactical?.role).toBe('');
+  expect(mage?.spells).toEqual([]);
+
+  await openDrawerTab(page, 'settings');
+  await page.locator('#autoApplyAI').uncheck();
+  await page.getByRole('button', { name: 'Run Tactics' }).click();
+  await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted');
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('Tactical metadata warning: Mage lacks tactical metadata.');
+  await expect(page.locator('#logBox')).toContainText('Tactical metadata warning: Mage has Spellcasting text but no structured spells.');
 });
 
 test('autosave history can restore a recent board snapshot', async ({ page }) => {

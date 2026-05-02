@@ -26,8 +26,38 @@ function normalizeTokenSpellSnapshot(spell = {}) {
   };
 }
 
-function normalizeTokenSnapshot(token = {}) {
+function normalizeTokenAttackSnapshot(attack = {}) {
+  const attackKind = String(attack.attackKind ?? attack.kind ?? '').toLowerCase();
   return {
+    name: String(attack.name ?? ''),
+    attackKind: attackKind === 'ranged' ? 'ranged' : 'melee',
+    rangeFt: clampNumber(attack.rangeFt, attackKind === 'ranged' ? 60 : 5),
+    expectedDamage: clampNumber(attack.expectedDamage, 4),
+    tags: Array.isArray(attack.tags) ? attack.tags.map((tag) => String(tag)) : []
+  };
+}
+
+function normalizeTokenTacticalSnapshot(tactical = null) {
+  if (!tactical || typeof tactical !== 'object') return null;
+  const role = String(tactical.role ?? tactical.authoredRole ?? '').trim();
+  const authoredRole = String(tactical.authoredRole ?? role).trim();
+  const coreRole = String(tactical.coreRole ?? '').trim();
+  const objectiveRole = String(tactical.objective_role ?? tactical.objectiveRole ?? '').trim();
+  const roleNotes = String(tactical.role_notes ?? tactical.roleNotes ?? '').trim();
+  const protectedAsset = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
+  if (!role && !authoredRole && !coreRole && !protectedAsset && !objectiveRole && !roleNotes) return null;
+  return {
+    role,
+    authoredRole,
+    coreRole,
+    protectedAsset,
+    objectiveRole,
+    roleNotes
+  };
+}
+
+function normalizeTokenSnapshot(token = {}) {
+  const snapshot = {
     id: String(token.id ?? ''),
     name: String(token.name ?? ''),
     type: String(token.type ?? 'NPC'),
@@ -40,9 +70,13 @@ function normalizeTokenSnapshot(token = {}) {
     speed: clampNumber(token.speed, 30),
     notes: String(token.notes ?? ''),
     statblock: String(token.statblock ?? ''),
+    attacks: Array.isArray(token.attacks) ? token.attacks.map(normalizeTokenAttackSnapshot) : [],
     spells: Array.isArray(token.spells) ? token.spells.map(normalizeTokenSpellSnapshot) : [],
     art: normalizeTokenArtSnapshot(token.art)
   };
+  const tactical = normalizeTokenTacticalSnapshot(token.tactical);
+  if (tactical) snapshot.tactical = tactical;
+  return snapshot;
 }
 
 function normalizeBlockingEdgeKey(edge) {

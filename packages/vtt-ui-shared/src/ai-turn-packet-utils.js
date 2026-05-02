@@ -328,6 +328,56 @@ export function parseSpellProfiles(statblockText) {
   return spells;
 }
 
+function explicitAttackProfiles(token) {
+  return Array.isArray(token?.attacks)
+    ? token.attacks
+      .filter((attack) => attack?.name)
+      .map((attack) => {
+        const attackKind = String(attack.attackKind || attack.kind || '').toLowerCase();
+        return {
+          name: String(attack.name),
+          attackKind: attackKind === 'ranged' ? 'ranged' : 'melee',
+          rangeFt: Number(attack.rangeFt) || (attackKind === 'ranged' ? 60 : 5),
+          raw: String(attack.name)
+        };
+      })
+    : [];
+}
+
+function attackProfilesForToken(token) {
+  const known = new Map();
+  for (const profile of [...explicitAttackProfiles(token), ...parseAttackProfiles(token?.statblock)]) {
+    if (!profile?.name) continue;
+    known.set(`${profile.name.toLowerCase()}-${profile.attackKind}-${profile.rangeFt}`, profile);
+  }
+  return [...known.values()];
+}
+
+function tacticalSummaryForToken(token) {
+  const tactical = token?.tactical;
+  if (!tactical || typeof tactical !== 'object') return '';
+  const role = String(tactical.role || tactical.authoredRole || '').trim();
+  const protectedAsset = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
+  const objectiveRole = String(tactical.objective_role || tactical.objectiveRole || '').trim();
+  const parts = [];
+  if (role) parts.push(`role=${role}`);
+  if (protectedAsset) parts.push('protected_asset=true');
+  if (objectiveRole) parts.push(`objective_role=${objectiveRole}`);
+  return parts.length ? `, tactical(${parts.join(' ')})` : '';
+}
+
+function spellSummaryForToken(token) {
+  const spells = Array.isArray(token?.spells) ? token.spells.filter((spell) => spell?.name) : [];
+  if (!spells.length) return '';
+  return `, spells=${spells.map((spell) => `${spell.name}/${spell.kind || spell.spellKind || 'support'}`).join('|')}`;
+}
+
+function attackSummaryForToken(token) {
+  const attacks = explicitAttackProfiles(token);
+  if (!attacks.length) return '';
+  return `, attacks=${attacks.map((attack) => `${attack.name}/${attack.attackKind}/${attack.rangeFt}`).join('|')}`;
+}
+
 function bestEnemyDistance(state, token, cell, enemies) {
   if (!enemies.length) return Infinity;
   let best = Infinity;
@@ -376,7 +426,7 @@ function buildMoveAttackSummary(state, token, cell, enemies, attackProfiles) {
 
 export function chooseMoveCandidates(state, token, enemies, limit = 10) {
   const start = gridCoordsFromToken(state, token);
-  const attackProfiles = parseAttackProfiles(token?.statblock);
+  const attackProfiles = attackProfilesForToken(token);
   const rankedMoves = legalMoveDestinations(state, token)
     .map((cell) => {
       const attackSummary = buildMoveAttackSummary(state, token, cell, enemies, attackProfiles);
@@ -438,7 +488,7 @@ export function chooseMoveCandidates(state, token, enemies, limit = 10) {
 }
 
 export function computeAttackOpportunities(state, token, moveCandidates, enemies, limit = 12) {
-  const attackProfiles = parseAttackProfiles(token?.statblock);
+  const attackProfiles = attackProfilesForToken(token);
   if (!attackProfiles.length || !enemies.length) return [];
 
   const opportunities = [];
@@ -509,13 +559,13 @@ function summarizeStatblock(statblockText, maxActions = 4) {
 
 function buildVerboseTokenLine(state, turnTok, token) {
   const cell = gridCoordsFromToken(state, token);
-  return `- relation=${relationToTurnToken(turnTok, token)} ${token.type}: "${token.name}" at (${cell.x}, ${cell.y}), size ${token.sizeCells}x${token.sizeCells}, AC ${token.ac}, HP ${token.hp}, Speed ${token.speed} ft, max move ${maxMoveCellsForToken(token)} cells, Notes: ${token.notes || 'none'}`;
+  return `- relation=${relationToTurnToken(turnTok, token)} ${token.type}: "${token.name}" at (${cell.x}, ${cell.y}), size ${token.sizeCells}x${token.sizeCells}, AC ${token.ac}, HP ${token.hp}, Speed ${token.speed} ft, max move ${maxMoveCellsForToken(token)} cells${tacticalSummaryForToken(token)}${spellSummaryForToken(token)}${attackSummaryForToken(token)}, Notes: ${token.notes || 'none'}`;
 }
 
 function buildCompactTokenLine(state, turnTok, token) {
   const cell = gridCoordsFromToken(state, token);
   const notes = token.notes ? `, notes=${token.notes}` : '';
-  return `- ${relationToTurnToken(turnTok, token)} ${token.type} "${token.name}" @(${cell.x},${cell.y}) size=${token.sizeCells} AC=${token.ac} HP=${token.hp} spd=${token.speed} move=${maxMoveCellsForToken(token)}${notes}`;
+  return `- ${relationToTurnToken(turnTok, token)} ${token.type} "${token.name}" @(${cell.x},${cell.y}) size=${token.sizeCells} AC=${token.ac} HP=${token.hp} spd=${token.speed} move=${maxMoveCellsForToken(token)}${tacticalSummaryForToken(token)}${spellSummaryForToken(token)}${attackSummaryForToken(token)}${notes}`;
 }
 
 function outputContractLines(compact = false) {

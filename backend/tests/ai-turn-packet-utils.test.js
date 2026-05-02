@@ -140,6 +140,60 @@ test('compact move5 packet still includes legal attacks for the seeded goblin de
   assert.match(packet, /attack="Shortbow" kind=ranged target="Aria"/);
 });
 
+test('AI turn packet preserves explicit tactical, spell, and attack metadata', () => {
+  const state = {
+    gridSize: 64,
+    snapMode: 'center',
+    view: { zoom: 1, panX: 0, panY: 0 },
+    map: { src: '', w: 2048, h: 1536, offX: 0, offY: 0, scale: 1, rot: 0, opacity: 1 },
+    aiControls: 'Monsters',
+    round: 1,
+    currentTurnTokenId: 'mage',
+    tokens: [
+      {
+        id: 'mage',
+        name: 'Mage',
+        type: 'Monster',
+        sizeCells: 1,
+        color: '#ff5a7a',
+        x: 64 * 4.5,
+        y: 64 * 4.5,
+        ac: 12,
+        hp: '40/40',
+        speed: 30,
+        notes: '',
+        statblock: '',
+        tactical: { role: 'boss_caster', protectedAsset: true, objectiveRole: 'ritual_actor' },
+        spells: [{ name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 }],
+        attacks: [{ name: 'Dagger', attackKind: 'ranged', rangeFt: 20, expectedDamage: 4 }],
+        art: null
+      },
+      {
+        id: 'aria',
+        name: 'Aria',
+        type: 'PC',
+        sizeCells: 1,
+        color: '#5aa9ff',
+        x: 64 * 7.5,
+        y: 64 * 4.5,
+        ac: 15,
+        hp: '18/18',
+        speed: 30,
+        notes: '',
+        statblock: '',
+        art: null
+      }
+    ]
+  };
+
+  const packet = buildAiTurnPacketCompactFromState(state, { moveCandidateLimit: 5, attackOpportunityLimit: 6 });
+
+  assert.match(packet, /tactical\(role=boss_caster protected_asset=true objective_role=ritual_actor\)/);
+  assert.match(packet, /spells=Shield\/defensive/);
+  assert.match(packet, /attacks=Dagger\/ranged\/20/);
+  assert.match(packet, /attack="Dagger" kind=ranged target="Aria"/);
+});
+
 test('group tactical packet includes explicit grouped-monster context', () => {
   const state = {
     gridSize: 64,

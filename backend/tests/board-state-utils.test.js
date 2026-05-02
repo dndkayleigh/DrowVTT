@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '../../data/board-state-utils.mjs';
+import {
+  LEGACY_BOARD_SNAPSHOT_WITHOUT_TACTICAL,
+  LIVE_TACTICAL_METADATA_SNAPSHOT,
+  cloneBoardSnapshot
+} from './fixtures/live-tactical-metadata-board-snapshots.fixture.mjs';
 
 test('createBoardSnapshot keeps only serializable board state', () => {
   const snapshot = createBoardSnapshot({
@@ -31,6 +36,28 @@ test('createBoardSnapshot keeps only serializable board state', () => {
       speed: 30,
       notes: 'Ready',
       statblock: 'Custom',
+      tactical: {
+        role: 'boss_caster',
+        protected_asset: true,
+        objective_role: 'ritual_actor',
+        role_notes: 'Protected ritual caster',
+        transient: { should: 'drop' }
+      },
+      attacks: [{
+        name: 'Dagger',
+        kind: 'melee',
+        rangeFt: 5,
+        expectedDamage: 4,
+        tags: ['finesse']
+      }],
+      spells: [{
+        name: 'Shield',
+        kind: 'defensive',
+        target: 'self',
+        rangeFt: 0,
+        expectedValue: 5,
+        requiresLineOfSight: false
+      }],
       art: {
         src: 'data:image/png;base64,token',
         scale: 1.5,
@@ -56,11 +83,85 @@ test('createBoardSnapshot keeps only serializable board state', () => {
   assert.equal(snapshot.state.map.src, 'data:image/png;base64,abc');
   assert.equal('img' in snapshot.state.map, false);
   assert.equal(snapshot.state.tokens[0].art.fileName, 'aria.png');
+  assert.deepEqual(snapshot.state.tokens[0].tactical, {
+    role: 'boss_caster',
+    authoredRole: 'boss_caster',
+    coreRole: '',
+    protectedAsset: true,
+    objectiveRole: 'ritual_actor',
+    roleNotes: 'Protected ritual caster'
+  });
+  assert.deepEqual(snapshot.state.tokens[0].attacks, [{
+    name: 'Dagger',
+    attackKind: 'melee',
+    rangeFt: 5,
+    expectedDamage: 4,
+    tags: ['finesse']
+  }]);
+  assert.deepEqual(snapshot.state.tokens[0].spells, [{
+    name: 'Shield',
+    kind: 'defensive',
+    target: 'self',
+    rangeFt: 0,
+    expectedValue: 5,
+    requiresLineOfSight: false
+  }]);
   assert.deepEqual(snapshot.state.selectedTokenIds, ['tok-1']);
   assert.deepEqual(snapshot.state.aiGroupTokenIds, ['tok-1']);
   assert.equal('loading' in snapshot.state.tokens[0].art, false);
   assert.equal('draggingToken' in snapshot.state, false);
   assert.equal('aiOverlay' in snapshot.state, false);
+});
+
+test('board snapshots round-trip tactical metadata and keep old tokens compatible', () => {
+  const snapshot = createBoardSnapshot(
+    cloneBoardSnapshot(LIVE_TACTICAL_METADATA_SNAPSHOT).state,
+    { savedAt: '2026-05-02T12:00:00.000Z' }
+  );
+
+  const parsed = parseBoardSnapshot(snapshot);
+
+  assert.deepEqual(parsed.state.tokens[0].tactical, {
+    role: 'boss_caster',
+    authoredRole: 'boss_caster',
+    coreRole: '',
+    protectedAsset: true,
+    objectiveRole: 'ritual_actor',
+    roleNotes: 'Protected ritual caster'
+  });
+  assert.equal('tactical' in parsed.state.tokens[1], false);
+  assert.deepEqual(parsed.state.tokens[0].spells.map((spell) => spell.name), ['Shield']);
+  assert.deepEqual(parsed.state.tokens[0].attacks.map((attack) => attack.name), ['Dagger']);
+
+  const legacyParsed = parseBoardSnapshot(cloneBoardSnapshot(LEGACY_BOARD_SNAPSHOT_WITHOUT_TACTICAL));
+  assert.equal('tactical' in legacyParsed.state.tokens[0], false);
+  assert.deepEqual(legacyParsed.state.tokens[0].spells, []);
+  assert.deepEqual(legacyParsed.state.tokens[0].attacks, []);
+
+  const camelCaseParsed = parseBoardSnapshot({
+    state: {
+      tokens: [{
+        id: 'ogre',
+        name: 'Ogre',
+        tactical: {
+          authoredRole: 'brute_blocker',
+          coreRole: 'disciplined_blocker',
+          protectedAsset: false,
+          objectiveRole: 'line_holder',
+          roleNotes: 'Hold the entry'
+        }
+      }]
+    }
+  });
+
+  assert.deepEqual(camelCaseParsed.state.tokens[0].tactical, {
+    role: 'brute_blocker',
+    authoredRole: 'brute_blocker',
+    coreRole: 'disciplined_blocker',
+    protectedAsset: false,
+    objectiveRole: 'line_holder',
+    roleNotes: 'Hold the entry'
+  });
 });
 
 test('parseBoardSnapshot normalizes missing and malformed values', () => {

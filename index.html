@@ -1969,6 +1969,13 @@ import {
   }
 
   function attacksForToken(token) {
+    const explicit = Array.isArray(token?.attacks) ? token.attacks.map((attack) => ({
+      name: String(attack.name || 'Attack'),
+      attackKind: String(attack.attackKind || attack.kind || 'melee'),
+      rangeFt: Number(attack.rangeFt || 5),
+      expectedDamage: Number(attack.expectedDamage || 0),
+      tags: Array.isArray(attack.tags) ? attack.tags : []
+    })) : [];
     const parsed = parseAttackProfiles(token?.statblock || '').map((profile) => ({
       name: profile.name,
       attackKind: profile.attackKind,
@@ -1976,7 +1983,12 @@ import {
       expectedDamage: profile.attackKind === 'ranged' ? 5 : 6,
       tags: []
     }));
-    if (parsed.length) return parsed;
+    const known = new Map();
+    for (const attack of [...explicit, ...parsed]) {
+      if (!attack?.name) continue;
+      known.set(`${String(attack.name).toLowerCase()}-${String(attack.attackKind).toLowerCase()}-${Number(attack.rangeFt) || 5}`, attack);
+    }
+    if (known.size) return [...known.values()];
     return normalizeMonsterProfile({
       id: token?.id,
       name: token?.name,
@@ -2004,6 +2016,34 @@ import {
     return [...known.values()];
   }
 
+  function hasTacticalMetadata(token) {
+    return Boolean(token?.tactical && typeof token.tactical === 'object' && (
+      token.tactical.role ||
+      token.tactical.authoredRole ||
+      token.tactical.protected_asset ||
+      token.tactical.protectedAsset ||
+      token.tactical.objective_role ||
+      token.tactical.objectiveRole ||
+      token.tactical.role_notes ||
+      token.tactical.roleNotes
+    ));
+  }
+
+  function collectTacticalMetadataWarnings(tokens = []) {
+    const warnings = [];
+    for (const token of tokens) {
+      if (token?.type === 'Monster' && !hasTacticalMetadata(token)) {
+        warnings.push(`${token.name || token.id || 'Monster'} lacks tactical metadata.`);
+      }
+      if (/\bSpellcasting\b/i.test(String(token?.statblock || '')) && !Array.isArray(token?.spells)) {
+        warnings.push(`${token.name || token.id || 'Token'} has Spellcasting text but no structured spells array.`);
+      } else if (/\bSpellcasting\b/i.test(String(token?.statblock || '')) && token.spells.length === 0) {
+        warnings.push(`${token.name || token.id || 'Token'} has Spellcasting text but no structured spells.`);
+      }
+    }
+    return warnings;
+  }
+
   function buildEncounterStateFromBoard() {
     const mapWidthCells = state.map.w && state.map.scale
       ? Math.ceil((state.map.offX + (state.map.w * state.map.scale)) / state.gridSize)
@@ -2023,6 +2063,7 @@ import {
       speed: token.speed,
       attacks: attacksForToken(token),
       spells: spellsForToken(token),
+      tactical: token.tactical || null,
       traits: [],
       tags: [],
       statblock: token.statblock,
@@ -2069,6 +2110,16 @@ import {
     if (!text) return "''";
     if (/^[A-Za-z0-9_. -]+$/.test(text) && !/^(true|false|null|\d)/i.test(text)) return text;
     return JSON.stringify(text);
+  }
+
+  function tacticalFieldsForYaml(tactical) {
+    if (!tactical || typeof tactical !== 'object') return null;
+    const role = String(tactical.role ?? tactical.authoredRole ?? '').trim();
+    const protectedAsset = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
+    const objectiveRole = String(tactical.objective_role ?? tactical.objectiveRole ?? '').trim();
+    const roleNotes = String(tactical.role_notes ?? tactical.roleNotes ?? '').trim();
+    if (!role && !protectedAsset && !objectiveRole && !roleNotes) return null;
+    return { role, protectedAsset, objectiveRole, roleNotes };
   }
 
   function buildTacticalFixtureYaml() {
@@ -2125,6 +2176,14 @@ import {
         `    position: [${actor.cell.x}, ${actor.cell.y}]`,
         `    speed: ${Number(actor.speed) || 30}`
       );
+      const tactical = tacticalFieldsForYaml(actor.tactical);
+      if (tactical) {
+        lines.push('    tactical:');
+        if (tactical.role) lines.push(`      role: ${yamlScalar(tactical.role)}`);
+        if (tactical.protectedAsset) lines.push('      protected_asset: true');
+        if (tactical.objectiveRole) lines.push(`      objective_role: ${yamlScalar(tactical.objectiveRole)}`);
+        if (tactical.roleNotes) lines.push(`      role_notes: ${yamlScalar(tactical.roleNotes)}`);
+      }
       if (actor.attacks?.length) {
         lines.push('    attacks:');
         for (const attack of actor.attacks) {
@@ -3079,7 +3138,7 @@ import {
   // ---------- Token logic ----------
   const tokenListEl = document.getElementById('tokenList');
 
-  function addToken({ name, type, sizeCells, color, ac=15, hp="7/7", speed=30, notes="", statblock="", art=null }) {
+  function addToken({ name, type, sizeCells, color, ac=15, hp="7/7", speed=30, notes="", statblock="", tactical=null, spells=[], attacks=[], art=null }) {
     clearAiPaths();
     const worldTL = screenToWorld(70, 70);
     const preferredCell = gridCellFromWorldPoint(worldTL.x, worldTL.y, sizeCells);
@@ -3099,6 +3158,9 @@ import {
       speed,
       notes,
       statblock,
+      tactical,
+      spells: Array.isArray(spells) ? spells : [],
+      attacks: Array.isArray(attacks) ? attacks : [],
       art: normalizeTokenArt(art)
     };
     state.tokens.push(t);
@@ -3992,6 +4054,10 @@ import {
         const encounter = buildEncounterStateFromBoard();
         const validation = validateEncounterState(encounter);
         if (!validation.ok) throw new Error(validation.issues.join('; '));
+        const metadataWarnings = collectTacticalMetadataWarnings(state.tokens);
+        for (const warning of metadataWarnings) {
+          pushLog(`Tactical metadata warning: ${warning}`);
+        }
         const controller = getController(strategy.controllerId, tacticalControllerRegistry);
         const output = await controller.chooseAction({
           encounter: validation.encounter,
