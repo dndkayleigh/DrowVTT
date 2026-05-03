@@ -1160,20 +1160,6 @@ actors:
         kind: melee
         rangeFt: 5
         expectedDamage: 5
-  - id: tr1x6dg1
-    name: Goblin A
-    side: monsters
-    position: [14, 9]
-    speed: 30
-    attacks:
-      - name: Scimitar
-        kind: melee
-        rangeFt: 5
-        expectedDamage: 6
-      - name: Shortbow
-        kind: ranged
-        rangeFt: 80
-        expectedDamage: 5
   - id: "7tz6v7su"
     name: Mage
     side: monsters

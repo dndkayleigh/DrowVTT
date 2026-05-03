@@ -1141,6 +1141,48 @@ function findShootAndScootDestination(encounter, actor, attackCell, attackPath, 
   return candidates[0] || null;
 }
 
+function dedupeCandidates(candidates = []) {
+  const seen = new Set();
+  return candidates.filter((candidate) => {
+    if (seen.has(candidate.id)) return false;
+    seen.add(candidate.id);
+    return true;
+  });
+}
+
+function truncateCandidatesPreservingBaseline(candidates = [], limit = 24) {
+  const normalizedLimit = Math.max(0, Math.floor(Number(limit) || 0));
+  const uniqueCandidates = dedupeCandidates(candidates);
+  if (!normalizedLimit) return [];
+  if (uniqueCandidates.length <= normalizedLimit) return uniqueCandidates;
+
+  const preservedIds = new Set();
+  const firstHold = uniqueCandidates.find((candidate) => candidate.family === 'hold_position');
+  const firstAdvance = uniqueCandidates.find((candidate) => candidate.family === 'advance_to_attack');
+  if (firstHold) preservedIds.add(firstHold.id);
+  if (firstAdvance && preservedIds.size < normalizedLimit) preservedIds.add(firstAdvance.id);
+
+  const attackFromCurrent = uniqueCandidates.filter((candidate) => candidate.family === 'attack_from_current');
+  for (const candidate of attackFromCurrent.slice(0, Math.max(0, normalizedLimit - preservedIds.size))) {
+    preservedIds.add(candidate.id);
+  }
+
+  const preservedAfterIndex = uniqueCandidates.map((candidate, index) =>
+    uniqueCandidates.slice(index + 1).filter((entry) => preservedIds.has(entry.id)).length
+  );
+  const output = [];
+  for (let index = 0; index < uniqueCandidates.length; index += 1) {
+    const candidate = uniqueCandidates[index];
+    if (preservedIds.has(candidate.id)) {
+      output.push(candidate);
+    } else if (output.length < normalizedLimit - preservedAfterIndex[index]) {
+      output.push(candidate);
+    }
+    if (output.length >= normalizedLimit && preservedAfterIndex[index] === 0) break;
+  }
+  return output.slice(0, normalizedLimit);
+}
+
 // Candidate generation still owns most tactical behavior. Do not move it
 // wholesale until rules and board adapter boundaries are better proven.
 export function generateCandidateActions(encounterInput, actorInput, { rulesAdapter = null, limit = 24, pathfinding = null } = {}) {
@@ -1337,12 +1379,7 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
     legal: true
   });
 
-  const seen = new Set();
-  return candidates.filter((candidate) => {
-    if (seen.has(candidate.id)) return false;
-    seen.add(candidate.id);
-    return true;
-  }).slice(0, limit);
+  return truncateCandidatesPreservingBaseline(candidates, limit);
 }
 
 /**
@@ -1410,6 +1447,8 @@ const SUPERVISOR_SCORE_TERM_NAMESPACES = {
   roleBlockerScreenBonus: 'role',
   roleBlockerSkirmishAwayPenalty: 'role',
   roleBlockerAbandonScreenPenalty: 'role',
+  roleBlockerAbandonsLinePenalty: 'role',
+  roleBlockerShootAndScootBonusOffset: 'role',
   roleAmbusherHoldHiddenBonus: 'role',
   roleAmbusherStalkToCoverBonus: 'role',
   roleAmbusherAttackIsolatedBonus: 'role',
@@ -1942,7 +1981,61 @@ function candidateFinalCell(candidate, actor = null) {
   return candidate?.move?.to || candidate?.fromCell || actor?.cell || null;
 }
 
-function buildRoleGateContext(encounter = {}, actor = {}, candidates = []) {
+function screenGeometryScore(cell, protectedAsset, mainThreat) {
+  if (!cell || !protectedAsset?.cell || !mainThreat?.cell) return 0;
+  const protectedDistance = gridDistance(cell, protectedAsset.cell);
+  const threatDistance = gridDistance(cell, mainThreat.cell);
+  const threatToAssetDistance = Math.max(1, gridDistance(mainThreat.cell, protectedAsset.cell));
+  const lineDistance = distanceToSegment(cell, mainThreat.cell, protectedAsset.cell);
+  const between = threatDistance < threatToAssetDistance && protectedDistance < threatToAssetDistance;
+  return Math.max(0, 6 - protectedDistance) +
+    Math.max(0, 3 - lineDistance) +
+    (between ? 3 : 0);
+}
+
+function candidateWorsensProtectedScreen(candidate, actor, protectedAsset, mainThreat) {
+  const finalCell = candidateFinalCell(candidate, actor);
+  if (!actor?.cell || !finalCell || !protectedAsset || !mainThreat) return false;
+  const currentScore = screenGeometryScore(actor.cell, protectedAsset, mainThreat);
+  const finalScore = screenGeometryScore(finalCell, protectedAsset, mainThreat);
+  const currentlyScreens = isScreeningProtectedAsset({ family: 'hold_position', fromCell: actor.cell }, actor, protectedAsset, mainThreat);
+  const finallyScreens = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
+  return finalScore < currentScore - 0.5 || (currentlyScreens && !finallyScreens);
+}
+
+function disciplinedBlockerWorseningShootAndScoot(encounter, actor, candidate, doctrineContext = {}, roleGateContext = null) {
+  const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
+  if (!protectedAsset || !mainThreat) return false;
+  if (!disciplinedBlockerShootAndScootScreenDuty(actor, candidate, doctrineContext, roleGateContext)) return false;
+  return candidateWorsensProtectedScreen(candidate, actor, protectedAsset, mainThreat);
+}
+
+function disciplinedBlockerShootAndScootScreenDuty(actor, candidate, doctrineContext = {}, roleGateContext = null) {
+  if (inferActorRole(actor) !== 'disciplined_blocker') return false;
+  if (doctrineContext?.doctrine !== 'protect_caster') return false;
+  if (candidate?.family !== 'shoot_and_scoot') return false;
+  return Boolean(roleGateContext?.hasLinePreservingBlockerAlternative);
+}
+
+function hasLinePreservingBlockerAlternative(candidates = [], actor = {}, doctrineContext = {}, encounter = {}) {
+  const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
+  if (!protectedAsset || !mainThreat || !actor?.cell) return false;
+  const currentScore = screenGeometryScore(actor.cell, protectedAsset, mainThreat);
+  const currentProtectedDistance = gridDistance(actor.cell, protectedAsset.cell);
+  const currentlyScreens = isScreeningProtectedAsset({ family: 'hold_position', fromCell: actor.cell }, actor, protectedAsset, mainThreat);
+  return candidates.some((candidate) => {
+    if (candidate.actorId !== actor.id) return false;
+    if (candidate.family === 'shoot_and_scoot') return false;
+    if (candidate.family === 'attack_from_current' && (currentlyScreens || currentProtectedDistance <= 4)) return true;
+    if (candidate.family === 'hold_position' && (currentlyScreens || currentProtectedDistance <= 4)) return true;
+    if (!['move_and_attack', 'advance_to_attack'].includes(candidate.family)) return false;
+    const finalCell = candidateFinalCell(candidate, actor);
+    if (!finalCell) return false;
+    return screenGeometryScore(finalCell, protectedAsset, mainThreat) >= currentScore;
+  });
+}
+
+function buildRoleGateContext(encounter = {}, actor = {}, candidates = [], doctrineContext = {}) {
   const role = inferActorRole(actor);
   const candidateList = Array.isArray(candidates) ? candidates : [];
   const currentNearestEnemyDistance = actor
@@ -1971,7 +2064,10 @@ function buildRoleGateContext(encounter = {}, actor = {}, candidates = []) {
   return {
     role,
     hasSupportPreferredAlternative,
-    hasAmbusherRoleShapedAlternative
+    hasAmbusherRoleShapedAlternative,
+    hasLinePreservingBlockerAlternative: role === 'disciplined_blocker'
+      ? hasLinePreservingBlockerAlternative(candidateList, actor, doctrineContext, encounter)
+      : false
   };
 }
 
@@ -2001,6 +2097,7 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, r
   const currentProtectedDistance = protectedAsset ? gridDistance(actor.cell, protectedAsset.cell) : Infinity;
   const finalProtectedDistance = protectedAsset && finalCell ? gridDistance(finalCell, protectedAsset.cell) : Infinity;
   const screening = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
+  const blockerWorseningShootAndScoot = disciplinedBlockerWorseningShootAndScoot(encounter, actor, candidate, doctrineContext, roleGateContext);
   const visibleAfter = normalizeNumber(candidate.metadata?.visibleEnemiesAfterScoot, visibleEnemiesFromCell(encounter, actor, finalCell || actor.cell).length);
   const breakdown = {};
 
@@ -2011,9 +2108,12 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, r
   } else if (role === 'disciplined_blocker') {
     if (candidate.family === 'hold_position' && finalProtectedDistance <= 4) breakdown.roleBlockerHoldLineBonus = 4;
     if (candidate.family === 'attack_from_current' && currentProtectedDistance <= 4) breakdown.roleBlockerCurrentLineAttackBonus = 3;
-    if (screening) breakdown.roleBlockerScreenBonus = 3;
+    if (screening && !blockerWorseningShootAndScoot) breakdown.roleBlockerScreenBonus = 3;
     if (candidate.family === 'shoot_and_scoot' && finalProtectedDistance > currentProtectedDistance) breakdown.roleBlockerSkirmishAwayPenalty = -4;
     if (protectedAsset && currentProtectedDistance <= 4 && finalProtectedDistance > currentProtectedDistance + 1) breakdown.roleBlockerAbandonScreenPenalty = -3;
+    if (blockerWorseningShootAndScoot) {
+      breakdown.roleBlockerAbandonsLinePenalty = -14;
+    }
   } else if (role === 'ambusher_bruiser') {
     if (candidate.family === 'hold_hidden') breakdown.roleAmbusherHoldHiddenBonus = 4;
     if (candidate.family === 'stalk_to_cover') breakdown.roleAmbusherStalkToCoverBonus = 3;
@@ -2073,12 +2173,15 @@ function doctrineScoreModifiers(encounter, actor, candidate, doctrineContext = {
   const finalProtectedDistance = finalCell ? gridDistance(finalCell, protectedAsset.cell) : currentProtectedDistance;
   const screening = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
   const role = inferActorRole(actor);
+  const blockerWorseningShootAndScoot = role === 'disciplined_blocker' &&
+    candidate.family === 'shoot_and_scoot' &&
+    candidateWorsensProtectedScreen(candidate, actor, protectedAsset, mainThreat);
   const breakdown = {};
 
   if (candidate.action?.type === 'attack' && targetId === mainThreat.id) breakdown.doctrineProtectCasterThreatBonus = 3;
-  if (screening) breakdown.doctrineProtectCasterInterceptBonus = 3;
-  if (finalProtectedDistance <= currentProtectedDistance && finalProtectedDistance <= 4) breakdown.doctrineProtectCasterScreenBonus = 2;
-  if (role === 'disciplined_blocker' && screening) breakdown.doctrineBlockerLaneBonus = 2;
+  if (screening && !blockerWorseningShootAndScoot) breakdown.doctrineProtectCasterInterceptBonus = 3;
+  if (finalProtectedDistance <= currentProtectedDistance && finalProtectedDistance <= 4 && !blockerWorseningShootAndScoot) breakdown.doctrineProtectCasterScreenBonus = 2;
+  if (role === 'disciplined_blocker' && screening && !blockerWorseningShootAndScoot) breakdown.doctrineBlockerLaneBonus = 2;
   if (role === 'disciplined_blocker' && finalProtectedDistance > currentProtectedDistance + 1) breakdown.doctrineBlockerAwayPenalty = -3;
   if (targetId && targetId !== mainThreat.id && gridDistance(mainThreat.cell, protectedAsset.cell) <= 8) breakdown.doctrineIgnoreMainThreatPenalty = -2;
   return breakdown;
@@ -2126,11 +2229,15 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
   const roleModifiers = roleScoreModifiers(encounter, actor, candidate, doctrineContext || {}, roleGateContext);
   const targetPriorityModifiersForCandidate = targetPriorityModifiers(encounter, actor, candidate, doctrineContext || {});
   const doctrineModifiers = doctrineScoreModifiers(encounter, actor, candidate, doctrineContext || {});
+  const roleBlockerShootAndScootBonusOffset = disciplinedBlockerShootAndScootScreenDuty(actor, candidate, doctrineContext || {}, roleGateContext)
+    ? -shootAndScootBonus
+    : 0;
   return {
     ...scored,
     score: scored.score +
       safeRangedBonus +
       shootAndScootBonus +
+      roleBlockerShootAndScootBonusOffset +
       spellBonus +
       attackBonus +
       holdWhenNoPressureBonus +
@@ -2142,6 +2249,7 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
     supervisorFeatures: {
       safeRangedBonus,
       shootAndScootBonus,
+      roleBlockerShootAndScootBonusOffset,
       spellBonus,
       attackBonus,
       holdWhenNoPressureBonus,
@@ -2156,7 +2264,7 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
 
 function selectSupervisedCandidate(encounter, actor, { candidateLimit = 36, stance = 'opportunistic', reservedDestinations = new Set(), doctrineContext = null } = {}) {
   const candidates = generateCandidateActions(encounter, actor, { limit: candidateLimit });
-  const roleGateContext = buildRoleGateContext(encounter, actor, candidates);
+  const roleGateContext = buildRoleGateContext(encounter, actor, candidates, doctrineContext || {});
   const scored = candidates.map((candidate) => ({
     candidate,
     ...supervisedCandidateScore(encounter, actor, candidate, { stance, reservedDestinations, doctrineContext, roleGateContext })

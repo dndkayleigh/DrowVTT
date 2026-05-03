@@ -764,6 +764,295 @@ test('supervisor role gate keeps ambusher bruiser from defaulting to ranged skir
   assert.equal(output.plan.actions[0].details, 'Morningstar');
 });
 
+test('candidate truncation preserves hold position under ranged candidate pressure', () => {
+  const encounter = normalizeEncounterState({
+    id: 'candidate-pressure-hold',
+    activeActorId: 'veteran',
+    battlefield: {
+      width: 12,
+      height: 8,
+      edges: [{ orientation: 'h', x: 3, y: 2, blocksMovement: false, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'veteran',
+        name: 'Veteran',
+        side: 'monsters',
+        cell: { x: 3, y: 3 },
+        speed: 30,
+        tactical: { role: 'disciplined_soldier' },
+        attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }]
+      },
+      { id: 'hero-a', name: 'Hero A', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] },
+      { id: 'hero-b', name: 'Hero B', side: 'heroes', cell: { x: 7, y: 3 }, speed: 30, attacks: [] },
+      { id: 'hero-c', name: 'Hero C', side: 'heroes', cell: { x: 6, y: 4 }, speed: 30, attacks: [] },
+      { id: 'hero-d', name: 'Hero D', side: 'heroes', cell: { x: 7, y: 4 }, speed: 30, attacks: [] }
+    ]
+  });
+
+  const candidates = generateCandidateActions(encounter, encounter.actors[0], { limit: 6 });
+
+  assert.equal(candidates.length, 6);
+  assert.equal(candidates.some((candidate) => candidate.family === 'hold_position'), true);
+});
+
+test('candidate truncation preserves current ranged attacks under ranged candidate pressure', () => {
+  const encounter = normalizeEncounterState({
+    id: 'candidate-pressure-current-shot',
+    activeActorId: 'veteran',
+    battlefield: {
+      width: 12,
+      height: 8,
+      edges: [{ orientation: 'h', x: 3, y: 2, blocksMovement: false, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'veteran',
+        name: 'Veteran',
+        side: 'monsters',
+        cell: { x: 3, y: 3 },
+        speed: 30,
+        tactical: { role: 'disciplined_soldier' },
+        attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }]
+      },
+      { id: 'hero-a', name: 'Hero A', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] },
+      { id: 'hero-b', name: 'Hero B', side: 'heroes', cell: { x: 7, y: 3 }, speed: 30, attacks: [] },
+      { id: 'hero-c', name: 'Hero C', side: 'heroes', cell: { x: 6, y: 4 }, speed: 30, attacks: [] },
+      { id: 'hero-d', name: 'Hero D', side: 'heroes', cell: { x: 7, y: 4 }, speed: 30, attacks: [] }
+    ]
+  });
+
+  const candidates = generateCandidateActions(encounter, encounter.actors[0], { limit: 6 });
+
+  assert.equal(candidates.length, 6);
+  assert.equal(candidates.some((candidate) => candidate.family === 'attack_from_current'), true);
+});
+
+test('candidate truncation preserves advance-to-attack when late generated', () => {
+  const encounter = normalizeEncounterState({
+    id: 'candidate-pressure-advance',
+    activeActorId: 'veteran',
+    battlefield: {
+      width: 14,
+      height: 5,
+      edges: [{ orientation: 'v', x: 4, y: 2, blocksMovement: false, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'veteran',
+        name: 'Veteran',
+        side: 'monsters',
+        cell: { x: 2, y: 2 },
+        speed: 30,
+        tactical: { role: 'disciplined_soldier' },
+        attacks: [
+          { name: 'Longsword', attackKind: 'melee', rangeFt: 5, expectedDamage: 7 },
+          { name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }
+        ]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 8, y: 2 }, speed: 30, attacks: [] }
+    ]
+  });
+
+  const candidates = generateCandidateActions(encounter, encounter.actors[0], { limit: 4 });
+
+  assert.equal(candidates.length, 4);
+  assert.equal(candidates.some((candidate) => candidate.family === 'advance_to_attack'), true);
+});
+
+test('disciplined blocker avoids shoot-and-scoot that abandons a protected caster screen', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'blocker-protects-caster-screen',
+    activeActorId: 'mage',
+    activationGroups: [{ id: 'defenders', actorIds: ['mage', 'veteran'], activationMode: 'coordinated_sequential' }],
+    battlefield: {
+      width: 10,
+      height: 7,
+      edges: [{ orientation: 'h', x: 3, y: 2, blocksMovement: false, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'mage',
+        name: 'Mage',
+        side: 'monsters',
+        cell: { x: 2, y: 3 },
+        speed: 30,
+        tactical: { role: 'boss_caster', protectedAsset: true },
+        spells: [{ name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 }]
+      },
+      {
+        id: 'veteran',
+        name: 'Veteran',
+        side: 'monsters',
+        cell: { x: 3, y: 3 },
+        speed: 30,
+        tactical: { role: 'disciplined_soldier' },
+        attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] }
+    ]
+  });
+  const veteran = encounter.actors.find((actor) => actor.id === 'veteran');
+  const candidates = generateCandidateActions(encounter, veteran, { limit: 36 });
+
+  assert.equal(candidates.some((candidate) => candidate.family === 'shoot_and_scoot'), true);
+  assert.equal(candidates.some((candidate) => candidate.family === 'hold_position'), true);
+  assert.equal(candidates.some((candidate) => candidate.family === 'attack_from_current'), true);
+
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter,
+    activationGroup: encounter.activationGroups[0],
+    candidateLimit: 36
+  });
+  const veteranDecision = output.logs.find((log) => log.actorId === 'veteran' && log.phase === 'decision');
+
+  assert.doesNotMatch(output.selectedCandidateId, /shoot_and_scoot:/);
+  assert.equal(veteranDecision.data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
+  assert.equal(veteranDecision.data.familyCounts.hold_position, 1);
+  assert.equal(veteranDecision.data.familyCounts.attack_from_current, 1);
+});
+
+test('skirmisher still prefers shoot-and-scoot when not guarding a protected screen', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'skirmisher-still-scoots',
+    activeActorId: 'goblin',
+    battlefield: {
+      width: 10,
+      height: 7,
+      edges: [{ orientation: 'h', x: 3, y: 2, blocksMovement: false, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'goblin',
+        name: 'Goblin',
+        side: 'monsters',
+        cell: { x: 3, y: 3 },
+        speed: 30,
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] }
+    ]
+  });
+
+  const output = await new SupervisorScriptedController().chooseAction({
+    encounter,
+    actorId: 'goblin',
+    candidateLimit: 36
+  });
+
+  assert.match(output.selectedCandidateId, /^shoot_and_scoot:/);
+  assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'skirmisher');
+  assert.equal(output.logs[0].data.selected.supervisorBreakdown.roleBlockerShootAndScootBonusOffset, 0);
+});
+
+test('disciplined blocker may fire from current screening position', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'blocker-current-ranged-screen',
+    activeActorId: 'veteran',
+    battlefield: { width: 10, height: 7, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'mage',
+        name: 'Mage',
+        side: 'monsters',
+        cell: { x: 2, y: 3 },
+        speed: 30,
+        tactical: { role: 'boss_caster', protectedAsset: true },
+        spells: [{ name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 }]
+      },
+      {
+        id: 'veteran',
+        name: 'Veteran',
+        side: 'monsters',
+        cell: { x: 3, y: 3 },
+        speed: 30,
+        tactical: { role: 'disciplined_soldier' },
+        attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] }
+    ]
+  });
+  const doctrineContext = {
+    doctrine: 'protect_caster',
+    protectedAsset: { id: 'mage', name: 'Mage' },
+    primaryFocusTarget: { id: 'hero', name: 'Hero' }
+  };
+
+  const output = await new SupervisorScriptedController().chooseAction({
+    encounter,
+    actorId: 'veteran',
+    doctrineContext,
+    stance: 'protective',
+    candidateLimit: 36
+  });
+
+  assert.match(output.selectedCandidateId, /^attack_from_current:/);
+  assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
+});
+
+test('disciplined blocker may shoot-and-scoot when the hide cell preserves the protected screen', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'blocker-preserving-scoot',
+    activeActorId: 'veteran',
+    battlefield: {
+      width: 10,
+      height: 7,
+      edges: [{ orientation: 'h', x: 4, y: 3, blocksMovement: false, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'mage',
+        name: 'Mage',
+        side: 'monsters',
+        cell: { x: 2, y: 3 },
+        speed: 30,
+        tactical: { role: 'boss_caster', protectedAsset: true },
+        spells: [{ name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 }]
+      },
+      {
+        id: 'veteran',
+        name: 'Veteran',
+        side: 'monsters',
+        cell: { x: 4, y: 4 },
+        speed: 30,
+        tactical: { role: 'disciplined_soldier' },
+        attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] }
+    ]
+  });
+  const doctrineContext = {
+    doctrine: 'protect_caster',
+    protectedAsset: { id: 'mage', name: 'Mage' },
+    primaryFocusTarget: { id: 'hero', name: 'Hero' }
+  };
+
+  const output = await new SupervisorScriptedController().chooseAction({
+    encounter,
+    actorId: 'veteran',
+    doctrineContext,
+    stance: 'protective',
+    candidateLimit: 36
+  });
+
+  assert.match(output.selectedCandidateId, /^shoot_and_scoot:/);
+  assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
+  assert.equal(output.logs[0].data.selected.supervisorBreakdown.roleBlockerShootAndScootBonusOffset, -4);
+  assert.equal(output.logs[0].data.selected.supervisorBreakdown.roleBlockerAbandonsLinePenalty, undefined);
+});
+
 test('bugbear ambusher candidates include hidden and stalking options', () => {
   const encounter = normalizeEncounterState({
     id: 'bugbear-ambush-options',
@@ -861,6 +1150,7 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
   assert.equal(monsterCounts.Ghast, 2);
   assert.equal(monsterCounts.Gargoyle, 2);
   assert.equal(monsterCounts.Wraith, 1);
+  assert.equal(monsterCounts.Goblin || 0, 0);
   assert.ok(mage);
   assert.equal(mage.spells.some((spell) => ['support', 'defensive'].includes(spell.kind)), true);
   assert.equal(mage.tactical.role, 'boss_caster');
