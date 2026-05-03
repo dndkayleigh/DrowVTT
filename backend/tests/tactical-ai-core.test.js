@@ -998,6 +998,9 @@ test('disciplined blocker may fire from current screening position', async () =>
 
   assert.match(output.selectedCandidateId, /^attack_from_current:/);
   assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
+  assert.equal(output.logs[0].data.selected.protectedAssetSafetyDelta.assessment, 'preserves');
+  assert.equal(output.logs[0].data.selected.protectedAssetSafetyDelta.protectedAsset.name, 'Mage');
+  assert.equal(output.logs[0].data.diagnostics.selectedProtectedAssetSafetyDelta.finalScreens, true);
 });
 
 test('disciplined blocker may shoot-and-scoot when the hide cell preserves the protected screen', async () => {
@@ -1025,10 +1028,10 @@ test('disciplined blocker may shoot-and-scoot when the hide cell preserves the p
         id: 'veteran',
         name: 'Veteran',
         side: 'monsters',
-        cell: { x: 4, y: 4 },
+        cell: { x: 3, y: 2 },
         speed: 30,
         tactical: { role: 'disciplined_soldier' },
-        attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }]
+        attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 3 }]
       },
       { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] }
     ]
@@ -1051,6 +1054,10 @@ test('disciplined blocker may shoot-and-scoot when the hide cell preserves the p
   assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
   assert.equal(output.logs[0].data.selected.supervisorBreakdown.roleBlockerShootAndScootBonusOffset, -4);
   assert.equal(output.logs[0].data.selected.supervisorBreakdown.roleBlockerAbandonsLinePenalty, undefined);
+  assert.equal(output.logs[0].data.selected.supervisorBreakdown.roleBlockerScreenBonus, 3);
+  assert.equal(output.logs[0].data.selected.supervisorBreakdown.doctrineBlockerLaneBonus, 2);
+  assert.match(output.logs[0].data.selected.protectedAssetSafetyDelta.assessment, /^(improves|preserves)$/);
+  assert.equal(output.logs[0].data.selected.protectedAssetSafetyDelta.maintainsProtectedScreen, true);
 });
 
 test('bugbear ambusher candidates include hidden and stalking options', () => {
@@ -1191,6 +1198,23 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
   const wraithCandidates = generateCandidateActions(fixture.encounter, wraith, { limit: 36 });
   assert.equal(wraithCandidates.some((candidate) => candidate.family === 'hold_hidden'), true);
   assert.equal(wraithCandidates.some((candidate) => candidate.family === 'stalk_to_cover'), true);
+
+  const groupOutput = await new SupervisorScriptedGroupController().chooseAction({
+    encounter: fixture.encounter,
+    activationGroup: fixture.encounter.activationGroups[0],
+    candidateLimit: 36
+  });
+  const blockerDecisions = groupOutput.logs.filter((log) => {
+    const actor = fixture.encounter.actors.find((entry) => entry.id === log.actorId);
+    return log.phase === 'decision' && actor?.tactical?.coreRole === 'disciplined_blocker';
+  });
+
+  assert.equal(blockerDecisions.length, 4);
+  for (const decision of blockerDecisions) {
+    assert.notEqual(decision.data.selected.family, 'shoot_and_scoot');
+    assert.ok(decision.data.selected.protectedAssetSafetyDelta);
+    assert.equal(decision.data.selected.protectedAssetSafetyDelta.protectedAsset.name, 'Mage');
+  }
 });
 
 test('visible fixture actors without tactical metadata keep inferred roles', async () => {

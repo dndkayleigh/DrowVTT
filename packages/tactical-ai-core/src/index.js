@@ -1801,7 +1801,50 @@ function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null)
   return { role, status, concern, checks };
 }
 
-function buildCandidateDiagnostics(encounter, actor, scored = [], selected = null) {
+function protectedAssetSafetyDelta(encounter, actor, candidate, doctrineContext = {}) {
+  const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
+  const finalCell = candidateFinalCell(candidate, actor);
+  if (!actor?.cell || !finalCell || !protectedAsset || !mainThreat) return null;
+  const current = screenGeometryMetrics(actor.cell, protectedAsset, mainThreat);
+  const final = screenGeometryMetrics(finalCell, protectedAsset, mainThreat);
+  const currentScreens = isScreeningProtectedAsset({ family: 'hold_position', fromCell: actor.cell }, actor, protectedAsset, mainThreat);
+  const finalScreens = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
+  const deltaScreenScore = Number((final.score - current.score).toFixed(3));
+  const deltaLineDistance = Number((final.lineDistance - current.lineDistance).toFixed(3));
+  const deltaProtectedDistance = final.protectedDistance - current.protectedDistance;
+  const deltaThreatDistance = final.threatDistance - current.threatDistance;
+  const maintainsProtectedScreen = candidateMaintainsProtectedScreen(candidate, actor, protectedAsset, mainThreat);
+  const worsensProtectedScreen = candidateWorsensProtectedScreen(candidate, actor, protectedAsset, mainThreat);
+  return {
+    protectedAsset: { id: protectedAsset.id, name: protectedAsset.name },
+    mainThreat: { id: mainThreat.id, name: mainThreat.name },
+    currentCell: normalizeCell(actor.cell),
+    finalCell: normalizeCell(finalCell),
+    currentProtectedDistance: current.protectedDistance,
+    finalProtectedDistance: final.protectedDistance,
+    deltaProtectedDistance,
+    currentThreatDistance: current.threatDistance,
+    finalThreatDistance: final.threatDistance,
+    deltaThreatDistance,
+    currentLineDistance: Number(current.lineDistance.toFixed(3)),
+    finalLineDistance: Number(final.lineDistance.toFixed(3)),
+    deltaLineDistance,
+    currentScreenScore: Number(current.score.toFixed(3)),
+    finalScreenScore: Number(final.score.toFixed(3)),
+    deltaScreenScore,
+    currentScreens,
+    finalScreens,
+    maintainsProtectedScreen,
+    worsensProtectedScreen,
+    assessment: worsensProtectedScreen
+      ? 'worsens'
+      : deltaScreenScore > 0.25 || deltaLineDistance < -0.25 || deltaThreatDistance < 0
+      ? 'improves'
+      : 'preserves'
+  };
+}
+
+function buildCandidateDiagnostics(encounter, actor, scored = [], selected = null, doctrineContext = {}) {
   const uniqueScored = dedupeScoredEntries(scored, actor);
   const selectedKey = selected ? candidateDiagnosticKey(selected, actor) : '';
   const selectedRawRank = selected ? scored.findIndex((entry) => entry.candidate.id === selected.id) + 1 : null;
@@ -1821,16 +1864,16 @@ function buildCandidateDiagnostics(encounter, actor, scored = [], selected = nul
   const topByCategory = {};
   for (const entry of uniqueScored) {
     const category = candidateCategory(entry.candidate);
-    if (!topByCategory[category]) topByCategory[category] = summarizeCandidate(entry.candidate, entry, encounter);
+    if (!topByCategory[category]) topByCategory[category] = summarizeCandidate(entry.candidate, entry, encounter, { actor, doctrineContext });
   }
   const topRejectedAlternatives = uniqueScored
     .filter((entry) => !selectedKey || candidateDiagnosticKey(entry.candidate, actor) !== selectedKey)
     .slice(0, 3)
-    .map((entry) => summarizeCandidate(entry.candidate, entry, encounter));
+    .map((entry) => summarizeCandidate(entry.candidate, entry, encounter, { actor, doctrineContext }));
   const reservationRejected = scored
     .filter((entry) => entry.supervisorFeatures?.reservationPenalty < 0)
     .slice(0, 5)
-    .map((entry) => summarizeCandidate(entry.candidate, entry, encounter));
+    .map((entry) => summarizeCandidate(entry.candidate, entry, encounter, { actor, doctrineContext }));
   const targetsRepresented = uniqueScored.reduce((targets, entry) => {
     const targetId = entry.candidate.targetIds?.[0] || 'none';
     const target = encounter.actors.find((actorEntry) => actorEntry.id === targetId);
@@ -1857,6 +1900,7 @@ function buildCandidateDiagnostics(encounter, actor, scored = [], selected = nul
     targetsRepresented,
     selectedScoreBreakdown: selectedScored?.scoreBreakdown || null,
     selectedSupervisorBreakdown: selectedScored?.supervisorFeatures || null,
+    selectedProtectedAssetSafetyDelta: selected ? protectedAssetSafetyDelta(encounter, actor, selected, doctrineContext) : null,
     topByCategory,
     topRejectedAlternatives,
     reservationRejected,
@@ -1913,7 +1957,7 @@ function buildSupervisorBattlefieldAssessment(encounter, actorIds = []) {
   };
 }
 
-function summarizeCandidate(candidate, scored = null, encounter = null) {
+function summarizeCandidate(candidate, scored = null, encounter = null, { actor = null, doctrineContext = null } = {}) {
   return {
     id: candidate.id,
     family: candidate.family,
@@ -1944,7 +1988,10 @@ function summarizeCandidate(candidate, scored = null, encounter = null) {
     score: scored?.score ?? null,
     features: scored?.features || null,
     scoreBreakdown: scored?.scoreBreakdown || null,
-    supervisorBreakdown: scored?.supervisorFeatures || null
+    supervisorBreakdown: scored?.supervisorFeatures || null,
+    protectedAssetSafetyDelta: actor && doctrineContext
+      ? protectedAssetSafetyDelta(encounter, actor, candidate, doctrineContext)
+      : null
   };
 }
 
@@ -1982,15 +2029,48 @@ function candidateFinalCell(candidate, actor = null) {
 }
 
 function screenGeometryScore(cell, protectedAsset, mainThreat) {
-  if (!cell || !protectedAsset?.cell || !mainThreat?.cell) return 0;
+  return screenGeometryMetrics(cell, protectedAsset, mainThreat).score;
+}
+
+function screenGeometryMetrics(cell, protectedAsset, mainThreat) {
+  if (!cell || !protectedAsset?.cell || !mainThreat?.cell) {
+    return {
+      protectedDistance: Infinity,
+      threatDistance: Infinity,
+      threatToAssetDistance: Infinity,
+      lineDistance: Infinity,
+      between: false,
+      score: 0
+    };
+  }
   const protectedDistance = gridDistance(cell, protectedAsset.cell);
   const threatDistance = gridDistance(cell, mainThreat.cell);
   const threatToAssetDistance = Math.max(1, gridDistance(mainThreat.cell, protectedAsset.cell));
   const lineDistance = distanceToSegment(cell, mainThreat.cell, protectedAsset.cell);
   const between = threatDistance < threatToAssetDistance && protectedDistance < threatToAssetDistance;
-  return Math.max(0, 6 - protectedDistance) +
-    Math.max(0, 3 - lineDistance) +
-    (between ? 3 : 0);
+  return {
+    protectedDistance,
+    threatDistance,
+    threatToAssetDistance,
+    lineDistance,
+    between,
+    score: Math.max(0, 6 - protectedDistance) +
+      Math.max(0, 3 - lineDistance) +
+      (between ? 3 : 0)
+  };
+}
+
+function candidateMaintainsProtectedScreen(candidate, actor, protectedAsset, mainThreat) {
+  const finalCell = candidateFinalCell(candidate, actor);
+  if (!actor?.cell || !finalCell || !protectedAsset || !mainThreat) return false;
+  const current = screenGeometryMetrics(actor.cell, protectedAsset, mainThreat);
+  const final = screenGeometryMetrics(finalCell, protectedAsset, mainThreat);
+  const laneNotOpened = final.threatDistance <= current.threatDistance;
+  const screenNotWorse = final.score >= current.score - 0.25;
+  const lineImproves = final.lineDistance < current.lineDistance - 0.25;
+  const holdsLine = final.between && final.lineDistance <= current.lineDistance + 0.25;
+  const improvesInterception = final.threatDistance < current.threatDistance && final.lineDistance <= current.lineDistance + 0.5;
+  return laneNotOpened && screenNotWorse && (holdsLine || lineImproves || improvesInterception);
 }
 
 function candidateWorsensProtectedScreen(candidate, actor, protectedAsset, mainThreat) {
@@ -2000,7 +2080,9 @@ function candidateWorsensProtectedScreen(candidate, actor, protectedAsset, mainT
   const finalScore = screenGeometryScore(finalCell, protectedAsset, mainThreat);
   const currentlyScreens = isScreeningProtectedAsset({ family: 'hold_position', fromCell: actor.cell }, actor, protectedAsset, mainThreat);
   const finallyScreens = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
-  return finalScore < currentScore - 0.5 || (currentlyScreens && !finallyScreens);
+  return !candidateMaintainsProtectedScreen(candidate, actor, protectedAsset, mainThreat) ||
+    finalScore < currentScore - 0.5 ||
+    (currentlyScreens && !finallyScreens);
 }
 
 function disciplinedBlockerWorseningShootAndScoot(encounter, actor, candidate, doctrineContext = {}, roleGateContext = null) {
@@ -2097,6 +2179,10 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, r
   const currentProtectedDistance = protectedAsset ? gridDistance(actor.cell, protectedAsset.cell) : Infinity;
   const finalProtectedDistance = protectedAsset && finalCell ? gridDistance(finalCell, protectedAsset.cell) : Infinity;
   const screening = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
+  const blockerShootAndScootScreenDuty = disciplinedBlockerShootAndScootScreenDuty(actor, candidate, doctrineContext, roleGateContext);
+  const blockerMaintainsShootAndScootScreen = blockerShootAndScootScreenDuty
+    ? candidateMaintainsProtectedScreen(candidate, actor, protectedAsset, mainThreat)
+    : true;
   const blockerWorseningShootAndScoot = disciplinedBlockerWorseningShootAndScoot(encounter, actor, candidate, doctrineContext, roleGateContext);
   const visibleAfter = normalizeNumber(candidate.metadata?.visibleEnemiesAfterScoot, visibleEnemiesFromCell(encounter, actor, finalCell || actor.cell).length);
   const breakdown = {};
@@ -2108,7 +2194,7 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, r
   } else if (role === 'disciplined_blocker') {
     if (candidate.family === 'hold_position' && finalProtectedDistance <= 4) breakdown.roleBlockerHoldLineBonus = 4;
     if (candidate.family === 'attack_from_current' && currentProtectedDistance <= 4) breakdown.roleBlockerCurrentLineAttackBonus = 3;
-    if (screening && !blockerWorseningShootAndScoot) breakdown.roleBlockerScreenBonus = 3;
+    if (screening && blockerMaintainsShootAndScootScreen) breakdown.roleBlockerScreenBonus = 3;
     if (candidate.family === 'shoot_and_scoot' && finalProtectedDistance > currentProtectedDistance) breakdown.roleBlockerSkirmishAwayPenalty = -4;
     if (protectedAsset && currentProtectedDistance <= 4 && finalProtectedDistance > currentProtectedDistance + 1) breakdown.roleBlockerAbandonScreenPenalty = -3;
     if (blockerWorseningShootAndScoot) {
@@ -2173,15 +2259,21 @@ function doctrineScoreModifiers(encounter, actor, candidate, doctrineContext = {
   const finalProtectedDistance = finalCell ? gridDistance(finalCell, protectedAsset.cell) : currentProtectedDistance;
   const screening = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
   const role = inferActorRole(actor);
-  const blockerWorseningShootAndScoot = role === 'disciplined_blocker' &&
+  const blockerShootAndScoot = role === 'disciplined_blocker' &&
+    doctrineContext?.doctrine === 'protect_caster' &&
+    candidate.family === 'shoot_and_scoot';
+  const blockerMaintainsShootAndScootScreen = blockerShootAndScoot
+    ? candidateMaintainsProtectedScreen(candidate, actor, protectedAsset, mainThreat)
+    : true;
+  const blockerWorseningShootAndScoot = blockerShootAndScoot &&
     candidate.family === 'shoot_and_scoot' &&
     candidateWorsensProtectedScreen(candidate, actor, protectedAsset, mainThreat);
   const breakdown = {};
 
   if (candidate.action?.type === 'attack' && targetId === mainThreat.id) breakdown.doctrineProtectCasterThreatBonus = 3;
-  if (screening && !blockerWorseningShootAndScoot) breakdown.doctrineProtectCasterInterceptBonus = 3;
-  if (finalProtectedDistance <= currentProtectedDistance && finalProtectedDistance <= 4 && !blockerWorseningShootAndScoot) breakdown.doctrineProtectCasterScreenBonus = 2;
-  if (role === 'disciplined_blocker' && screening && !blockerWorseningShootAndScoot) breakdown.doctrineBlockerLaneBonus = 2;
+  if (screening && blockerMaintainsShootAndScootScreen) breakdown.doctrineProtectCasterInterceptBonus = 3;
+  if (finalProtectedDistance <= currentProtectedDistance && finalProtectedDistance <= 4 && blockerMaintainsShootAndScootScreen) breakdown.doctrineProtectCasterScreenBonus = 2;
+  if (role === 'disciplined_blocker' && screening && blockerMaintainsShootAndScootScreen) breakdown.doctrineBlockerLaneBonus = 2;
   if (role === 'disciplined_blocker' && finalProtectedDistance > currentProtectedDistance + 1) breakdown.doctrineBlockerAwayPenalty = -3;
   if (targetId && targetId !== mainThreat.id && gridDistance(mainThreat.cell, protectedAsset.cell) <= 8) breakdown.doctrineIgnoreMainThreatPenalty = -2;
   return breakdown;
@@ -2281,8 +2373,10 @@ function selectSupervisedCandidate(encounter, actor, { candidateLimit = 36, stan
     candidates,
     scored,
     selected: scored[0]?.candidate || candidates[0] || null,
-    topCandidates: dedupeScoredEntries(scored, actor).slice(0, 5).map((entry) => summarizeCandidate(entry.candidate, entry, encounter)),
-    diagnostics: buildCandidateDiagnostics(encounter, actor, scored, scored[0]?.candidate || candidates[0] || null)
+    topCandidates: dedupeScoredEntries(scored, actor)
+      .slice(0, 5)
+      .map((entry) => summarizeCandidate(entry.candidate, entry, encounter, { actor, doctrineContext: doctrineContext || {} })),
+    diagnostics: buildCandidateDiagnostics(encounter, actor, scored, scored[0]?.candidate || candidates[0] || null, doctrineContext || {})
   };
 }
 
@@ -2685,7 +2779,10 @@ export class SupervisorScriptedController {
           }
         },
         familyCounts: candidateFamilyCounts(candidates),
-        selected: selected ? summarizeCandidate(selected, scored.find((entry) => entry.candidate.id === selected.id), encounter) : null,
+        selected: selected ? summarizeCandidate(selected, scored.find((entry) => entry.candidate.id === selected.id), encounter, {
+          actor,
+          doctrineContext: input.doctrineContext || null
+        }) : null,
         topCandidates,
         diagnostics
       }
