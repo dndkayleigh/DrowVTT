@@ -593,7 +593,7 @@ import {
   tacticalOutputToVttPlan,
   validateEncounterState
 } from '/packages/tactical-ai-core/src/index.js';
-import { normalizeMonsterProfile } from '/packages/tactical-ai-content/src/index.js';
+import { normalizeMonsterProfile, parseVisibleEncounterFixture } from '/packages/tactical-ai-content/src/index.js';
 import {
   computeCanvasContextMenuTarget,
   computeCanvasMouseDownIntent,
@@ -3551,6 +3551,79 @@ import {
     return snapshot;
   }
 
+  async function hydrateVisibleEncounterFixture(source) {
+    autosaveSuppressed = true;
+    const fixture = parseVisibleEncounterFixture(source);
+    const encounter = fixture.encounter;
+    const gridSize = Number(encounter.battlefield?.gridSize) || state.gridSize || 64;
+
+    resetTransientState();
+
+    state.gridSize = gridSize;
+    state.snapMode = 'center';
+    state.view.zoom = 1;
+    state.view.panX = 0;
+    state.view.panY = 0;
+    state.map.img = null;
+    state.map.src = '';
+    state.map.w = Math.max(0, Number(encounter.battlefield?.width || 0) * gridSize);
+    state.map.h = Math.max(0, Number(encounter.battlefield?.height || 0) * gridSize);
+    state.map.offX = 0;
+    state.map.offY = 0;
+    state.map.scale = 1;
+    state.map.rot = 0;
+    state.map.opacity = 1;
+    state.encounterDescription = fixture.description || '';
+    encounterDescriptionInput.value = state.encounterDescription;
+    saveSlotNameInput.value = fixture.label || fixture.id || 'Tactical Fixture';
+    state.blockingEdges = {
+      edgeKeys: normalizeBlockingEdgeKeys((encounter.battlefield?.edges || []).map((edge) => `${edge.orientation}:${edge.x},${edge.y}`)),
+      mode: 'off',
+      paint: null
+    };
+    state.tokens = (encounter.actors || []).map((actor) => {
+      const sizeCells = normalizeSizeCells(actor.sizeCells || 1);
+      const cell = actor.cell || { x: 0, y: 0 };
+      const center = centerFromGridCell(cell.x, cell.y, sizeCells);
+      return {
+        id: actor.id,
+        name: actor.name,
+        type: actor.side === 'monsters' ? 'Monster' : actor.side === 'neutral' ? 'NPC' : 'PC',
+        sizeCells,
+        color: actor.side === 'monsters' ? '#ff5a7a' : actor.side === 'neutral' ? '#ffd36a' : '#5aa9ff',
+        x: center.x,
+        y: center.y,
+        ac: Number(actor.ac) || 10,
+        hp: actor.hp || '',
+        speed: Number(actor.speed) || 30,
+        notes: '',
+        statblock: actor.statblock || '',
+        tactical: actor.tactical || null,
+        spells: Array.isArray(actor.spells) ? actor.spells : [],
+        attacks: Array.isArray(actor.attacks) ? actor.attacks : [],
+        art: null
+      };
+    });
+    state.aiControls = 'Monsters';
+    state.round = Number(encounter.round) || 1;
+    state.currentTurnTokenId = encounter.activeActorId || state.tokens.find((token) => token.type === 'Monster')?.id || state.tokens[0]?.id || null;
+    state.selectedTokenIds = state.currentTurnTokenId ? [state.currentTurnTokenId] : [];
+    state.selectedTokenId = state.currentTurnTokenId;
+    state.aiGroupTokenIds = encounter.activationGroups?.[0]?.actorIds?.filter((id) => state.tokens.some((token) => token.id === id)) || [];
+
+    draw();
+    renderBlockingControls();
+    renderTokenList();
+    syncTurnDropdown();
+    loadCurrentTurnTokenToEditor();
+    refreshExport();
+    syncTokenSelectionUi();
+    setSaveStatus(`Loaded tactical fixture: ${fixture.label || fixture.id}`);
+    lastAutosaveSignature = JSON.stringify(buildSerializableBoardSnapshot().state);
+    autosaveSuppressed = false;
+    return fixture;
+  }
+
   // ---------- Editor fields bind to CURRENT TURN token ----------
   const selAC = document.getElementById('selAC');
   const selHP = document.getElementById('selHP');
@@ -3559,10 +3632,18 @@ import {
   const selSpeed = document.getElementById('selSpeed');
   const selNotes = document.getElementById('selNotes');
   const selStatblock = document.getElementById('selStatblock');
+  const selTacticalRole = document.getElementById('selTacticalRole');
+  const selProtectedAsset = document.getElementById('selProtectedAsset');
+  const selObjectiveRole = document.getElementById('selObjectiveRole');
+  const selRoleNotes = document.getElementById('selRoleNotes');
+  const selSpellsJson = document.getElementById('selSpellsJson');
+  const selAttacksJson = document.getElementById('selAttacksJson');
+  const tokenMetadataStatus = document.getElementById('tokenMetadataStatus');
   const turnTabButtons = Array.from(document.querySelectorAll('[data-turn-tab]'));
   const turnTabPanels = Array.from(document.querySelectorAll('[data-turn-panel]'));
   const drawerTabButtons = Array.from(document.querySelectorAll('[data-drawer-tab]'));
   const drawerTabPanels = Array.from(document.querySelectorAll('[data-drawer-panel]'));
+  const metadataEditorFields = [selTacticalRole, selProtectedAsset, selObjectiveRole, selRoleNotes, selSpellsJson, selAttacksJson];
 
   function setTurnTab(tab) {
     for (const btn of turnTabButtons) {
@@ -3604,9 +3685,21 @@ import {
     return state.tokens.find(t => t.id === state.currentTurnTokenId) || null;
   }
 
+  function metadataJson(value) {
+    return Array.isArray(value) && value.length ? JSON.stringify(value, null, 2) : '';
+  }
+
+  function parseMetadataJsonArray(text, fieldLabel) {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return [];
+    const parsed = JSON.parse(trimmed);
+    if (!Array.isArray(parsed)) throw new Error(`${fieldLabel} must be a JSON array.`);
+    return parsed;
+  }
+
   function loadCurrentTurnTokenToEditor() {
     const editorState = buildTurnEditorState(getCurrentTurnToken(), { normalizeSizeCells });
-    for (const el of [selAC, selHP, selSize, selColor, selSpeed, selNotes, selStatblock]) el.disabled = editorState.disabled;
+    for (const el of [selAC, selHP, selSize, selColor, selSpeed, selNotes, selStatblock, ...metadataEditorFields]) el.disabled = editorState.disabled;
     selAC.value = editorState.values.ac;
     selHP.value = editorState.values.hp;
     selSize.value = editorState.values.size;
@@ -3614,6 +3707,15 @@ import {
     selSpeed.value = editorState.values.speed;
     selNotes.value = editorState.values.notes;
     selStatblock.value = editorState.values.statblock;
+    const token = getCurrentTurnToken();
+    const tactical = token?.tactical || {};
+    selTacticalRole.value = tactical.role || tactical.authoredRole || '';
+    selProtectedAsset.checked = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
+    selObjectiveRole.value = tactical.objective_role || tactical.objectiveRole || '';
+    selRoleNotes.value = tactical.role_notes || tactical.roleNotes || '';
+    selSpellsJson.value = metadataJson(token?.spells);
+    selAttacksJson.value = metadataJson(token?.attacks);
+    if (tokenMetadataStatus) tokenMetadataStatus.textContent = 'Structured metadata is saved with board exports and sent to the tactical controller.';
   }
 
   function saveEditorToCurrentTurnToken() {
@@ -3634,14 +3736,40 @@ import {
       centerFromGridCell
     });
 
+    const role = selTacticalRole.value.trim();
+    const objectiveRole = selObjectiveRole.value.trim();
+    const roleNotes = selRoleNotes.value.trim();
+    const protectedAsset = selProtectedAsset.checked;
+    t.tactical = role || protectedAsset || objectiveRole || roleNotes
+      ? {
+        role,
+        protectedAsset,
+        objectiveRole,
+        roleNotes
+      }
+      : null;
+    try {
+      t.spells = parseMetadataJsonArray(selSpellsJson.value, 'Structured spells');
+      t.attacks = parseMetadataJsonArray(selAttacksJson.value, 'Structured attacks');
+      selSpellsJson.style.borderColor = '';
+      selAttacksJson.style.borderColor = '';
+      if (tokenMetadataStatus) tokenMetadataStatus.textContent = 'Structured metadata is saved with board exports and sent to the tactical controller.';
+    } catch (err) {
+      if (tokenMetadataStatus) tokenMetadataStatus.textContent = err.message || String(err);
+      if (String(err.message || err).includes('spells')) selSpellsJson.style.borderColor = 'rgba(255,90,122,.75)';
+      if (String(err.message || err).includes('attacks')) selAttacksJson.style.borderColor = 'rgba(255,90,122,.75)';
+      return;
+    }
+
     draw();
     renderTokenList();
     refreshExport();
   }
 
-  for (const el of [selAC, selHP, selSize, selColor, selSpeed, selNotes, selStatblock]) {
+  for (const el of [selAC, selHP, selSize, selColor, selSpeed, selNotes, selStatblock, ...metadataEditorFields]) {
     el.addEventListener('input', saveEditorToCurrentTurnToken);
   }
+  selProtectedAsset.addEventListener('change', saveEditorToCurrentTurnToken);
 
   menuAddArt.addEventListener('click', () => {
     if (state.contextMenuTokenId) openTokenArtEditor(state.contextMenuTokenId);
@@ -4637,6 +4765,7 @@ import {
     getBoardSnapshot: () => buildSerializableBoardSnapshot(),
     getTacticalFixtureYaml: () => buildTacticalFixtureYaml(),
     importBoardSnapshotText: async (text) => await hydrateBoardState(parseBoardSnapshotText(text)),
+    loadTacticalFixtureYaml: async (text) => await hydrateVisibleEncounterFixture(text),
     getAuthContext: () => authAdapter.getCurrentUserContext(),
     getAutosaves: () => loadAutosaveHistoryFromStorage().map((entry) => ({ id: entry.id, savedAt: entry.savedAt })),
     getAutosaveSnapshot: async (entryId) => await boardPersistence.loadAutosaveSnapshot(entryId),

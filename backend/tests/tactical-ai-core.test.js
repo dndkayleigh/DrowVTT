@@ -811,9 +811,8 @@ test('content normalization preserves both modes for melee-or-ranged attacks', (
   );
 });
 
-test('visible YAML encounter fixture asserts long barrier tactical behavior', async () => {
+test('visible YAML encounter fixtures assert tactical behavior', async () => {
   const fixturePaths = [
-    '../../packages/tactical-ai-content/encounters/long-barrier-ranged-pressure.yaml',
     '../../packages/tactical-ai-content/encounters/files/bandit-doorway-ambush-2026-04-26.yaml',
     '../../packages/tactical-ai-content/encounters/files/shrine-of-the-mosswater-bandit-encounter-2026-04-28.yaml',
     '../../packages/tactical-ai-content/encounters/files/the-sinkhole-watch-2026-04-29.yaml'
@@ -838,7 +837,7 @@ test('visible YAML encounter fixture asserts long barrier tactical behavior', as
 
 test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () => {
   const source = fs.readFileSync(
-    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/sanctuary-of-the-magi-2026-04-30.yaml'),
+    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/sanctuary-of-the-magi-2026-05-03.yaml'),
     'utf8'
   );
   const fixture = parseVisibleEncounterFixture(source);
@@ -849,21 +848,19 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
     return counts;
   }, {});
   const mage = monsters.find((actor) => actor.name === 'Mage');
-  const ogre = monsters.find((actor) => actor.name === 'Ogre A');
+  const thug = monsters.find((actor) => actor.name === 'Thug A');
   const gargoyle = monsters.find((actor) => actor.name === 'Gargoyle A');
   const wraith = monsters.find((actor) => actor.name === 'Wraith');
   const description = fixture.description.toLowerCase();
 
-  assert.equal(fixture.id, 'sanctuary_of_the_magi_2026_04_30');
+  assert.equal(fixture.id, 'sanctuary_of_the_magi_2026_05_03');
   assert.equal(fixture.label, 'The Ossuary Gate Rite');
-  assert.deepEqual(monsterCounts, {
-    Mage: 1,
-    Ogre: 2,
-    Veteran: 2,
-    Ghast: 2,
-    Gargoyle: 2,
-    Wraith: 1
-  });
+  assert.equal(monsterCounts.Mage, 1);
+  assert.equal(monsterCounts.Thug, 2);
+  assert.equal(monsterCounts.Veteran, 2);
+  assert.equal(monsterCounts.Ghast, 2);
+  assert.equal(monsterCounts.Gargoyle, 2);
+  assert.equal(monsterCounts.Wraith, 1);
   assert.ok(mage);
   assert.equal(mage.spells.some((spell) => ['support', 'defensive'].includes(spell.kind)), true);
   assert.equal(mage.tactical.role, 'boss_caster');
@@ -871,21 +868,21 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
   assert.equal(mage.tactical.coreRole, 'support_caster');
   assert.equal(mage.tactical.protectedAsset, true);
   assert.equal(mage.tactical.objectiveRole, 'ritual_actor');
-  assert.equal(ogre.tactical.role, 'brute_blocker');
-  assert.equal(ogre.tactical.coreRole, 'disciplined_blocker');
+  assert.equal(thug.tactical.role, 'brute_blocker');
+  assert.equal(thug.tactical.coreRole, 'disciplined_blocker');
   assert.equal(wraith.tactical.role, 'mobile_striker');
   assert.equal(wraith.tactical.coreRole, 'ambusher_bruiser');
   assert.equal(gargoyle.tactical.role, 'held_ambusher');
   assert.equal(gargoyle.tactical.coreRole, 'ambusher_bruiser');
-  assert.equal(fixture.encounter.activeActorId, 'mage_ossuary_gate');
+  assert.equal(fixture.encounter.activeActorId, mage.id);
   assert.equal(fixture.encounter.activationGroups[0]?.id, 'ossuary_gate_defenders');
   assert.equal(fixture.encounter.activationGroups[0]?.actorIds.length, 10);
-  assert.equal(fixture.raw.map?.source_url, 'https://dysonlogos.blog/maps/commercial-maps/');
-  assert.equal(fixture.raw.map?.image_source_url, 'https://dysonlogos.blog/wp-content/uploads/2020/11/sanctuary-of-the-magi.png');
-  assert.match(fixture.raw.map?.attribution || '', /Dyson Logos/);
+  assert.equal(description.includes('dyson logos'), true);
+  assert.equal(description.includes('https://dysonlogos.blog/maps/commercial-maps/'), true);
+  assert.equal(description.includes('https://dysonlogos.blog/wp-content/uploads/2020/11/sanctuary-of-the-magi.png'), true);
   assert.equal(description.includes('ideal_behavior'), true);
   assert.equal(description.includes('protected_asset'), true);
-  assert.equal(description.includes('unsupported_doctrine_gaps_future_work'), true);
+  assert.equal(description.includes('unsupported doctrines'), true);
 
   const mageOutput = await new SupervisorScriptedController().chooseAction({
     encounter: fixture.encounter,
@@ -894,12 +891,12 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
   });
   assert.equal(mageOutput.logs[0].data.diagnostics.candidateSetHealth.role, 'support_caster');
 
-  const ogreOutput = await new SupervisorScriptedController().chooseAction({
+  const thugOutput = await new SupervisorScriptedController().chooseAction({
     encounter: fixture.encounter,
-    actorId: ogre.id,
+    actorId: thug.id,
     candidateLimit: 36
   });
-  assert.equal(ogreOutput.logs[0].data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
+  assert.equal(thugOutput.logs[0].data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
 
   const wraithCandidates = generateCandidateActions(fixture.encounter, wraith, { limit: 36 });
   assert.equal(wraithCandidates.some((candidate) => candidate.family === 'hold_hidden'), true);

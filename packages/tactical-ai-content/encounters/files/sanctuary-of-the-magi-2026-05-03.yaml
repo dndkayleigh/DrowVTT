@@ -1,114 +1,188 @@
-id: sanctuary_of_the_magi_2026_04_30
+id: sanctuary_of_the_magi_2026_05_03
 title: The Ossuary Gate Rite
-category: mixed-role protected caster benchmark
-map:
-  title: Sanctuary of the Magi
-  creator: Dyson Logos
-  attribution: "Sanctuary of the Magi by Dyson Logos"
-  source_url: "https://dysonlogos.blog/maps/commercial-maps/"
-  image_source_url: "https://dysonlogos.blog/wp-content/uploads/2020/11/sanctuary-of-the-magi.png"
-  local_image: false
+category: custom
 description: |
-  encounter_name: "The Ossuary Gate Rite"
+  name: "The Ossuary Gate Rite"
   map: "Sanctuary of the Magi"
-  map_attribution: "Sanctuary of the Magi by Dyson Logos"
-  map_source_url: "https://dysonlogos.blog/maps/commercial-maps/"
-  map_image_source_url: "https://dysonlogos.blog/wp-content/uploads/2020/11/sanctuary-of-the-magi.png"
-
-  encounter_purpose:
-    This higher-CR mixed-role benchmark tests whether the portable tactical
-    controller can defend a protected boss caster and ritual structure without
-    turning every monster into a focus-fire skirmisher. The map image is not
-    stored locally in this fixture; this file preserves source attribution and
-    references the public source URLs only.
-
-  monster_roster:
-    - 1 Mage
-    - 1 Wraith
-    - 2 Ogres
-    - 2 Ghasts
-    - 2 Gargoyles
-    - 2 Veterans
-
-  protected_asset:
-    actor: "Mage"
-    active_doctrine: "protect_caster"
-    current_inference_note: >
-      The Mage includes support/defensive spell metadata so current supervisor
-      inference can identify a support_caster and activate protect_caster.
-
-  desired_doctrines:
-    primary_text_only: "complete_ritual / preserve_objective"
-    secondary_active_if_inferred: "protect_asset / protect_caster"
-    tertiary_text_only: "hold_defensive_line"
-    quaternary_text_only: "punish_overextension"
-
-  unsupported_doctrine_gaps_future_work:
-    - "complete_ritual and preserve_objective are text-only in this fixture."
-    - "hold_defensive_line is described but not forced as a multi-doctrine objective."
-    - "punish_overextension is described but not implemented as a doctrine."
-    - "Gargoyle elevation/statue posture is text-only until verticality exists."
-
-  ideal_behavior:
-    mage:
-      role: "protected boss caster / ritual actor / controller-artillery"
-      behavior: >
-        The Mage is the protected asset and ritual actor. It should avoid melee,
-        preserve distance, use spells to control or punish dangerous player
-        characters, and retreat toward secondary cover if the front line
-        collapses. If a ritual objective is active in a future system, it should
-        prefer preserving the rite unless immediate defense is required.
-
-    ogres:
-      role: "heavy blockers / bodyguards / lane holders"
-      behavior: >
-        Ogres should occupy the main approaches into the central ritual chamber,
-        prevent player characters from reaching the Mage, and avoid chasing
-        distant targets so far that they open a path through the defensive line.
-
-    veterans:
-      role: "disciplined soldiers / ranged-to-melee guards"
-      behavior: >
-        Veterans should hold assigned defensive posts, use ranged attacks when
-        the party is at distance, and switch to melee when the line is breached.
-        They should preserve the screen around the Mage rather than skirmishing
-        randomly across the map.
-
-    ghasts:
-      role: "melee disrupters / punish overextension"
-      behavior: >
-        Ghasts should attack player characters who become isolated, flank through
-        side chambers, or threaten the Mage. They should not replace the Ogres as
-        static blockers; their job is to punish overextension and exploit
-        openings.
-
-    gargoyles:
-      role: "elevated or statue-like ambushers / interceptors"
-      behavior: >
-        Gargoyles should begin in defensive or side-alcove positions and should
-        not immediately abandon those positions unless they can intercept a
-        vulnerable or overextended player character. Elevation is text-only in
-        this fixture because the current tactical model has no verticality
-        mechanics.
-
-    wraith:
-      role: "mobile terror / backline assassin / high-threat striker"
-      behavior: >
-        The Wraith should not hold the front line like a soldier. It should
-        threaten vulnerable characters, punish isolated targets, and pressure
-        spellcasters or ranged attackers. If no vulnerable target is available,
-        it should maintain a threatening ritual-adjacent position rather than
-        making low-value attacks.
-
-  success_criteria_text_only:
-    - "Keep the Mage protected."
-    - "Preserve the central ritual structure."
-    - "Use Ogres and Veterans to hold approaches."
-    - "Use Ghasts and Gargoyles to punish overextension."
-    - "Use the Wraith as a mobile high-threat striker."
-    - "Avoid sending the Mage into melee."
-    - "Avoid sending Ogres chasing distant skirmishers."
-    - "Avoid turning every monster into a ranged focus-fire unit."
+  map_source:
+    creator: "Dyson Logos"
+    collection_url: "https://dysonlogos.blog/maps/commercial-maps/"
+    image_url: "https://dysonlogos.blog/wp-content/uploads/2020/11/sanctuary-of-the-magi.png"
+    attribution: "Map by Dyson Logos. Used with attribution according to Dyson Logos commercial-use map terms."
+  
+  encounter_purpose: >
+    This higher-CR mixed-role benchmark tests whether the tactical controller can manage
+    a protected boss caster, a defensive screen of 1x1 bodyguards, disciplined soldiers,
+    melee disrupters, held ambushers, and a mobile striker. The encounter should preserve
+    the ritual-defense structure instead of flattening into every monster dogpiling the
+    same target.
+  
+  setup: >
+    The player characters enter the Sanctuary of the Magi while a Mage attempts to stabilize
+    or open an arcane gate at the central or rear ritual area. The Mage is the protected
+    boss caster and ritual actor. The monsters should delay, divide, and punish the party
+    while preventing the player characters from reaching the Mage.
+  
+  monsters:
+    - name: "Mage"
+      count: 1
+      tactical:
+        role: "boss_caster"
+        mapped_core_role: "support_caster"
+        protected_asset: true
+        objective_role: "ritual_actor"
+        role_notes: >
+          Protected boss caster. Avoid melee, preserve distance, use spells, and retreat
+          toward secondary cover if the defensive screen collapses.
+  
+    - name: "Wraith"
+      count: 1
+      tactical:
+        role: "mobile_striker"
+        mapped_core_role: "ambusher_bruiser"
+        role_notes: >
+          Mobile terror and backline assassin. Threaten vulnerable or isolated characters.
+          Do not hold the front line like a soldier.
+  
+    - name: "Thug"
+      count: 2
+      tactical:
+        role: "brute_blocker"
+        mapped_core_role: "disciplined_blocker"
+        role_notes: >
+          1x1 bodyguard replacement for ogres. Hold nearby approaches, protect the Mage,
+          and prevent player characters from breaking into the ritual area.
+  
+    - name: "Veteran"
+      count: 2
+      tactical:
+        role: "disciplined_soldier"
+        mapped_core_role: "disciplined_blocker"
+        role_notes: >
+          Trained guards. Hold assigned defensive posts, use ranged attacks at distance,
+          and switch to melee when the line is breached.
+  
+    - name: "Ghast"
+      count: 2
+      tactical:
+        role: "melee_disrupter"
+        mapped_core_role: "ambusher_bruiser"
+        role_notes: >
+          Aggressive melee disrupters. Use side lanes, punish isolated or overextended
+          characters, and exploit openings near the defensive screen.
+  
+    - name: "Gargoyle"
+      count: 2
+      tactical:
+        role: "held_ambusher"
+        mapped_core_role: "ambusher_bruiser"
+        role_notes: >
+          Statue-like ambushers or interceptors. Begin in side alcoves, high-looking
+          positions, or defensive perches. Do not immediately abandon ambush posture unless
+          a vulnerable or overextended target appears.
+  
+  starting_positions: >
+    Place the Mage in the central or rear ritual area with partial cover and a fallback
+    route if available. Place the two Thugs near the closest approaches to the Mage as
+    bodyguards. Place the Veterans on the flanks or near partial cover where they can
+    defend approaches. Place the Ghasts in side chambers or broken alcoves where they can
+    threaten overextended player characters. Place the Gargoyles in statue-like or elevated
+    side positions. Place the Wraith near a side crypt, rear alcove, or ritual-adjacent
+    chamber where it can threaten the backline without acting as a static blocker.
+  
+  doctrines:
+    active_supported:
+      - name: "protect_asset"
+        protected_asset: "Mage"
+        notes: >
+          If the current controller only supports protect_caster, treat the Mage as the
+          protected caster/asset.
+  
+    desired_text_only:
+      - name: "complete_ritual"
+        actor: "Mage"
+        status: "unsupported_metadata_only"
+        notes: >
+          The Mage is attempting to stabilize or open the ossuary gate. This is currently
+          ideal-behavior metadata unless objective mechanics exist.
+  
+      - name: "hold_defensive_line"
+        actors:
+          - "Thug"
+          - "Veteran"
+        status: "unsupported_metadata_only"
+        notes: >
+          Thugs and Veterans should preserve the defensive screen around the Mage.
+  
+      - name: "punish_overextension"
+        actors:
+          - "Wraith"
+          - "Ghast"
+          - "Gargoyle"
+        status: "unsupported_metadata_only"
+        notes: >
+          Mobile and ambush monsters should punish isolated or overextended player
+          characters rather than acting as generic soldiers.
+  
+  ideal_behavior: >
+    The Mage should act as the protected boss caster and ritual actor. It should avoid
+    melee, preserve distance, use spells to control or punish dangerous player characters,
+    and retreat toward secondary cover if the front line collapses. If ritual objective
+    mechanics are available, the Mage should prefer preserving the ritual unless a spell
+    is needed to prevent immediate loss of the position.
+  
+    The Thugs should act as 1x1 heavy bodyguards. They replace the original ogres because
+    the map does not have enough space for Large blockers. They should occupy nearby lanes,
+    prevent player characters from reaching the Mage, and avoid chasing targets so far
+    that they open a path through the defensive screen.
+  
+    The Veterans should act as disciplined soldiers. They should hold assigned defensive
+    posts, use ranged attacks when the party is at distance, and switch to melee when the
+    defensive line is breached. They should help preserve the screen around the Mage rather
+    than skirmishing randomly across the map.
+  
+    The Ghasts should act as aggressive melee disrupters. They should attack player
+    characters who become isolated, flank through side chambers, or threaten the Mage.
+    They should not replace the Thugs as static blockers; their job is to punish
+    overextension and exploit openings.
+  
+    The Gargoyles should act as held ambushers or interceptors. They should begin in
+    statue-like, defensive, side-alcove, or high-looking positions and should not
+    immediately abandon those positions unless they can intercept a vulnerable or
+    overextended player character.
+  
+    The Wraith should act as a mobile terror and backline assassin. It should not hold
+    the front line like a soldier. It should threaten vulnerable characters, punish isolated
+    targets, and pressure the party's spellcasters or ranged attackers. If no vulnerable
+    target is available, it should maintain a threatening position near the ritual area
+    rather than making low-value attacks.
+  
+  success_criteria: >
+    A strong controller should keep the Mage protected, preserve the central ritual
+    structure, use Thugs and Veterans to hold approaches, use Ghasts and Gargoyles to
+    punish overextension, and use the Wraith as a mobile high-threat striker. The monsters
+    should not all dogpile the same target unless that target is clearly the central
+    tactical threat.
+  
+  failure_modes: >
+    A weak controller will move the Mage into melee, make Thugs behave like ranged
+    skirmishers, have Veterans abandon disciplined posts, use the Wraith as a static
+    blocker, have Gargoyles abandon ambush positions immediately, or dogpile one target
+    while ignoring the ritual structure.
+  
+  expectations:
+    - "noOccupiedDestination"
+    - "moveDoesNotCrossBlocking"
+    - "mageDoesNotPreferMeleeWhenSpellsAvailable"
+    - "bodyguardsDoNotAbandonMageApproach"
+    - "ambushersDoNotImmediatelyBreakPostureWithoutTrigger"
+  
+  notes: >
+    This fixture intentionally keeps unsupported doctrines as metadata-only. Do not add
+    complete_ritual, hold_defensive_line, punish_overextension, flight, verticality, or
+    objective mechanics just to make this encounter pass. The benchmark should first reveal
+    whether current role metadata, protected-asset logic, candidate generation, and scoring
+    are sufficient.
 
 controllers:
   - supervisor_scripted_single
@@ -223,12 +297,6 @@ battlefield:
       blocksLineOfSight: true
     - orientation: h
       x: 7
-      y: 11
-      length: 1
-      blocksMovement: true
-      blocksLineOfSight: true
-    - orientation: h
-      x: 7
       y: 12
       length: 1
       blocksMovement: true
@@ -319,7 +387,7 @@ battlefield:
       blocksLineOfSight: true
     - orientation: h
       x: 10
-      y: 16
+      y: 15
       length: 1
       blocksMovement: true
       blocksLineOfSight: true
@@ -366,12 +434,6 @@ battlefield:
       blocksMovement: true
       blocksLineOfSight: true
     - orientation: h
-      x: 12
-      y: 18
-      length: 1
-      blocksMovement: true
-      blocksLineOfSight: true
-    - orientation: h
       x: 13
       y: 2
       length: 1
@@ -595,13 +657,19 @@ battlefield:
       blocksLineOfSight: true
     - orientation: h
       x: 21
+      y: 3
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: h
+      x: 21
       y: 6
       length: 1
       blocksMovement: true
       blocksLineOfSight: true
     - orientation: h
       x: 21
-      y: 7
+      y: 8
       length: 1
       blocksMovement: true
       blocksLineOfSight: true
@@ -793,8 +861,8 @@ battlefield:
       blocksLineOfSight: true
     - orientation: v
       x: 7
-      y: 11
-      length: 3
+      y: 12
+      length: 2
       blocksMovement: true
       blocksLineOfSight: true
     - orientation: v
@@ -846,12 +914,6 @@ battlefield:
       blocksMovement: true
       blocksLineOfSight: true
     - orientation: v
-      x: 10
-      y: 15
-      length: 1
-      blocksMovement: true
-      blocksLineOfSight: true
-    - orientation: v
       x: 11
       y: 2
       length: 2
@@ -859,8 +921,8 @@ battlefield:
       blocksLineOfSight: true
     - orientation: v
       x: 11
-      y: 16
-      length: 1
+      y: 15
+      length: 2
       blocksMovement: true
       blocksLineOfSight: true
     - orientation: v
@@ -1008,6 +1070,12 @@ battlefield:
       blocksMovement: true
       blocksLineOfSight: true
     - orientation: v
+      x: 21
+      y: 7
+      length: 1
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
       x: 22
       y: 2
       length: 4
@@ -1015,8 +1083,8 @@ battlefield:
       blocksLineOfSight: true
     - orientation: v
       x: 22
-      y: 7
-      length: 2
+      y: 8
+      length: 1
       blocksMovement: true
       blocksLineOfSight: true
     - orientation: v
@@ -1074,25 +1142,39 @@ battlefield:
       blocksMovement: true
       blocksLineOfSight: true
 
-activeActor: mage_ossuary_gate
+activeActor: "7tz6v7su"
 
 activationGroups:
   - id: ossuary_gate_defenders
-    actorIds: [mage_ossuary_gate, ogre_gate_left, ogre_gate_right, veteran_west_post, veteran_east_post, ghast_north_alcove, ghast_south_alcove, gargoyle_north_statue, gargoyle_south_statue, wraith_ritual_shadow]
+    actorIds: ["7tz6v7su", "445wtpzx", ymm2y89a, "5glr4g41", "8qx48cb0", "80tpjew5", hp9goa32, l23e57kf, g02oj7mg, dik6skpz]
     activationMode: coordinated_sequential
 
 actors:
-  - id: hero_vanguard
-    name: Vanguard
+  - id: yt46i5pb
+    name: Aria
     side: heroes
-    position: [0, 0]
+    position: [22, 9]
     speed: 30
     attacks:
       - name: Strike
         kind: melee
         rangeFt: 5
         expectedDamage: 5
-  - id: mage_ossuary_gate
+  - id: tr1x6dg1
+    name: Goblin A
+    side: monsters
+    position: [14, 9]
+    speed: 30
+    attacks:
+      - name: Scimitar
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Shortbow
+        kind: ranged
+        rangeFt: 80
+        expectedDamage: 5
+  - id: "7tz6v7su"
     name: Mage
     side: monsters
     position: [11, 9]
@@ -1101,7 +1183,7 @@ actors:
       role: boss_caster
       protected_asset: true
       objective_role: ritual_actor
-      role_notes: "Protected boss caster stabilizing the Ossuary Gate rite."
+      role_notes: Protected boss caster and ritual actor. Avoid melee, preserve distance, use spells, and retreat toward secondary cover if the defensive screen collapses.
     attacks:
       - name: Dagger
         kind: melee
@@ -1117,105 +1199,51 @@ actors:
         target: self
         rangeFt: 0
         expectedValue: 5
-      - name: Counterspell
-        kind: defensive
-        target: ally
-        rangeFt: 60
-        expectedValue: 6
-      - name: Fireball
+        requiresLineOfSight: false
+      - name: Magic Missile
         kind: damage
         target: enemy
-        rangeFt: 150
-        expectedValue: 21
-      - name: Hold Person
-        kind: control
-        target: enemy
-        rangeFt: 60
-        expectedValue: 8
-  - id: ogre_gate_left
-    name: Ogre A
+        rangeFt: 120
+        expectedValue: 10
+        requiresLineOfSight: true
+  - id: "445wtpzx"
+    name: Wraith
     side: monsters
-    position: [11, 7]
-    speed: 40
-    tactical:
-      role: brute_blocker
-      role_notes: "Heavy bodyguard holding the northern approach to the Mage."
-    attacks:
-      - name: Greatclub
-        kind: melee
-        rangeFt: 5
-        expectedDamage: 6
-      - name: Javelin
-        kind: melee
-        rangeFt: 5
-        expectedDamage: 6
-      - name: Javelin
-        kind: ranged
-        rangeFt: 30
-        expectedDamage: 5
-  - id: ogre_gate_right
-    name: Ogre B
-    side: monsters
-    position: [11, 11]
-    speed: 40
-    tactical:
-      role: brute_blocker
-      role_notes: "Heavy bodyguard holding the southern approach to the Mage."
-    attacks:
-      - name: Greatclub
-        kind: melee
-        rangeFt: 5
-        expectedDamage: 13
-      - name: Javelin
-        kind: melee
-        rangeFt: 5
-        expectedDamage: 11
-      - name: Javelin
-        kind: ranged
-        rangeFt: 30
-        expectedDamage: 11
-  - id: veteran_west_post
-    name: Veteran A
-    side: monsters
-    position: [13, 6]
+    position: [8, 6]
     speed: 30
     tactical:
-      role: disciplined_soldier
-      role_notes: "Disciplined ranged-to-melee guard preserving the defensive screen."
+      role: mobile_striker
+      role_notes: Mobile terror and backline assassin. Threaten vulnerable or isolated characters and avoid holding the front line like a soldier.
     attacks:
-      - name: Longsword
+      - name: Life Drain
         kind: melee
         rangeFt: 5
-        expectedDamage: 7
-      - name: Heavy Crossbow
-        kind: ranged
-        rangeFt: 100
         expectedDamage: 6
-  - id: veteran_east_post
-    name: Veteran B
+  - id: ymm2y89a
+    name: Ghast
     side: monsters
-    position: [13, 12]
+    position: [13, 14]
     speed: 30
     tactical:
-      role: disciplined_soldier
-      role_notes: "Disciplined ranged-to-melee guard preserving the defensive screen."
+      role: melee_disrupter
+      role_notes: Aggressive melee disrupter. Use side lanes and punish isolated or overextended characters.
     attacks:
-      - name: Longsword
+      - name: Bite
         kind: melee
         rangeFt: 5
-        expectedDamage: 7
-      - name: Heavy Crossbow
-        kind: ranged
-        rangeFt: 100
         expectedDamage: 6
-  - id: ghast_north_alcove
+      - name: Claws
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+  - id: "5glr4g41"
     name: Ghast A
     side: monsters
-    position: [16, 6]
+    position: [13, 4]
     speed: 30
     tactical:
       role: melee_disrupter
-      role_notes: "Aggressive melee disrupter that punishes isolated intruders."
+      role_notes: Aggressive melee disrupter. Use side lanes and punish isolated or overextended characters.
     attacks:
       - name: Bite
         kind: melee
@@ -1225,14 +1253,14 @@ actors:
         kind: melee
         rangeFt: 5
         expectedDamage: 6
-  - id: ghast_south_alcove
-    name: Ghast B
+  - id: "8qx48cb0"
+    name: Gargoyle
     side: monsters
-    position: [16, 12]
+    position: [19, 16]
     speed: 30
     tactical:
-      role: melee_disrupter
-      role_notes: "Aggressive melee disrupter that punishes isolated intruders."
+      role: held_ambusher
+      role_notes: Statue-like ambusher and interceptor. Hold defensive posture until a vulnerable or overextended target appears.
     attacks:
       - name: Bite
         kind: melee
@@ -1242,14 +1270,14 @@ actors:
         kind: melee
         rangeFt: 5
         expectedDamage: 6
-  - id: gargoyle_north_statue
+  - id: "80tpjew5"
     name: Gargoyle A
     side: monsters
     position: [19, 2]
     speed: 30
     tactical:
       role: held_ambusher
-      role_notes: "Statue-like interceptor; elevation is text-only in this fixture."
+      role_notes: Statue-like ambusher and interceptor. Hold defensive posture until a vulnerable or overextended target appears.
     attacks:
       - name: Bite
         kind: melee
@@ -1259,36 +1287,112 @@ actors:
         kind: melee
         rangeFt: 5
         expectedDamage: 6
-  - id: gargoyle_south_statue
-    name: Gargoyle B
+  - id: hp9goa32
+    name: Veteran
     side: monsters
-    position: [19, 16]
+    position: [17, 10]
     speed: 30
     tactical:
-      role: held_ambusher
-      role_notes: "Statue-like interceptor; elevation is text-only in this fixture."
+      role: disciplined_soldier
+      role_notes: Trained guard. Hold assigned defensive post, use ranged attacks at distance, and switch to melee when the line is breached.
     attacks:
-      - name: Bite
+      - name: Longsword
         kind: melee
         rangeFt: 5
         expectedDamage: 6
-      - name: Claws
+      - name: Shortsword
         kind: melee
         rangeFt: 5
         expectedDamage: 6
-  - id: wraith_ritual_shadow
-    name: Wraith
+      - name: Heavy Crossbow
+        kind: ranged
+        rangeFt: 100
+        expectedDamage: 5
+  - id: l23e57kf
+    name: Veteran A
     side: monsters
-    position: [7, 13]
-    speed: 60
+    position: [17, 8]
+    speed: 30
     tactical:
-      role: mobile_striker
-      role_notes: "Mobile terror and backline assassin, not a static front-line guard."
+      role: disciplined_soldier
+      role_notes: Trained guard. Hold assigned defensive post, use ranged attacks at distance, and switch to melee when the line is breached.
     attacks:
-      - name: Life Drain
+      - name: Longsword
         kind: melee
         rangeFt: 5
-        expectedDamage: 21
+        expectedDamage: 6
+      - name: Shortsword
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Heavy Crossbow
+        kind: ranged
+        rangeFt: 100
+        expectedDamage: 5
+  - id: g02oj7mg
+    name: Thug
+    side: monsters
+    position: [16, 12]
+    speed: 30
+    tactical:
+      role: brute_blocker
+      role_notes: One-by-one bodyguard replacement for an ogre. Hold nearby approaches and protect the Mage.
+    attacks:
+      - name: Mace
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Heavy Crossbow
+        kind: ranged
+        rangeFt: 100
+        expectedDamage: 5
+  - id: dik6skpz
+    name: Thug A
+    side: monsters
+    position: [16, 6]
+    speed: 30
+    tactical:
+      role: brute_blocker
+      role_notes: One-by-one bodyguard replacement for an ogre. Hold nearby approaches and protect the Mage.
+    attacks:
+      - name: Mace
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 6
+      - name: Heavy Crossbow
+        kind: ranged
+        rangeFt: 100
+        expectedDamage: 5
+  - id: "9vb9ari2"
+    name: Ben
+    side: heroes
+    position: [21, 10]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: h9m0mk6u
+    name: Cam
+    side: heroes
+    position: [21, 8]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
+  - id: sjhepccq
+    name: Dirk
+    side: heroes
+    position: [21, 9]
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 5
 
 expected:
   must:

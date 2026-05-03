@@ -1553,6 +1553,99 @@ test('imported board snapshot tactical metadata reaches tactical fixture yaml', 
   expect(roleDiagnostic?.availableFamilies).toEqual(expect.arrayContaining(['spell_from_current']));
 });
 
+test('visible fixture tactical metadata becomes editable live token metadata', async ({ page }) => {
+  const fixtureYaml = [
+    'id: fixture_authoring_path',
+    'title: Fixture Authoring Path',
+    'category: custom',
+    'description: |',
+    '  Fixture actor metadata should become live token metadata.',
+    'controllers:',
+    '  - supervisor_scripted_group',
+    'battlefield:',
+    '  width: 8',
+    '  height: 6',
+    '  gridSize: 64',
+    '  blockingEdges: []',
+    'activeActor: mage',
+    'activationGroups:',
+    '  - id: defenders',
+    '    actorIds: [mage]',
+    '    activationMode: coordinated_sequential',
+    'actors:',
+    '  - id: mage',
+    '    name: Mage',
+    '    side: monsters',
+    '    position: [2, 2]',
+    '    speed: 30',
+    '    tactical:',
+    '      role: boss_caster',
+    '      protected_asset: true',
+    '      objective_role: ritual_actor',
+    '      role_notes: Protected caster from fixture.',
+    '    attacks:',
+    '      - name: Dagger',
+    '        kind: ranged',
+    '        rangeFt: 20',
+    '        expectedDamage: 5',
+    '    spells:',
+    '      - name: Shield',
+    '        kind: defensive',
+    '        target: self',
+    '        rangeFt: 0',
+    '        expectedValue: 5',
+    '        requiresLineOfSight: false',
+    '  - id: hero',
+    '    name: Aria',
+    '    side: heroes',
+    '    position: [5, 2]',
+    '    speed: 30',
+    '    attacks: []',
+    'expected:',
+    '  must: []',
+    '  mustNot: []',
+    ''
+  ].join('\n');
+
+  await page.evaluate(async (yaml) => {
+    await window.__VTT_DEBUG__.loadTacticalFixtureYaml(yaml);
+  }, fixtureYaml);
+
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  const mageToken = snapshot.state.tokens.find((token) => token.id === 'mage');
+  expect(mageToken?.tactical).toMatchObject({
+    role: 'boss_caster',
+    protectedAsset: true,
+    objectiveRole: 'ritual_actor'
+  });
+  expect(mageToken?.spells?.map((spell) => spell.name)).toContain('Shield');
+  expect(mageToken?.attacks?.map((attack) => attack.name)).toContain('Dagger');
+
+  await openDetails(page, '#turnSection');
+  await page.locator('[data-turn-tab="tactics"]').click();
+  await expect(page.locator('#selTacticalRole')).toHaveValue('boss_caster');
+  await expect(page.locator('#selProtectedAsset')).toBeChecked();
+  await expect(page.locator('#selObjectiveRole')).toHaveValue('ritual_actor');
+  await expect(page.locator('#selSpellsJson')).toHaveValue(/Shield/);
+
+  await page.locator('#selRoleNotes').fill('Edited role note.');
+  await page.locator('#selSpellsJson').fill(JSON.stringify([
+    { name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 },
+    { name: 'Magic Missile', kind: 'damage', target: 'enemy', rangeFt: 120, expectedValue: 10 }
+  ], null, 2));
+
+  const editedSnapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  const editedMage = editedSnapshot.state.tokens.find((token) => token.id === 'mage');
+  expect(editedMage?.tactical?.roleNotes).toBe('Edited role note.');
+  expect(editedMage?.spells?.map((spell) => spell.name)).toEqual(['Shield', 'Magic Missile']);
+
+  const yaml = await page.evaluate(() => window.__VTT_DEBUG__.getTacticalFixtureYaml());
+  const fixture = parseVisibleEncounterFixture(yaml);
+  const mage = fixture.encounter.actors.find((actor) => actor.id === 'mage');
+  expect(mage?.tactical?.coreRole).toBe('support_caster');
+  expect(mage?.spells?.map((spell) => spell.name)).toContain('Magic Missile');
+});
+
 test('legacy board snapshot omits tactical fixture metadata and warns about missing structure', async ({ page }) => {
   const snapshot = cloneBoardSnapshot(LEGACY_BOARD_SNAPSHOT_WITHOUT_TACTICAL);
 

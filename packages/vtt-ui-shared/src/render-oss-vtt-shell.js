@@ -270,6 +270,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
           <button type="button" class="tabBtn active" data-turn-tab="stats">Token Stats</button>
           <button type="button" class="tabBtn" data-turn-tab="notes">Notes</button>
           <button type="button" class="tabBtn" data-turn-tab="statblock">Statblock</button>
+          <button type="button" class="tabBtn" data-turn-tab="tactics">Tactics</button>
         </div>
 
         <div class="tabPanel" data-turn-panel="stats">
@@ -318,6 +319,30 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
         <div class="tabPanel" data-turn-panel="statblock" hidden>
           <label>Statblock / actions</label>
           <textarea id="selStatblock" spellcheck="false"></textarea>
+        </div>
+
+        <div class="tabPanel" data-turn-panel="tactics" hidden>
+          <div class="compactRow">
+            <div>
+              <label for="selTacticalRole">Tactical role</label>
+              <input id="selTacticalRole" type="text" placeholder="boss_caster" />
+            </div>
+            <div>
+              <label for="selObjectiveRole">Objective role</label>
+              <input id="selObjectiveRole" type="text" placeholder="ritual_actor" />
+            </div>
+          </div>
+          <div class="checkRow" style="margin-top:8px">
+            <input id="selProtectedAsset" type="checkbox" />
+            <label for="selProtectedAsset" style="margin:0;color:var(--muted)">Protected asset</label>
+          </div>
+          <label for="selRoleNotes" style="margin-top:8px;">Role notes</label>
+          <textarea id="selRoleNotes" spellcheck="false" placeholder="How this token should behave tactically."></textarea>
+          <label for="selSpellsJson" style="margin-top:8px;">Structured spells JSON</label>
+          <textarea id="selSpellsJson" spellcheck="false" placeholder='[{"name":"Shield","kind":"defensive","target":"self","rangeFt":0,"expectedValue":5}]'></textarea>
+          <label for="selAttacksJson" style="margin-top:8px;">Structured attacks JSON</label>
+          <textarea id="selAttacksJson" spellcheck="false" placeholder='[{"name":"Dagger","attackKind":"ranged","rangeFt":20,"expectedDamage":5}]'></textarea>
+          <div class="sectionNote" id="tokenMetadataStatus">Structured metadata is saved with board exports and sent to the tactical controller.</div>
         </div>
 
         <div class="sectionNote" id="turnRuleNote">
