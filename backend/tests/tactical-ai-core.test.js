@@ -1217,6 +1217,65 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
   }
 });
 
+test('Stony Shore Ambush fixture loads benchmark metadata', () => {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/stony-shore-ambush-2026-05-03.yaml'),
+    'utf8'
+  );
+  const fixture = parseVisibleEncounterFixture(source);
+  const monsters = fixture.encounter.actors.filter((actor) => actor.side === 'monsters');
+  const monsterCounts = monsters.reduce((counts, actor) => {
+    const baseName = actor.name.replace(/ [A-Z]$/, '');
+    counts[baseName] = (counts[baseName] || 0) + 1;
+    return counts;
+  }, {});
+  const dragon = monsters.find((actor) => actor.name === 'Young Black Dragon');
+  const troll = monsters.find((actor) => actor.name === 'Troll A');
+  const lizardfolk = monsters.find((actor) => actor.name === 'Lizardfolk A');
+  const crocodile = monsters.find((actor) => actor.name === 'Giant Crocodile');
+  const unsupportedFeatures = fixture.raw.known_unsupported_features_to_watch || [];
+  const expectations = fixture.raw.expectations || [];
+  const mustExpectations = (fixture.expected.must || []).flatMap((entry) => Object.keys(entry));
+
+  assert.equal(fixture.id, 'stony_shore_ambush_2026_05_03');
+  assert.equal(fixture.label, 'The Stony Shore Ambush');
+  assert.equal(fixture.raw.map.name, 'The Stony Shore - Combined');
+  assert.equal(fixture.raw.map.creator, 'Dyson Logos');
+  assert.equal(fixture.raw.map.commercial_maps_url, 'https://dysonlogos.blog/maps/commercial-maps/');
+  assert.equal(fixture.raw.map.source_urls.includes('https://dysonlogos.blog/2023/06/06/the-stony-shore-map-1/'), true);
+  assert.equal(fixture.raw.map.source_urls.includes('https://dysonlogos.blog/2023/06/13/the-stony-shore-combined/'), true);
+  assert.match(fixture.raw.map.attribution, /Dyson Logos/);
+  assert.equal(monsterCounts['Young Black Dragon'], 1);
+  assert.equal(monsterCounts.Troll, 2);
+  assert.equal(monsterCounts.Lizardfolk, 4);
+  assert.equal(monsterCounts['Giant Crocodile'], 1);
+  assert.ok(dragon);
+  assert.equal(dragon.sizeCells, 2);
+  assert.equal(dragon.tactical.role, 'mobile_boss_controller');
+  assert.equal(dragon.tactical.coreRole, 'ambusher_bruiser');
+  assert.equal(dragon.tactical.objectiveRole, 'break_formation');
+  assert.equal(troll.tactical.role, 'brute_blocker');
+  assert.equal(troll.tactical.coreRole, 'disciplined_blocker');
+  assert.equal(troll.tactical.objectiveRole, 'hold_cavern_choke');
+  assert.equal(lizardfolk.tactical.role, 'skirmisher');
+  assert.equal(lizardfolk.tactical.coreRole, 'skirmisher');
+  assert.equal(lizardfolk.tactical.objectiveRole, 'harass_and_flank');
+  assert.equal(crocodile.sizeCells, 3);
+  assert.equal(crocodile.tactical.role, 'grappler_ambusher');
+  assert.equal(crocodile.tactical.coreRole, 'ambusher_bruiser');
+  assert.equal(crocodile.tactical.objectiveRole, 'punish_edge_movement');
+  assert.equal(fixture.raw.ideal_behavior.includes('mobile boss controller'), true);
+  assert.equal(unsupportedFeatures.includes('breath weapon area targeting'), true);
+  assert.equal(unsupportedFeatures.includes('flight or swim movement'), true);
+  assert.equal(unsupportedFeatures.includes('grapple/drag behavior for the Giant Crocodile'), true);
+  assert.equal(unsupportedFeatures.includes('large-token pathing around narrow cave geometry'), true);
+  assert.equal(expectations.includes('noOccupiedDestination'), true);
+  assert.equal(expectations.includes('moveDoesNotCrossBlocking'), true);
+  assert.equal(mustExpectations.includes('noOccupiedDestination'), true);
+  assert.equal(mustExpectations.includes('moveDoesNotCrossBlocking'), true);
+  assert.equal(fixture.encounter.activationGroups[0]?.actorIds.length, 8);
+});
+
 test('visible fixture actors without tactical metadata keep inferred roles', async () => {
   const source = fs.readFileSync(
     path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/bandit-doorway-ambush-2026-04-26.yaml'),

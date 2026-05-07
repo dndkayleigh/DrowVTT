@@ -130,7 +130,7 @@ function normalizeTacticalMetadata(tactical = null) {
   };
   if (!tactical || typeof tactical !== 'object') return empty;
   const authoredRole = String(tactical.role || tactical.authoredRole || '').trim();
-  const coreRole = AUTHORED_TACTICAL_ROLE_TO_CORE_ROLE[authoredRole] || '';
+  const coreRole = AUTHORED_TACTICAL_ROLE_TO_CORE_ROLE[authoredRole] || tactical.mapped_core_role || tactical.mappedCoreRole || '';
   return {
     ...empty,
     ...tactical,

@@ -26,6 +26,9 @@ export function parseVisibleEncounterFixture(source) {
       name: String(actor.name || actor.id),
       side: String(actor.side || 'monsters'),
       cell: { x: Number(actor.position?.[0] || 0), y: Number(actor.position?.[1] || 0) },
+      sizeCells: Number(actor.sizeCells || 1),
+      ac: Number(actor.ac || 10),
+      hp: actor.hp ?? '',
       speed: Number(actor.speed || 30),
       tactical: actor.tactical || null,
       attacks: (actor.attacks || []).map((attack) => ({
@@ -41,7 +44,10 @@ export function parseVisibleEncounterFixture(source) {
         rangeFt: Number(spell.rangeFt || 30),
         expectedValue: Number(spell.expectedValue ?? spell.expectedDamage ?? 4),
         requiresLineOfSight: spell.requiresLineOfSight !== false
-      }))
+      })),
+      traits: actor.traits || [],
+      tags: actor.tags || [],
+      statblock: actor.statblock || ''
     }))
   });
 
@@ -91,7 +97,7 @@ function parseSimpleYaml(source) {
     if (line.startsWith('- ')) {
       if (!Array.isArray(parent)) throw new Error(`Unexpected list item at line ${index + 1}: ${line}`);
       const content = line.slice(2).trim();
-      if (content.includes(':')) {
+      if (content.includes(':') && !isQuotedScalar(content)) {
         const item = {};
         parent.push(item);
         assignKeyValue(item, content, lines, index);
@@ -157,6 +163,10 @@ function parseScalar(value) {
     return inner.split(',').map((entry) => parseScalar(entry.trim()));
   }
   return value.replace(/^['"]|['"]$/g, '');
+}
+
+function isQuotedScalar(value) {
+  return (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
 }
 
 function findNextContentIndent(lines, startIndex) {
