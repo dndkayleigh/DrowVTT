@@ -25,6 +25,8 @@ Recent highlights:
 - explicit monster-group selection is now built into the OSS UI
 - save/export UX is centered on file-based saves plus autosave
 - map setup is cleaner and calibration-first
+- local tactics now support behavior profiles layered above tactical roles
+- the encounter fixture suite now includes mindless, animal/pack, and advanced tactical benchmarks
 
 If you want a practical walkthrough of loading a board, selecting monsters, and running AI turns, start with [TUTORIAL.md](TUTORIAL.md).
 
@@ -206,6 +208,8 @@ The `Tactics Director` has two families of AI modes:
 
 Every mode ultimately feeds the same VTT apply contract: a summary, zero or more token moves, zero or more actions, and an optional end-turn flag. This is intentional. The board should not need separate application logic for each tactical architecture.
 
+For the current benchmark fixtures and behavior-profile test matrix, see [docs/behavior-profiles.md](docs/behavior-profiles.md).
+
 ### LLM Modes
 
 `Single (Fast)`
@@ -288,6 +292,35 @@ Every mode ultimately feeds the same VTT apply contract: a summary, zero or more
 - Exists in the portable tactical-controller package for evaluation and replay parity.
 - It is not exposed as a normal OSS UI option because humans can already move tokens directly on the board.
 - Keeping it in the controller contract lets future replay/evaluation tooling compare human decisions and AI decisions through the same input/output shape.
+
+### Tactical Roles And Behavior Profiles
+
+The local tactics stack now separates tactical role from behavior profile.
+
+- `tactical.coreRole` describes battlefield function such as `skirmisher`, `disciplined_blocker`, `ambusher_bruiser`, or `support_caster`.
+- `behavior` describes how the creature pursues that role:
+  - `cognition`
+  - `drive`
+  - `riskTolerance`
+  - `coordination`
+  - `planningHorizon`
+  - `targetStickiness`
+
+This split matters because not every creature should act like a smart squad unit:
+
+- mindless undead can pressure the nearest reachable prey without clever retreat or focus-fire doctrine
+- animal/pack creatures can converge locally on weak or isolated prey without behaving like disciplined soldiers
+- trained/squad remains the default behavior for fixtures and actors without explicit behavior metadata
+- advanced tactical fixtures such as Stony Shore still rely on coordinated role-heavy behavior
+
+Current supported behavior tiers in the local controller path are:
+
+- `mindless / none`
+- `animal / pack`
+- `trained / squad` default
+- advanced trained/squad tactical behavior exercised by the Stony Shore benchmark
+
+Behavior profiles are portable. System-specific mechanics such as movement-reaction risk are interpreted inside the tactical rules/adapter layer, then weighted by behavior.
 
 ### How Tactical Decisions Are Executed
 
@@ -432,6 +465,12 @@ Supervisor selection:
 `Supervisor + Scripted (Group)` repeats that supervised ranking for each actor in the active group. After one actor claims a destination, that destination is reserved. Later actors receive a large reservation penalty for choosing the same destination, which reduces pileups and obvious collisions.
 
 Current group planning is `coordinated_sequential`: actors are planned one after another with shared reservations. It is not yet full simultaneous movement planning or beam-search squad planning.
+
+Current local scoring also includes behavior-aware shaping where appropriate:
+
+- mindless actors suppress retreat/skirmish patterns and favor nearest reachable living prey
+- animal/pack actors can prefer isolated or wounded prey, react to movement-threat risk more than zombies do, and avoid full squad doctrine bonuses
+- ranged skirmisher diagnostics remain distinct from melee animal-pack harassment diagnostics
 
 ### LLM Supervisor Decision Logic
 
