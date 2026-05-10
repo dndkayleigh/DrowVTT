@@ -1588,6 +1588,35 @@ test('animal pack does not receive squad doctrine focus bonuses', async () => {
   );
 });
 
+test('Wolf Pack Harrier wolves do not emit ranged-skirmisher warnings for melee harassment', async () => {
+  const fixture = wolfPackFixture();
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter: fixture.encounter,
+    activationGroup: fixture.encounter.activationGroups[0],
+    candidateLimit: 36
+  });
+  const decisions = (output.logs || [])
+    .filter((log) => log.phase === 'decision')
+    .filter((log) => ['wolf_a', 'wolf_b', 'wolf_c', 'wolf_d'].includes(log.actorId))
+    .filter((log) => log.data?.selected)
+    .map((log) => ({
+      actorId: log.actorId,
+      selected: log.data.selected,
+      diagnostics: log.data.diagnostics || {}
+    }));
+
+  assert.equal(decisions.length, 4);
+  for (const decision of decisions) {
+    assert.equal(decision.diagnostics.roleCompliance?.role, 'skirmisher');
+    assert.equal(decision.selected.family, 'move_and_attack');
+    assert.equal(decision.diagnostics.roleCompliance?.status, 'pass');
+    assert.doesNotMatch(decision.diagnostics.roleCompliance?.concern || '', /ranged mobility/i);
+    assert.equal(decision.diagnostics.candidateSetHealth?.status, 'pass');
+    assert.equal(decision.diagnostics.candidateSetHealth?.expectedFamilies.includes('shoot_and_scoot'), false);
+    assert.equal(decision.diagnostics.candidateSetHealth?.missingExpectedCandidates.includes('shoot_and_scoot'), false);
+  }
+});
+
 test('movement reaction risk penalizes self-preserving animals more than mindless zombies', () => {
   const buildEncounter = (id, actorName, behavior) => normalizeEncounterState({
     id,
@@ -1862,6 +1891,7 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
     assert.equal(decision.diagnostics.candidateSetHealth?.roleSource, 'tactical.mapped_core_role');
     assert.equal(decision.diagnostics.roleCompliance?.role, 'skirmisher');
     assert.equal(decision.diagnostics.roleCompliance?.roleSource, 'tactical.mapped_core_role');
+    assert.equal(decision.diagnostics.candidateSetHealth?.expectedFamilies.includes('shoot_and_scoot'), true);
     assert.equal(harassmentFamilies.has(decision.selected.family), true, `${decision.actor.name} should use harassment-compatible family`);
     assert.equal(decision.selected.actionName, 'Javelin');
   }

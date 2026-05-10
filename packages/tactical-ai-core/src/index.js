@@ -1974,7 +1974,27 @@ function inferActorRole(actor = {}) {
   return 'soldier';
 }
 
-function expectedCandidateFamiliesForRole(role) {
+function actorHasRangedAttack(actor = {}) {
+  return (actor.attacks || []).some((attack) => attack.attackKind === 'ranged');
+}
+
+function actorIsMeleeOnly(actor = {}) {
+  const attacks = actor.attacks || [];
+  return attacks.length > 0
+    && attacks.some((attack) => attack.attackKind === 'melee')
+    && !actorHasRangedAttack(actor);
+}
+
+function isAnimalPackMeleeSkirmisher(actor = {}, role = '') {
+  const behavior = behaviorProfileForActor(actor);
+  return role === 'skirmisher'
+    && behavior.cognition === 'animal'
+    && behavior.coordination === 'pack'
+    && actorIsMeleeOnly(actor);
+}
+
+function expectedCandidateFamiliesForActor(actor, role) {
+  if (role === 'skirmisher' && isAnimalPackMeleeSkirmisher(actor, role)) return ['move_and_attack'];
   if (role === 'skirmisher') return ['shoot_and_scoot', 'attack_from_current', 'move_and_attack'];
   if (role === 'disciplined_blocker') return ['hold_position', 'advance_to_attack', 'move_and_attack', 'attack_from_current'];
   if (role === 'ambusher_bruiser') return ['hold_hidden', 'stalk_to_cover', 'intercept_flanker', 'attack_isolated_target', 'move_and_attack'];
@@ -1987,7 +2007,7 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
   const behavior = behaviorProfileForActor(actor);
   const role = normalizedTactical.coreRole || inferActorRole(actor);
   const availableFamilies = [...new Set(uniqueScored.map((entry) => entry.candidate.family).filter(Boolean))].sort();
-  const expectedFamilies = expectedCandidateFamiliesForRole(role);
+  const expectedFamilies = expectedCandidateFamiliesForActor(actor, role);
   const missingExpectedCandidates = expectedFamilies.filter((family) => !availableFamilies.includes(family));
   const unsupportedExpectedCandidates = missingExpectedCandidates.filter((family) => CURRENTLY_UNIMPLEMENTED_CANDIDATE_FAMILIES.has(family));
   const status = missingExpectedCandidates.length >= Math.max(2, Math.ceil(expectedFamilies.length / 2))
@@ -2040,6 +2060,7 @@ function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null)
   const normalizedTactical = normalizeTacticalMetadata(actor.tactical);
   const behavior = behaviorProfileForActor(actor);
   const role = normalizedTactical.coreRole || inferActorRole(actor);
+  const meleeAnimalPackSkirmisher = isAnimalPackMeleeSkirmisher(actor, role);
   const checks = [];
   let status = 'pass';
   let concern = '';
@@ -2049,11 +2070,25 @@ function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null)
   const family = candidate?.family || '';
 
   if (role === 'skirmisher') {
-    checks.push({ label: 'usesRangedOrMobility', ok: attackKind === 'ranged' || family === 'shoot_and_scoot' });
-    checks.push({ label: 'avoidsMeleeCommitment', ok: attackKind !== 'melee' || family === 'attack_from_current' });
-    if (attackKind === 'melee' && family !== 'attack_from_current') {
+    if (meleeAnimalPackSkirmisher) {
+      const meleeHarassmentFamilies = new Set(['move_and_attack', 'advance_to_attack', 'attack_from_current']);
+      checks.push({ label: 'usesMobileMeleeHarassment', ok: attackKind === 'melee' && meleeHarassmentFamilies.has(family) });
+      checks.push({ label: 'avoidsStaticCommitment', ok: family !== 'hold_position' });
+      if (attackKind !== 'melee' || !meleeHarassmentFamilies.has(family)) {
+        status = 'warning';
+        concern = 'animal/pack skirmisher is not using mobile melee harassment despite being melee-only';
+      }
+    } else {
+      checks.push({ label: 'usesRangedOrMobility', ok: attackKind === 'ranged' || family === 'shoot_and_scoot' });
+      checks.push({ label: 'avoidsMeleeCommitment', ok: attackKind !== 'melee' || family === 'attack_from_current' });
+      if (attackKind === 'melee' && family !== 'attack_from_current') {
+        status = 'warning';
+        concern = 'skirmisher is committing to melee instead of using ranged mobility';
+      }
+    }
+    if (meleeAnimalPackSkirmisher && family === 'hold_position') {
       status = 'warning';
-      concern = 'skirmisher is committing to melee instead of using ranged mobility';
+      concern = 'animal/pack skirmisher is holding position instead of harrying with mobile melee pressure';
     }
   } else if (role === 'disciplined_blocker') {
     checks.push({ label: 'holdsOrAdvancesLine', ok: ['hold_position', 'advance_to_attack', 'attack_from_current', 'move_and_attack'].includes(family) });
