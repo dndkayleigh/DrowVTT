@@ -21,9 +21,12 @@ import {
   findPath,
   rankApproachCells,
   generateCandidateActions,
+  behaviorProfileForActor,
   hasBlockedMovementPath,
   hasLineOfSight,
+  inferDefaultBehaviorProfile,
   normalizeEncounterState,
+  normalizeBehaviorProfile,
   tacticalOutputToVttPlan,
   validateEncounterState
 } from '../../packages/tactical-ai-core/src/index.js';
@@ -1163,6 +1166,73 @@ test('content normalization preserves both modes for melee-or-ranged attacks', (
   );
 });
 
+test('explicit actor behavior normalizes correctly without changing tactical role resolution', () => {
+  const actor = normalizeEncounterState({
+    id: 'behavior-explicit',
+    round: 1,
+    activeActorId: 'zombie',
+    battlefield: { gridSize: 64, width: 8, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [{
+      id: 'zombie',
+      name: 'Zombie',
+      side: 'monsters',
+      cell: { x: 1, y: 1 },
+      speed: 20,
+      tactical: { role: 'melee_disrupter', mapped_core_role: 'ambusher_bruiser' },
+      behavior: {
+        cognition: 'mindless',
+        drive: 'nearest_living_prey',
+        riskTolerance: 'fearless',
+        coordination: 'none',
+        planningHorizon: 'immediate',
+        targetStickiness: 'high'
+      },
+      attacks: [{ name: 'Slam', attackKind: 'melee', rangeFt: 5, expectedDamage: 4 }]
+    }]
+  }).actors[0];
+
+  assert.deepEqual(actor.behavior, {
+    cognition: 'mindless',
+    drive: 'nearest_living_prey',
+    riskTolerance: 'fearless',
+    coordination: 'none',
+    planningHorizon: 'immediate',
+    targetStickiness: 'high'
+  });
+  assert.equal(actor.tactical.coreRole, 'ambusher_bruiser');
+});
+
+test('actors without behavior receive the default trained squad behavior profile', () => {
+  const actor = normalizeEncounterState({
+    id: 'behavior-default',
+    round: 1,
+    activeActorId: 'guard',
+    battlefield: { gridSize: 64, width: 8, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [{
+      id: 'guard',
+      name: 'Guard',
+      side: 'monsters',
+      cell: { x: 1, y: 1 },
+      speed: 30,
+      tactical: { role: 'disciplined_soldier' },
+      attacks: [{ name: 'Spear', attackKind: 'melee', rangeFt: 5, expectedDamage: 5 }]
+    }]
+  }).actors[0];
+
+  assert.deepEqual(inferDefaultBehaviorProfile(actor), {
+    cognition: 'trained',
+    drive: 'tactical_role_objective',
+    riskTolerance: 'normal',
+    coordination: 'squad',
+    planningHorizon: 'short',
+    targetStickiness: 'medium'
+  });
+  assert.deepEqual(normalizeBehaviorProfile(null, actor), inferDefaultBehaviorProfile(actor));
+  assert.deepEqual(behaviorProfileForActor(actor), inferDefaultBehaviorProfile(actor));
+  assert.deepEqual(actor.behavior, inferDefaultBehaviorProfile(actor));
+  assert.equal(actor.tactical.coreRole, 'disciplined_blocker');
+});
+
 test('visible YAML encounter fixtures assert tactical behavior', async () => {
   const fixturePaths = [
     '../../packages/tactical-ai-content/encounters/files/bandit-doorway-ambush-2026-04-26.yaml',
@@ -1313,16 +1383,20 @@ test('Stony Shore Ambush fixture loads benchmark metadata', () => {
   assert.equal(dragon.sizeCells, 2);
   assert.equal(dragon.tactical.role, 'mobile_boss_controller');
   assert.equal(dragon.tactical.coreRole, 'ambusher_bruiser');
+  assert.deepEqual(dragon.behavior, inferDefaultBehaviorProfile(dragon));
   assert.equal(dragon.tactical.objectiveRole, 'break_formation');
   assert.equal(troll.tactical.role, 'brute_blocker');
   assert.equal(troll.tactical.coreRole, 'disciplined_blocker');
+  assert.deepEqual(troll.behavior, inferDefaultBehaviorProfile(troll));
   assert.equal(troll.tactical.objectiveRole, 'hold_cavern_choke');
   assert.equal(lizardfolk.tactical.role, 'skirmisher');
   assert.equal(lizardfolk.tactical.coreRole, 'skirmisher');
+  assert.deepEqual(lizardfolk.behavior, inferDefaultBehaviorProfile(lizardfolk));
   assert.equal(lizardfolk.tactical.objectiveRole, 'harass_and_flank');
   assert.equal(crocodile.sizeCells, 3);
   assert.equal(crocodile.tactical.role, 'grappler_ambusher');
   assert.equal(crocodile.tactical.coreRole, 'ambusher_bruiser');
+  assert.deepEqual(crocodile.behavior, inferDefaultBehaviorProfile(crocodile));
   assert.equal(crocodile.tactical.objectiveRole, 'punish_edge_movement');
   assert.equal(fixture.raw.ideal_behavior.includes('mobile boss controller'), true);
   assert.equal(unsupportedFeatures.includes('breath weapon area targeting'), true);

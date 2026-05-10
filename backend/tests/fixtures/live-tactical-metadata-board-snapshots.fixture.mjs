@@ -41,6 +41,14 @@ export const LIVE_TACTICAL_METADATA_SNAPSHOT = {
           protected_asset: true,
           objective_role: 'ritual_actor',
           role_notes: 'Protected ritual caster'
+        },
+        behavior: {
+          cognition: 'cunning',
+          drive: 'complete_objective',
+          riskTolerance: 'self_preserving',
+          coordination: 'commander_led',
+          planningHorizon: 'long',
+          targetStickiness: 'high'
         }
       },
       {

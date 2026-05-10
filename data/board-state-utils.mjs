@@ -56,6 +56,25 @@ function normalizeTokenTacticalSnapshot(tactical = null) {
   };
 }
 
+function normalizeTokenBehaviorSnapshot(behavior = null) {
+  if (!behavior || typeof behavior !== 'object') return null;
+  const cognition = String(behavior.cognition ?? '').trim();
+  const drive = String(behavior.drive ?? '').trim();
+  const riskTolerance = String(behavior.riskTolerance ?? behavior.risk_tolerance ?? '').trim();
+  const coordination = String(behavior.coordination ?? '').trim();
+  const planningHorizon = String(behavior.planningHorizon ?? behavior.planning_horizon ?? '').trim();
+  const targetStickiness = String(behavior.targetStickiness ?? behavior.target_stickiness ?? '').trim();
+  if (!cognition && !drive && !riskTolerance && !coordination && !planningHorizon && !targetStickiness) return null;
+  return {
+    cognition,
+    drive,
+    riskTolerance,
+    coordination,
+    planningHorizon,
+    targetStickiness
+  };
+}
+
 function normalizeTokenSnapshot(token = {}) {
   const snapshot = {
     id: String(token.id ?? ''),
@@ -76,6 +95,8 @@ function normalizeTokenSnapshot(token = {}) {
   };
   const tactical = normalizeTokenTacticalSnapshot(token.tactical);
   if (tactical) snapshot.tactical = tactical;
+  const behavior = normalizeTokenBehaviorSnapshot(token.behavior);
+  if (behavior) snapshot.behavior = behavior;
   return snapshot;
 }
 

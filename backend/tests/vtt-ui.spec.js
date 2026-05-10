@@ -1531,12 +1531,23 @@ test('imported board snapshot tactical metadata reaches tactical fixture yaml', 
   expect(yaml).toContain('protected_asset: true');
   expect(yaml).toContain('objective_role: ritual_actor');
   expect(yaml).toContain('role_notes: Protected ritual caster');
+  expect(yaml).toContain('behavior:');
+  expect(yaml).toContain('cognition: cunning');
+  expect(yaml).toContain('coordination: commander_led');
   expect(yaml).toContain('attacks:');
   expect(yaml).toContain('name: Dagger');
   expect(yaml).toContain('spells:');
   expect(yaml).toContain('name: Shield');
   expect(mage?.tactical?.role).toBe('boss_caster');
   expect(mage?.tactical?.protectedAsset).toBe(true);
+  expect(mage?.behavior).toMatchObject({
+    cognition: 'cunning',
+    drive: 'complete_objective',
+    riskTolerance: 'self_preserving',
+    coordination: 'commander_led',
+    planningHorizon: 'long',
+    targetStickiness: 'high'
+  });
   expect(mage?.spells?.map((spell) => spell.name)).toContain('Shield');
   expect(mage?.attacks?.map((attack) => attack.name)).toContain('Dagger');
 

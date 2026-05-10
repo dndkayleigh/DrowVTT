@@ -31,6 +31,7 @@ export function parseVisibleEncounterFixture(source) {
       hp: actor.hp ?? '',
       speed: Number(actor.speed || 30),
       tactical: actor.tactical || null,
+      behavior: actor.behavior || null,
       attacks: (actor.attacks || []).map((attack) => ({
         name: String(attack.name),
         attackKind: String(attack.kind || attack.attackKind || 'melee'),

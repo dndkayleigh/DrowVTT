@@ -2064,6 +2064,7 @@ import {
       attacks: attacksForToken(token),
       spells: spellsForToken(token),
       tactical: token.tactical || null,
+      behavior: token.behavior || null,
       traits: [],
       tags: [],
       statblock: token.statblock,
@@ -2128,6 +2129,18 @@ import {
     return { role, mappedCoreRole, protectedAsset, objectiveRole, roleNotes };
   }
 
+  function behaviorFieldsForYaml(behavior) {
+    if (!behavior || typeof behavior !== 'object') return null;
+    const cognition = String(behavior.cognition ?? '').trim();
+    const drive = String(behavior.drive ?? '').trim();
+    const riskTolerance = String(behavior.riskTolerance ?? behavior.risk_tolerance ?? '').trim();
+    const coordination = String(behavior.coordination ?? '').trim();
+    const planningHorizon = String(behavior.planningHorizon ?? behavior.planning_horizon ?? '').trim();
+    const targetStickiness = String(behavior.targetStickiness ?? behavior.target_stickiness ?? '').trim();
+    if (!cognition && !drive && !riskTolerance && !coordination && !planningHorizon && !targetStickiness) return null;
+    return { cognition, drive, riskTolerance, coordination, planningHorizon, targetStickiness };
+  }
+
   function buildTacticalFixtureYaml() {
     const encounter = buildEncounterStateFromBoard();
     const sessionName = normalizeSlotName(saveSlotNameInput.value);
@@ -2190,6 +2203,16 @@ import {
         if (tactical.protectedAsset) lines.push('      protected_asset: true');
         if (tactical.objectiveRole) lines.push(`      objective_role: ${yamlScalar(tactical.objectiveRole)}`);
         if (tactical.roleNotes) lines.push(`      role_notes: ${yamlScalar(tactical.roleNotes)}`);
+      }
+      const behavior = behaviorFieldsForYaml(actor.behavior);
+      if (behavior) {
+        lines.push('    behavior:');
+        if (behavior.cognition) lines.push(`      cognition: ${yamlScalar(behavior.cognition)}`);
+        if (behavior.drive) lines.push(`      drive: ${yamlScalar(behavior.drive)}`);
+        if (behavior.riskTolerance) lines.push(`      riskTolerance: ${yamlScalar(behavior.riskTolerance)}`);
+        if (behavior.coordination) lines.push(`      coordination: ${yamlScalar(behavior.coordination)}`);
+        if (behavior.planningHorizon) lines.push(`      planningHorizon: ${yamlScalar(behavior.planningHorizon)}`);
+        if (behavior.targetStickiness) lines.push(`      targetStickiness: ${yamlScalar(behavior.targetStickiness)}`);
       }
       if (actor.attacks?.length) {
         lines.push('    attacks:');
@@ -3608,6 +3631,7 @@ import {
         notes: '',
         statblock: actor.statblock || '',
         tactical: actor.tactical || null,
+        behavior: actor.behavior || null,
         spells: Array.isArray(actor.spells) ? actor.spells : [],
         attacks: Array.isArray(actor.attacks) ? actor.attacks : [],
         art: null

@@ -131,6 +131,43 @@ const CURRENTLY_UNIMPLEMENTED_CANDIDATE_FAMILIES = new Set([
   'intercept_flanker'
 ]);
 
+const DEFAULT_BEHAVIOR_PROFILE = Object.freeze({
+  cognition: 'trained',
+  drive: 'tactical_role_objective',
+  riskTolerance: 'normal',
+  coordination: 'squad',
+  planningHorizon: 'short',
+  targetStickiness: 'medium'
+});
+
+export function inferDefaultBehaviorProfile(actor = {}) {
+  return {
+    ...DEFAULT_BEHAVIOR_PROFILE
+  };
+}
+
+export function normalizeBehaviorProfile(behavior = null, actor = {}) {
+  const base = inferDefaultBehaviorProfile(actor);
+  if (!behavior || typeof behavior !== 'object') return { ...base };
+  return {
+    cognition: String(behavior.cognition ?? base.cognition).trim() || base.cognition,
+    drive: String(behavior.drive ?? base.drive).trim() || base.drive,
+    riskTolerance: String(behavior.riskTolerance ?? behavior.risk_tolerance ?? base.riskTolerance).trim() || base.riskTolerance,
+    coordination: String(behavior.coordination ?? base.coordination).trim() || base.coordination,
+    planningHorizon: String(behavior.planningHorizon ?? behavior.planning_horizon ?? base.planningHorizon).trim() || base.planningHorizon,
+    targetStickiness: String(behavior.targetStickiness ?? behavior.target_stickiness ?? base.targetStickiness).trim() || base.targetStickiness
+  };
+}
+
+export function behaviorProfileForActor(actor = {}) {
+  return normalizeBehaviorProfile(actor.behavior, actor);
+}
+
+function compactBehaviorDiagnostic(behavior = null) {
+  if (!behavior) return '';
+  return `cognition:${behavior.cognition}, coordination:${behavior.coordination}`;
+}
+
 function resolveCoreRole(tactical = null) {
   if (!tactical || typeof tactical !== 'object') return { coreRole: '', source: '' };
   const mappedCoreRole = String(tactical.mapped_core_role ?? tactical.mappedCoreRole ?? '').trim();
@@ -186,6 +223,7 @@ function normalizeActor(actor = {}) {
     traits: uniqueStrings(actor.traits),
     tags: uniqueStrings(actor.tags),
     tactical: normalizeTacticalMetadata(actor.tactical),
+    behavior: behaviorProfileForActor(actor),
     statblock: String(actor.statblock || ''),
     provenance: actor.provenance || {}
   };
@@ -1736,6 +1774,7 @@ function expectedCandidateFamiliesForRole(role) {
 
 function buildCandidateSetHealth(actor, uniqueScored = []) {
   const normalizedTactical = normalizeTacticalMetadata(actor.tactical);
+  const behavior = behaviorProfileForActor(actor);
   const role = normalizedTactical.coreRole || inferActorRole(actor);
   const availableFamilies = [...new Set(uniqueScored.map((entry) => entry.candidate.family).filter(Boolean))].sort();
   const expectedFamilies = expectedCandidateFamiliesForRole(role);
@@ -1747,6 +1786,7 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
   return {
     role,
     roleSource: normalizedTactical.coreRoleSource || 'heuristic',
+    behavior,
     status,
     availableFamilies,
     expectedFamilies,
@@ -1788,6 +1828,7 @@ function buildSpellTargetExplanation(encounter, actor, selected, uniqueScored = 
 
 function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null) {
   const normalizedTactical = normalizeTacticalMetadata(actor.tactical);
+  const behavior = behaviorProfileForActor(actor);
   const role = normalizedTactical.coreRole || inferActorRole(actor);
   const checks = [];
   let status = 'pass';
@@ -1830,7 +1871,7 @@ function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null)
     }
   }
 
-  return { role, roleSource: normalizedTactical.coreRoleSource || 'heuristic', status, concern, checks };
+  return { role, roleSource: normalizedTactical.coreRoleSource || 'heuristic', behavior, status, concern, checks };
 }
 
 function protectedAssetSafetyDelta(encounter, actor, candidate, doctrineContext = {}) {
@@ -2521,7 +2562,7 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       actorId: actor.id,
       phase: 'role_compliance',
       level: role.status === 'pass' ? 'info' : 'warning',
-      message: `${actor.name} role compliance ${role.status.toUpperCase()}: role=${role.role}${role.roleSource ? `; source=${role.roleSource}` : ''}${role.concern ? `; concern=${role.concern}` : ''}.`,
+      message: `${actor.name} role compliance ${role.status.toUpperCase()}: role=${role.role}${role.roleSource ? `; source=${role.roleSource}` : ''}${role.behavior ? `; behavior=${compactBehaviorDiagnostic(role.behavior)}` : ''}${role.concern ? `; concern=${role.concern}` : ''}.`,
       data: { roleCompliance: role }
     }));
   }
@@ -2532,7 +2573,7 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       actorId: actor.id,
       phase: 'candidate_health',
       level: health.status === 'pass' ? 'info' : 'warning',
-      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}${health.roleSource ? `; source=${health.roleSource}` : ''}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}${health.unsupportedExpectedCandidates?.length ? `; unsupported=${health.unsupportedExpectedCandidates.join(', ')}` : ''}.`,
+      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}${health.roleSource ? `; source=${health.roleSource}` : ''}${health.behavior ? `; behavior=${compactBehaviorDiagnostic(health.behavior)}` : ''}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}${health.unsupportedExpectedCandidates?.length ? `; unsupported=${health.unsupportedExpectedCandidates.join(', ')}` : ''}.`,
       data: { candidateSetHealth: health }
     }));
   }
