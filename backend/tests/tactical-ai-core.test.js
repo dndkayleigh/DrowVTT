@@ -1538,9 +1538,11 @@ test('mindless nearest-prey drive and high target stickiness prefer the adjacent
   assert.equal(selected?.family, 'attack_from_current');
   assert.deepEqual(selected?.targetIds, ['hero_near']);
   assert.equal(selected?.supervisorBreakdown?.targetPriorityLowHpBonus ?? 0, 0);
+  assert.equal(selected?.scoreBreakdown?.behaviorNearestPreyBonus, 6);
+  assert.equal(selected?.scoreBreakdown?.behaviorTargetStickinessBonus, 4);
 });
 
-test('Zombie Doorway Press mindless group avoids squad focus-fire bonuses and does not prioritize the farther wounded hero', async () => {
+test('Zombie Doorway Press coordination:none zombies can converge on the same nearest target without squad doctrine bonuses', async () => {
   const fixture = zombieDoorwayFixture();
   const output = await new SupervisorScriptedGroupController().chooseAction({
     encounter: fixture.encounter,
@@ -1551,16 +1553,27 @@ test('Zombie Doorway Press mindless group avoids squad focus-fire bonuses and do
     .filter((log) => log.phase === 'decision')
     .filter((log) => ['zombie_a', 'zombie_b', 'zombie_c', 'zombie_d'].includes(log.actorId))
     .filter((log) => log.data?.selected)
-    .map((log) => ({ actorId: log.actorId, selected: log.data?.selected, breakdown: log.data?.selected?.supervisorBreakdown || {} }));
+    .map((log) => ({
+      actorId: log.actorId,
+      selected: log.data?.selected,
+      breakdown: log.data?.selected?.supervisorBreakdown || {},
+      scoreBreakdown: log.data?.selected?.scoreBreakdown || {}
+    }));
 
   assert.equal(decisions.length, 4);
+  const convergedOnHeroA = decisions.filter((decision) => decision.selected?.targetIds?.[0] === 'hero_a');
+  assert.ok(convergedOnHeroA.length >= 2, 'expected multiple zombies to converge on the same nearest target');
   for (const decision of decisions) {
     assert.notEqual(decision.selected?.family, 'shoot_and_scoot');
     assert.notEqual(decision.selected?.family, 'disengage_retreat');
+    assert.notEqual(decision.selected?.family, 'stalk_to_cover');
     assert.equal(decision.breakdown.targetPriorityGroupFocusBonus ?? 0, 0);
     assert.equal(decision.breakdown.targetPriorityMainThreatBonus ?? 0, 0);
     assert.equal(Object.keys(decision.breakdown).some((key) => key.startsWith('doctrine')), false);
     assert.notEqual(decision.selected?.targetIds?.[0], 'hero_b');
+  }
+  for (const decision of convergedOnHeroA) {
+    assert.equal(decision.scoreBreakdown.behaviorNearestPreyBonus, 6);
   }
 });
 
