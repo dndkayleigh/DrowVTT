@@ -3996,18 +3996,34 @@ import {
   }
 
   let exportRefreshScheduled = false;
+  let exportRefreshHandle = null;
+  function cancelScheduledExportRefresh() {
+    if (exportRefreshHandle == null) return;
+    if (typeof window.cancelIdleCallback === 'function') {
+      window.cancelIdleCallback(exportRefreshHandle);
+    } else {
+      clearTimeout(exportRefreshHandle);
+    }
+    exportRefreshHandle = null;
+  }
   function flushExportRefresh() {
+    exportRefreshHandle = null;
     exportRefreshScheduled = false;
     exportBox.value = buildAiTurnPacket();
   }
   function refreshExport({ immediate = false } = {}) {
     if (immediate) {
+      cancelScheduledExportRefresh();
       flushExportRefresh();
       return;
     }
     if (exportRefreshScheduled) return;
     exportRefreshScheduled = true;
-    requestAnimationFrame(() => flushExportRefresh());
+    if (typeof window.requestIdleCallback === 'function') {
+      exportRefreshHandle = window.requestIdleCallback(() => flushExportRefresh(), { timeout: 250 });
+      return;
+    }
+    exportRefreshHandle = window.setTimeout(() => flushExportRefresh(), 0);
   }
   aiStrategySelect.addEventListener('change', () => {
     enforceAiSelectionForStrategy(getSelectionStrategyId());
