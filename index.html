@@ -1657,6 +1657,7 @@ import {
     saveSlotNameInput.value = slot.name;
     await hydrateBoardState(snapshot);
     updateSaveControls(slots, slot.id);
+    saveSlotNameInput.value = slot.name;
     updateSaveStatusFromSlot(slot);
     return slot;
   }
@@ -3327,7 +3328,7 @@ import {
           canPickForGroup,
           selectedTokenIds: state.selectedTokenIds,
           tokens: state.tokens,
-          toggleTokenSelection: toggleTokenSelectionState
+          toggleTokenSelection: toggleAiControlledSelectionState
         });
         if (interaction.type === 'toggle-selection') {
           state.selectedTokenIds = interaction.selectedTokenIds;
@@ -3371,7 +3372,7 @@ import {
           canPickForGroup,
           selectedTokenIds: state.selectedTokenIds,
           tokens: state.tokens,
-          toggleTokenSelection: toggleTokenSelectionState
+          toggleTokenSelection: toggleAiControlledSelectionState
         });
         if (interaction.type === 'toggle-selection') {
           state.selectedTokenIds = interaction.selectedTokenIds;

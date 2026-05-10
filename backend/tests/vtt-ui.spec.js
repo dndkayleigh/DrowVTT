@@ -210,6 +210,22 @@ async function setAiControls(page, value) {
   await closeDrawer(page);
 }
 
+async function setAiStrategy(page, value, label = value) {
+  await page.evaluate(({ value, label }) => {
+    const select = document.querySelector('#aiStrategy');
+    if (!select) throw new Error('Missing element: #aiStrategy');
+    let option = Array.from(select.options).find((entry) => entry.value === value);
+    if (!option) {
+      option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      select.appendChild(option);
+    }
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { value, label });
+}
+
 async function setRound(page, value) {
   await openDetails(page, '#turnSection');
   const control = page.locator('#roundNum');
@@ -1874,6 +1890,8 @@ test('backend auto-apply fills the response box and moves the current token', as
 
   await addToken(page, { name: 'Cleric', size: 1 });
   await openDetails(page, '#aiDrawer');
+  await openDrawerTab(page, 'settings');
+  await setAiStrategy(page, 'single_tactical', 'Single (Tactical)');
   await page.locator('#autoApplyAI').check();
   await page.getByRole('button', { name: 'Run Tactics' }).click();
 
@@ -1911,6 +1929,8 @@ test('backend failures are recorded in local usage tracking', async ({ page }) =
 
   await addToken(page, { name: 'Cleric', size: 1 });
   await openDetails(page, '#aiDrawer');
+  await openDrawerTab(page, 'settings');
+  await setAiStrategy(page, 'single_tactical', 'Single (Tactical)');
   await page.getByRole('button', { name: 'Run Tactics' }).click();
 
   await expect(page.locator('#sendStatus')).toContainText('Send failed');
