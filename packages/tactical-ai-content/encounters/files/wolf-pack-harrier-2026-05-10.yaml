@@ -1,0 +1,190 @@
+id: wolf_pack_harrier_2026_05_10
+title: Wolf Pack Harrier - 2026-05-10
+category: custom
+description: |
+  name: "Wolf Pack Harrier"
+
+  encounter_purpose: >
+    Metadata-only benchmark fixture for future animal/pack behavior testing.
+    This fixture should load cleanly with explicit animal/pack behavior
+    profiles, but should not change controller behavior until a later phase
+    introduces animal scoring and movement-reaction risk handling.
+
+  setup: >
+    Four wolves are pressuring a small trail bend with one light blocker wall.
+    Three heroes are moving through the area. One hero is slightly isolated and
+    wounded, one is closer but screened by the choke, and one remains in a
+    supporting position. The fixture is intended to support later tests for
+    isolated-prey bias, local pack convergence, and moderate self-preserving
+    risk handling.
+
+  ideal_behavior: >
+    Later phases should make these wolves behave as animals rather than
+    soldiers: prefer isolated or weak prey, converge locally without disciplined
+    doctrine, and care about obvious danger more than zombies do. Phase 3A only
+    preserves the metadata needed to express that intent.
+
+controllers:
+  - supervisor_scripted_group
+  - supervisor_scripted_single
+  - utility_baseline_group
+
+round: 1
+activeActor: wolf_a
+
+activationGroups:
+  - id: wolf_pack
+    actorIds: [wolf_a, wolf_b, wolf_c, wolf_d]
+    activationMode: coordinated_sequential
+
+battlefield:
+  width: 12
+  height: 8
+  gridSize: 64
+  blockingEdges:
+    - orientation: v
+      x: 5
+      y: 0
+      length: 2
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 5
+      y: 3
+      length: 5
+      blocksMovement: true
+      blocksLineOfSight: true
+
+actors:
+  - id: wolf_a
+    name: Wolf A
+    side: monsters
+    position: [2, 2]
+    ac: 13
+    hp: "11/11"
+    speed: 40
+    tactical:
+      role: skirmisher
+      mapped_core_role: skirmisher
+      objective_role: harry_isolated_prey
+      role_notes: "Fast melee beast. Future phases should gate this role through animal pack behavior instead of soldier-like doctrine."
+    behavior:
+      cognition: animal
+      drive: isolate_weak_prey
+      riskTolerance: self_preserving
+      coordination: pack
+      planningHorizon: short
+      targetStickiness: medium
+    attacks:
+      - name: Bite
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 7
+  - id: wolf_b
+    name: Wolf B
+    side: monsters
+    position: [1, 3]
+    ac: 13
+    hp: "11/11"
+    speed: 40
+    tactical:
+      role: skirmisher
+      mapped_core_role: skirmisher
+      objective_role: harry_isolated_prey
+      role_notes: "Fast melee beast. Future phases should gate this role through animal pack behavior instead of soldier-like doctrine."
+    behavior:
+      cognition: animal
+      drive: isolate_weak_prey
+      riskTolerance: self_preserving
+      coordination: pack
+      planningHorizon: short
+      targetStickiness: medium
+    attacks:
+      - name: Bite
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 7
+  - id: wolf_c
+    name: Wolf C
+    side: monsters
+    position: [1, 5]
+    ac: 13
+    hp: "11/11"
+    speed: 40
+    tactical:
+      role: skirmisher
+      mapped_core_role: skirmisher
+      objective_role: harry_isolated_prey
+      role_notes: "Fast melee beast. Future phases should gate this role through animal pack behavior instead of soldier-like doctrine."
+    behavior:
+      cognition: animal
+      drive: isolate_weak_prey
+      riskTolerance: self_preserving
+      coordination: pack
+      planningHorizon: short
+      targetStickiness: medium
+    attacks:
+      - name: Bite
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 7
+  - id: wolf_d
+    name: Wolf D
+    side: monsters
+    position: [2, 6]
+    ac: 13
+    hp: "11/11"
+    speed: 40
+    tactical:
+      role: skirmisher
+      mapped_core_role: skirmisher
+      objective_role: harry_isolated_prey
+      role_notes: "Fast melee beast. Future phases should gate this role through animal pack behavior instead of soldier-like doctrine."
+    behavior:
+      cognition: animal
+      drive: isolate_weak_prey
+      riskTolerance: self_preserving
+      coordination: pack
+      planningHorizon: short
+      targetStickiness: medium
+    attacks:
+      - name: Bite
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 7
+  - id: hero_a
+    name: Hero A
+    side: heroes
+    position: [7, 3]
+    ac: 17
+    hp: "28/28"
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 8
+  - id: hero_b
+    name: Hero B
+    side: heroes
+    position: [9, 2]
+    ac: 14
+    hp: "10/24"
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 8
+  - id: hero_c
+    name: Hero C
+    side: heroes
+    position: [8, 6]
+    ac: 15
+    hp: "24/24"
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: ranged
+        rangeFt: 60
+        expectedDamage: 8

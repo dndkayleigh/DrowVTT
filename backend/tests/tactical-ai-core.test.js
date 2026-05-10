@@ -94,6 +94,14 @@ function zombieDoorwayFixture() {
   return parseVisibleEncounterFixture(source);
 }
 
+function wolfPackFixture() {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/wolf-pack-harrier-2026-05-10.yaml'),
+    'utf8'
+  );
+  return parseVisibleEncounterFixture(source);
+}
+
 function isCellInBounds(encounter, cell) {
   const x = Number(cell?.x);
   const y = Number(cell?.y);
@@ -1460,6 +1468,52 @@ test('Zombie Doorway Press preserves explicit mindless zombie behavior while oth
   });
   assert.ok(hero);
   assert.deepEqual(hero.behavior, inferDefaultBehaviorProfile(hero));
+});
+
+test('Wolf Pack Harrier fixture loads animal/pack behavior metadata', () => {
+  const fixture = wolfPackFixture();
+  const wolves = fixture.encounter.actors.filter((actor) => actor.side === 'monsters');
+  const heroes = fixture.encounter.actors.filter((actor) => actor.side === 'heroes');
+
+  assert.equal(fixture.id, 'wolf_pack_harrier_2026_05_10');
+  assert.equal(fixture.label, 'Wolf Pack Harrier - 2026-05-10');
+  assert.equal(fixture.encounter.battlefield.width, 12);
+  assert.equal(fixture.encounter.battlefield.height, 8);
+  assert.equal(fixture.encounter.battlefield.gridSize, 64);
+  assert.equal(fixture.encounter.battlefield.edges.length, 7);
+  assert.equal(fixture.encounter.activationGroups[0]?.actorIds.length, 4);
+  assert.equal(wolves.length, 4);
+  assert.equal(heroes.length, 3);
+  assert.equal(fixture.raw.controllers.includes('supervisor_scripted_group'), true);
+  assert.match(fixture.description, /metadata-only benchmark fixture/i);
+});
+
+test('Wolf Pack Harrier preserves explicit animal/pack behavior while default behavior remains unchanged elsewhere', () => {
+  const fixture = wolfPackFixture();
+  const wolf = fixture.encounter.actors.find((actor) => actor.id === 'wolf_a');
+  const hero = fixture.encounter.actors.find((actor) => actor.id === 'hero_a');
+  const rawWolf = (fixture.raw.actors || []).find((actor) => actor.id === 'wolf_a');
+  const zombieFixture = zombieDoorwayFixture();
+  const zombie = zombieFixture.encounter.actors.find((actor) => actor.id === 'zombie_a');
+  const stony = stonyShoreFixture();
+  const dragon = stony.encounter.actors.find((actor) => actor.id === 'young_black_dragon');
+
+  assert.ok(wolf);
+  assert.equal(rawWolf?.behavior?.cognition, 'animal');
+  assert.equal(wolf.tactical.coreRole, 'skirmisher');
+  assert.deepEqual(wolf.behavior, {
+    cognition: 'animal',
+    drive: 'isolate_weak_prey',
+    riskTolerance: 'self_preserving',
+    coordination: 'pack',
+    planningHorizon: 'short',
+    targetStickiness: 'medium'
+  });
+  assert.ok(hero);
+  assert.deepEqual(hero.behavior, inferDefaultBehaviorProfile(hero));
+  assert.ok(zombie);
+  assert.equal(zombie.behavior.cognition, 'mindless');
+  assert.deepEqual(dragon.behavior, inferDefaultBehaviorProfile(dragon));
 });
 
 test('mindless behavior suppresses retreat and skirmish candidate families', () => {
