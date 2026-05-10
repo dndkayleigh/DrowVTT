@@ -1102,6 +1102,43 @@ test('bugbear ambusher candidates include hidden and stalking options', () => {
   assert.equal(families.has('stalk_to_cover'), true);
 });
 
+test('large ambusher bruiser generates move_and_attack and attack_isolated_target in a simple legal lane', () => {
+  const encounter = normalizeEncounterState({
+    id: 'large-ambusher-open-lane',
+    round: 1,
+    activeActorId: 'crocodile',
+    battlefield: { gridSize: 64, width: 14, height: 10, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'crocodile',
+        name: 'Giant Crocodile',
+        side: 'monsters',
+        cell: { x: 1, y: 3 },
+        sizeCells: 3,
+        speed: 30,
+        tactical: { role: 'grappler_ambusher', coreRole: 'ambusher_bruiser' },
+        attacks: [{ name: 'Bite', attackKind: 'melee', rangeFt: 5, expectedDamage: 12 }]
+      },
+      {
+        id: 'hero',
+        name: 'Hero',
+        side: 'heroes',
+        cell: { x: 8, y: 4 },
+        sizeCells: 1,
+        speed: 30,
+        attacks: [{ name: 'Strike', attackKind: 'melee', rangeFt: 5, expectedDamage: 6 }]
+      }
+    ]
+  });
+  const crocodile = encounter.actors[0];
+  const candidates = generateCandidateActions(encounter, crocodile, { limit: 36 });
+  const families = new Set(candidates.map((candidate) => candidate.family));
+
+  assert.equal(families.has('move_and_attack'), true);
+  assert.equal(families.has('attack_isolated_target'), true);
+  assert.equal(families.has('hold_hidden'), true);
+});
+
 test('content normalization tracks provenance for missing custom monster fields', () => {
   const profile = normalizeMonsterProfile({ id: 'custom', name: 'Custom Archer', statblock: '- Sling: +3 to hit, range 30/120, 1d4+1 bludgeoning' }, { archetype: 'archer' });
 
@@ -1399,6 +1436,10 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
     crocodile.diagnostics.candidateSetHealth?.missingExpectedCandidates,
     ['intercept_flanker', 'attack_isolated_target', 'move_and_attack']
   );
+  assert.deepEqual(
+    crocodile.diagnostics.candidateSetHealth?.unsupportedExpectedCandidates,
+    ['intercept_flanker']
+  );
 });
 
 test('Stony Shore exported blocking edges still block movement while nearby gaps stay open', () => {
@@ -1407,6 +1448,23 @@ test('Stony Shore exported blocking edges still block movement while nearby gaps
 
   assert.equal(hasBlockedMovementPath(encounter, { x: 3, y: 7 }, { x: 3, y: 8 }), true);
   assert.equal(hasBlockedMovementPath(encounter, { x: 4, y: 7 }, { x: 4, y: 8 }), false);
+});
+
+test('Stony Shore crocodile warning reflects scenario limits rather than a broken large-ambusher generator', () => {
+  const fixture = stonyShoreFixture();
+  const crocodile = fixture.encounter.actors.find((actor) => actor.id === 'giant_crocodile');
+  const heroes = fixture.encounter.actors.filter((actor) => actor.side === 'heroes');
+  const candidates = generateCandidateActions(fixture.encounter, crocodile, { limit: 36 });
+  const families = new Set(candidates.map((candidate) => candidate.family));
+
+  assert.equal(families.has('move_and_attack'), false);
+  assert.equal(families.has('attack_isolated_target'), false);
+  assert.equal(families.has('intercept_flanker'), false);
+  assert.equal(families.has('advance_to_attack'), true);
+  assert.equal(
+    heroes.some((hero) => candidates.some((candidate) => candidate.family === 'attack_isolated_target' && candidate.targetIds.includes(hero.id))),
+    false
+  );
 });
 
 test('group controller preserves direct tactical coreRole on live-token-shaped actors', async () => {

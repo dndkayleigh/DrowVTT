@@ -127,6 +127,10 @@ const CORE_TACTICAL_ROLES = new Set([
   'soldier'
 ]);
 
+const CURRENTLY_UNIMPLEMENTED_CANDIDATE_FAMILIES = new Set([
+  'intercept_flanker'
+]);
+
 function resolveCoreRole(tactical = null) {
   if (!tactical || typeof tactical !== 'object') return { coreRole: '', source: '' };
   const mappedCoreRole = String(tactical.mapped_core_role ?? tactical.mappedCoreRole ?? '').trim();
@@ -1736,6 +1740,7 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
   const availableFamilies = [...new Set(uniqueScored.map((entry) => entry.candidate.family).filter(Boolean))].sort();
   const expectedFamilies = expectedCandidateFamiliesForRole(role);
   const missingExpectedCandidates = expectedFamilies.filter((family) => !availableFamilies.includes(family));
+  const unsupportedExpectedCandidates = missingExpectedCandidates.filter((family) => CURRENTLY_UNIMPLEMENTED_CANDIDATE_FAMILIES.has(family));
   const status = missingExpectedCandidates.length >= Math.max(2, Math.ceil(expectedFamilies.length / 2))
     ? 'warning'
     : missingExpectedCandidates.length ? 'weak_pass' : 'pass';
@@ -1745,7 +1750,8 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
     status,
     availableFamilies,
     expectedFamilies,
-    missingExpectedCandidates
+    missingExpectedCandidates,
+    unsupportedExpectedCandidates
   };
 }
 
@@ -2526,7 +2532,7 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       actorId: actor.id,
       phase: 'candidate_health',
       level: health.status === 'pass' ? 'info' : 'warning',
-      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}${health.roleSource ? `; source=${health.roleSource}` : ''}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}.`,
+      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}${health.roleSource ? `; source=${health.roleSource}` : ''}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}${health.unsupportedExpectedCandidates?.length ? `; unsupported=${health.unsupportedExpectedCandidates.join(', ')}` : ''}.`,
       data: { candidateSetHealth: health }
     }));
   }
