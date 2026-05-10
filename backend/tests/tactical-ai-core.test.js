@@ -1219,7 +1219,7 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
 
 test('Stony Shore Ambush fixture loads benchmark metadata', () => {
   const source = fs.readFileSync(
-    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/stony-shore-ambush-2026-05-03.yaml'),
+    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/the-stony-shore-ambush-2026-05-09.yaml'),
     'utf8'
   );
   const fixture = parseVisibleEncounterFixture(source);
@@ -1237,7 +1237,7 @@ test('Stony Shore Ambush fixture loads benchmark metadata', () => {
   const expectations = fixture.raw.expectations || [];
   const mustExpectations = (fixture.expected.must || []).flatMap((entry) => Object.keys(entry));
 
-  assert.equal(fixture.id, 'stony_shore_ambush_2026_05_03');
+  assert.equal(fixture.id, 'the_stony_shore_ambush');
   assert.equal(fixture.label, 'The Stony Shore Ambush');
   assert.equal(fixture.raw.map.name, 'The Stony Shore - Combined');
   assert.equal(fixture.raw.map.creator, 'Dyson Logos');
