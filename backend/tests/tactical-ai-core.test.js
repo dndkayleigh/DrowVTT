@@ -35,6 +35,7 @@ import {
   EXAMPLE_MONSTER_PROFILES,
   SAMPLE_ENCOUNTER_FIXTURES,
   normalizeMonsterProfile,
+  srdMonsterTacticalOverride,
   parseVisibleEncounterFixture
 } from '../../packages/tactical-ai-content/src/index.js';
 import {
@@ -1189,6 +1190,39 @@ test('content normalization preserves both modes for melee-or-ranged attacks', (
       { name: 'Javelin', attackKind: 'ranged', rangeFt: 30 }
     ]
   );
+});
+
+test('portable SRD tactical overrides seed representative monster behavior profiles', () => {
+  const zombie = normalizeMonsterProfile({ name: 'Zombie', statblock: '- Slam: Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 bludgeoning damage.' }, { archetype: 'brute' });
+  const wolf = normalizeMonsterProfile({ name: 'Wolf', statblock: '- Bite: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 piercing damage.' }, { archetype: 'skirmisher' });
+  const goblin = normalizeMonsterProfile({ name: 'Goblin', statblock: '- Scimitar: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 slashing damage.' }, { archetype: 'skirmisher' });
+  const mage = normalizeMonsterProfile({ name: 'Mage', statblock: '- Dagger: Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 piercing damage.' }, { archetype: 'controller' });
+
+  assert.deepEqual(zombie.tactical, { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' });
+  assert.deepEqual(zombie.behavior, {
+    cognition: 'mindless',
+    drive: 'nearest_living_prey',
+    riskTolerance: 'fearless',
+    coordination: 'none',
+    planningHorizon: 'immediate',
+    targetStickiness: 'high'
+  });
+  assert.equal(wolf.tactical?.mapped_core_role, 'skirmisher');
+  assert.equal(wolf.behavior?.coordination, 'pack');
+  assert.equal(goblin.behavior?.coordination, 'squad');
+  assert.equal(goblin.behavior?.cognition, 'trained');
+  assert.equal(mage.tactical?.mapped_core_role, 'support_caster');
+  assert.equal(mage.behavior?.cognition, 'cunning');
+  assert.equal(mage.behavior?.coordination, 'commander_led');
+});
+
+test('portable SRD tactical overrides cover the initial representative batch', () => {
+  const names = ['Zombie', 'Skeleton', 'Wolf', 'Dire Wolf', 'Goblin', 'Hobgoblin', 'Bandit', 'Guard', 'Acolyte', 'Mage'];
+  for (const name of names) {
+    const override = srdMonsterTacticalOverride({ name });
+    assert.ok(override, `${name} should have an SRD tactical override`);
+    assert.ok(override.behavior, `${name} should have behavior metadata`);
+  }
 });
 
 test('explicit actor behavior normalizes correctly without changing tactical role resolution', () => {

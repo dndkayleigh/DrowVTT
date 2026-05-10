@@ -99,6 +99,138 @@ export const SAMPLE_ENCOUNTER_FIXTURES = [
   }
 ];
 
+function normalizeMonsterBehaviorKey(name = '') {
+  return String(name || '').trim().toLowerCase();
+}
+
+export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
+  zombie: {
+    archetype: 'brute',
+    tactical: { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' },
+    behavior: {
+      cognition: 'mindless',
+      drive: 'nearest_living_prey',
+      riskTolerance: 'fearless',
+      coordination: 'none',
+      planningHorizon: 'immediate',
+      targetStickiness: 'high'
+    }
+  },
+  skeleton: {
+    archetype: 'archer',
+    tactical: { role: 'mobile_striker', mapped_core_role: 'skirmisher' },
+    behavior: {
+      cognition: 'mindless',
+      drive: 'nearest_living_prey',
+      riskTolerance: 'fearless',
+      coordination: 'none',
+      planningHorizon: 'immediate',
+      targetStickiness: 'high'
+    }
+  },
+  wolf: {
+    archetype: 'skirmisher',
+    tactical: { role: 'mobile_striker', mapped_core_role: 'skirmisher' },
+    behavior: {
+      cognition: 'animal',
+      drive: 'isolate_weak_prey',
+      riskTolerance: 'self_preserving',
+      coordination: 'pack',
+      planningHorizon: 'short',
+      targetStickiness: 'medium'
+    }
+  },
+  'dire wolf': {
+    archetype: 'brute',
+    tactical: { role: 'mobile_striker', mapped_core_role: 'skirmisher' },
+    behavior: {
+      cognition: 'animal',
+      drive: 'isolate_weak_prey',
+      riskTolerance: 'self_preserving',
+      coordination: 'pack',
+      planningHorizon: 'short',
+      targetStickiness: 'medium'
+    }
+  },
+  goblin: {
+    archetype: 'skirmisher',
+    tactical: { role: 'mobile_striker', mapped_core_role: 'skirmisher' },
+    behavior: {
+      cognition: 'trained',
+      drive: 'tactical_role_objective',
+      riskTolerance: 'normal',
+      coordination: 'squad',
+      planningHorizon: 'short',
+      targetStickiness: 'medium'
+    }
+  },
+  hobgoblin: {
+    archetype: 'brute',
+    tactical: { role: 'disciplined_soldier', mapped_core_role: 'disciplined_blocker' },
+    behavior: {
+      cognition: 'trained',
+      drive: 'hold_line',
+      riskTolerance: 'normal',
+      coordination: 'squad',
+      planningHorizon: 'short',
+      targetStickiness: 'medium'
+    }
+  },
+  bandit: {
+    archetype: 'skirmisher',
+    tactical: { role: 'mobile_striker', mapped_core_role: 'skirmisher' },
+    behavior: {
+      cognition: 'trained',
+      drive: 'tactical_role_objective',
+      riskTolerance: 'normal',
+      coordination: 'squad',
+      planningHorizon: 'short',
+      targetStickiness: 'medium'
+    }
+  },
+  guard: {
+    archetype: 'brute',
+    tactical: { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' },
+    behavior: {
+      cognition: 'trained',
+      drive: 'hold_line',
+      riskTolerance: 'normal',
+      coordination: 'squad',
+      planningHorizon: 'short',
+      targetStickiness: 'medium'
+    }
+  },
+  acolyte: {
+    archetype: 'controller',
+    tactical: { role: 'boss_caster', mapped_core_role: 'support_caster' },
+    behavior: {
+      cognition: 'trained',
+      drive: 'protect_master',
+      riskTolerance: 'self_preserving',
+      coordination: 'commander_led',
+      planningHorizon: 'medium',
+      targetStickiness: 'medium'
+    }
+  },
+  mage: {
+    archetype: 'controller',
+    tactical: { role: 'boss_caster', mapped_core_role: 'support_caster' },
+    behavior: {
+      cognition: 'cunning',
+      drive: 'complete_objective',
+      riskTolerance: 'self_preserving',
+      coordination: 'commander_led',
+      planningHorizon: 'long',
+      targetStickiness: 'high'
+    }
+  }
+});
+
+export function srdMonsterTacticalOverride(monster = {}) {
+  const key = normalizeMonsterBehaviorKey(monster?.name);
+  return SRD_MONSTER_TACTICAL_OVERRIDES[key] || null;
+}
+
 function parseStatblockAttacks(statblock = '', fallbackDamage = 5) {
   return String(statblock || '').split('\n').map((line) => line.trim()).flatMap((line) => {
     const name = line.match(/^-?\s*([^:]+):/)?.[1]?.trim();
@@ -118,7 +250,9 @@ function parseStatblockAttacks(statblock = '', fallbackDamage = 5) {
 }
 
 export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher', overrides = {}, analog = null } = {}) {
-  const archetypeDefaults = MONSTER_ARCHETYPES[archetype]?.defaults || MONSTER_ARCHETYPES.skirmisher.defaults;
+  const srdOverride = srdMonsterTacticalOverride(monster);
+  const resolvedArchetype = srdOverride?.archetype || archetype;
+  const archetypeDefaults = MONSTER_ARCHETYPES[resolvedArchetype]?.defaults || MONSTER_ARCHETYPES.skirmisher.defaults;
   const analogDefaults = analog ? MONSTER_ARCHETYPES[analog]?.defaults || {} : {};
   const provenance = {};
   const resolve = (field, safeDefault) => {
@@ -131,7 +265,7 @@ export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher'
       return monster[field];
     }
     if (archetypeDefaults[field] != null) {
-      provenance[field] = { source: 'archetype_default', archetype, confidence: 0.75 };
+      provenance[field] = { source: 'archetype_default', archetype: resolvedArchetype, confidence: 0.75 };
       return archetypeDefaults[field];
     }
     if (analogDefaults[field] != null) {
@@ -147,13 +281,24 @@ export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher'
     ? monster.attacks
     : parseStatblockAttacks(monster.statblock, expectedDamage);
 
+  const tactical = srdOverride?.tactical
+    ? {
+      role: String(srdOverride.tactical.role ?? '').trim(),
+      mapped_core_role: String(srdOverride.tactical.mapped_core_role ?? srdOverride.tactical.mappedCoreRole ?? '').trim(),
+      mappedCoreRole: String(srdOverride.tactical.mappedCoreRole ?? srdOverride.tactical.mapped_core_role ?? '').trim(),
+      coreRole: String(srdOverride.tactical.mappedCoreRole ?? srdOverride.tactical.mapped_core_role ?? srdOverride.tactical.coreRole ?? '').trim()
+    }
+    : null;
+
   return {
     id: String(monster.id || monster.name || 'custom_monster'),
     name: String(monster.name || monster.id || 'Custom Monster'),
-    archetype,
+    archetype: resolvedArchetype,
     speed: Number(resolve('speed', 30)) || 30,
     ac: Number(resolve('ac', 10)) || 10,
     attacks: attacks.length ? attacks : [{ name: 'Strike', attackKind: 'melee', rangeFt: 5, expectedDamage }],
+    tactical,
+    behavior: srdOverride?.behavior ? { ...srdOverride.behavior } : null,
     provenance
   };
 }

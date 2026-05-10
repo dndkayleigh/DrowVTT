@@ -947,6 +947,31 @@ test('adding an exact SRD monster name uses its SRD statblock and stats', async 
   await expect(page.locator('#selStatblock')).toHaveValue(/Greatclub/);
 });
 
+test('adding a tagged SRD monster seeds portable tactical role and behavior metadata', async ({ page }) => {
+  await openDetails(page, '#tokensSection');
+  await page.locator('#tokName').fill('Wolf');
+  await page.locator('#addToken').click();
+
+  await openDetails(page, '#turnSection');
+  await page.locator('[data-turn-tab="tactics"]').click();
+  await expect(page.locator('#selTacticalRole')).toHaveValue('mobile_striker');
+  await expect(page.locator('#selMappedCoreRole')).toHaveValue('skirmisher');
+  await expect(page.locator('#selBehaviorCognition')).toHaveValue('animal');
+  await expect(page.locator('#selBehaviorCoordination')).toHaveValue('pack');
+
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  const wolf = snapshot.state.tokens.find((token) => token.name === 'Wolf');
+  expect(wolf?.tactical).toMatchObject({
+    role: 'mobile_striker',
+    coreRole: 'skirmisher'
+  });
+  expect(wolf?.behavior).toMatchObject({
+    cognition: 'animal',
+    drive: 'isolate_weak_prey',
+    coordination: 'pack'
+  });
+});
+
 test('adding a custom monster name keeps the custom monster statblock editable', async ({ page }) => {
   await openDetails(page, '#tokensSection');
   await page.locator('#tokName').fill('Goblin Boss');

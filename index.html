@@ -3172,7 +3172,7 @@ import {
   // ---------- Token logic ----------
   const tokenListEl = document.getElementById('tokenList');
 
-  function addToken({ name, type, sizeCells, color, ac=15, hp="7/7", speed=30, notes="", statblock="", tactical=null, spells=[], attacks=[], art=null }) {
+  function addToken({ name, type, sizeCells, color, ac=15, hp="7/7", speed=30, notes="", statblock="", tactical=null, behavior=null, spells=[], attacks=[], art=null }) {
     clearAiPaths();
     const worldTL = screenToWorld(70, 70);
     const preferredCell = gridCellFromWorldPoint(worldTL.x, worldTL.y, sizeCells);
@@ -3193,6 +3193,7 @@ import {
       notes,
       statblock,
       tactical,
+      behavior,
       spells: Array.isArray(spells) ? spells : [],
       attacks: Array.isArray(attacks) ? attacks : [],
       art: normalizeTokenArt(art)
@@ -3232,6 +3233,7 @@ import {
     const type = tokTypeSelect.value;
     const rawName = tokNameInput.value;
     const matchedMonster = type === 'Monster' ? resolveSrdMonsterTemplate(rawName) : null;
+    const matchedProfile = matchedMonster ? normalizeMonsterProfile(matchedMonster) : null;
     const nextName = nextTokenName(rawName);
     monsterAutocomplete.hidden = true;
     addToken({
@@ -3247,7 +3249,10 @@ import {
         ? matchedMonster.statblock
         : (type === 'Monster'
           ? "Custom Monster\n- Speed 30 ft\n- Actions:\n  - Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) damage."
-          : "")
+          : ""),
+      tactical: matchedProfile?.tactical || null,
+      behavior: matchedProfile?.behavior || null,
+      attacks: matchedProfile?.attacks || []
     });
     renderMonsterAutocomplete();
   });
