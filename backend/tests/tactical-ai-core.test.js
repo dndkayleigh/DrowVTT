@@ -1462,6 +1462,108 @@ test('Zombie Doorway Press preserves explicit mindless zombie behavior while oth
   assert.deepEqual(hero.behavior, inferDefaultBehaviorProfile(hero));
 });
 
+test('mindless behavior suppresses retreat and skirmish candidate families', () => {
+  const encounter = normalizeEncounterState({
+    id: 'mindless-family-gating',
+    activeActorId: 'zombie_archer',
+    battlefield: { width: 10, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'zombie_archer',
+        name: 'Zombie Archer',
+        side: 'monsters',
+        cell: { x: 2, y: 3 },
+        speed: 30,
+        tactical: { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' },
+        behavior: {
+          cognition: 'mindless',
+          drive: 'nearest_living_prey',
+          riskTolerance: 'fearless',
+          coordination: 'none',
+          planningHorizon: 'immediate',
+          targetStickiness: 'high'
+        },
+        attacks: [
+          { name: 'Slam', attackKind: 'melee', rangeFt: 5, expectedDamage: 4 },
+          { name: 'Shortbow', attackKind: 'ranged', rangeFt: 60, expectedDamage: 4 }
+        ]
+      },
+      { id: 'hero_a', name: 'Hero A', side: 'heroes', cell: { x: 5, y: 3 }, speed: 30, hp: '18/18', attacks: [] },
+      { id: 'hero_b', name: 'Hero B', side: 'heroes', cell: { x: 7, y: 3 }, speed: 30, hp: '8/18', attacks: [] }
+    ]
+  });
+
+  const candidates = generateCandidateActions(encounter, encounter.actors[0], { limit: 36 });
+
+  assert.equal(candidates.some((candidate) => candidate.family === 'shoot_and_scoot'), false);
+  assert.equal(candidates.some((candidate) => candidate.family === 'disengage_retreat'), false);
+  assert.equal(candidates.some((candidate) => candidate.family === 'stalk_to_cover'), false);
+});
+
+test('mindless nearest-prey drive and high target stickiness prefer the adjacent target over a farther wounded one', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'mindless-nearest-prey',
+    activeActorId: 'zombie',
+    battlefield: { width: 10, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'zombie',
+        name: 'Zombie',
+        side: 'monsters',
+        cell: { x: 3, y: 3 },
+        speed: 20,
+        tactical: { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' },
+        behavior: {
+          cognition: 'mindless',
+          drive: 'nearest_living_prey',
+          riskTolerance: 'fearless',
+          coordination: 'none',
+          planningHorizon: 'immediate',
+          targetStickiness: 'high'
+        },
+        attacks: [{ name: 'Slam', attackKind: 'melee', rangeFt: 5, expectedDamage: 4 }]
+      },
+      { id: 'hero_near', name: 'Hero Near', side: 'heroes', cell: { x: 4, y: 3 }, speed: 30, hp: '20/20', attacks: [] },
+      { id: 'hero_far', name: 'Hero Far', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, hp: '4/20', attacks: [] }
+    ]
+  });
+
+  const output = await new SupervisorScriptedController().chooseAction({
+    encounter,
+    actorId: 'zombie',
+    candidateLimit: 36
+  });
+  const selected = output.logs[0]?.data?.selected;
+
+  assert.equal(selected?.family, 'attack_from_current');
+  assert.deepEqual(selected?.targetIds, ['hero_near']);
+  assert.equal(selected?.supervisorBreakdown?.targetPriorityLowHpBonus ?? 0, 0);
+});
+
+test('Zombie Doorway Press mindless group avoids squad focus-fire bonuses and does not prioritize the farther wounded hero', async () => {
+  const fixture = zombieDoorwayFixture();
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter: fixture.encounter,
+    activationGroup: fixture.encounter.activationGroups[0],
+    candidateLimit: 36
+  });
+  const decisions = (output.logs || [])
+    .filter((log) => log.phase === 'decision')
+    .filter((log) => ['zombie_a', 'zombie_b', 'zombie_c', 'zombie_d'].includes(log.actorId))
+    .filter((log) => log.data?.selected)
+    .map((log) => ({ actorId: log.actorId, selected: log.data?.selected, breakdown: log.data?.selected?.supervisorBreakdown || {} }));
+
+  assert.equal(decisions.length, 4);
+  for (const decision of decisions) {
+    assert.notEqual(decision.selected?.family, 'shoot_and_scoot');
+    assert.notEqual(decision.selected?.family, 'disengage_retreat');
+    assert.equal(decision.breakdown.targetPriorityGroupFocusBonus ?? 0, 0);
+    assert.equal(decision.breakdown.targetPriorityMainThreatBonus ?? 0, 0);
+    assert.equal(Object.keys(decision.breakdown).some((key) => key.startsWith('doctrine')), false);
+    assert.notEqual(decision.selected?.targetIds?.[0], 'hero_b');
+  }
+});
+
 test('Stony Shore bounds include logged coordinates on the exported board', () => {
   const fixture = stonyShoreFixture();
   const { encounter } = fixture;

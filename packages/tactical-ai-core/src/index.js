@@ -168,6 +168,31 @@ function compactBehaviorDiagnostic(behavior = null) {
   return `cognition:${behavior.cognition}, coordination:${behavior.coordination}`;
 }
 
+function behaviorHasCognition(actor = {}, cognition = '') {
+  return behaviorProfileForActor(actor).cognition === cognition;
+}
+
+function behaviorHasDrive(actor = {}, drive = '') {
+  return behaviorProfileForActor(actor).drive === drive;
+}
+
+function behaviorHasCoordination(actor = {}, coordination = '') {
+  return behaviorProfileForActor(actor).coordination === coordination;
+}
+
+function behaviorHasTargetStickiness(actor = {}, targetStickiness = '') {
+  return behaviorProfileForActor(actor).targetStickiness === targetStickiness;
+}
+
+function suppressCandidateFamilyForBehavior(actor = {}, family = '') {
+  if (!behaviorHasCognition(actor, 'mindless')) return false;
+  return family === 'disengage_retreat' || family === 'shoot_and_scoot' || family === 'stalk_to_cover';
+}
+
+function filterCandidatesByBehaviorProfile(candidates = [], actor = {}) {
+  return candidates.filter((candidate) => !suppressCandidateFamilyForBehavior(actor, candidate.family));
+}
+
 function resolveCoreRole(tactical = null) {
   if (!tactical || typeof tactical !== 'object') return { coreRole: '', source: '' };
   const mappedCoreRole = String(tactical.mapped_core_role ?? tactical.mappedCoreRole ?? '').trim();
@@ -1078,6 +1103,70 @@ function visibleEnemiesFromCell(encounter, actor, cell) {
   return enemiesFor(encounter, actor).filter((enemy) => hasLineOfSight(encounter, enemy, actorAtCell, enemy.cell));
 }
 
+function currentAttackableTargetIds(encounter, actor = {}) {
+  const attacks = actor.attacks || [];
+  if (!attacks.length) return new Set();
+  return new Set(
+    enemiesFor(encounter, actor)
+      .filter((enemy) => attacks.some((attack) => {
+        const rangeCells = Math.max(1, Math.ceil(Number(attack.rangeFt || 0) / 5));
+        if (gridDistance(actor.cell, enemy.cell) > rangeCells) return false;
+        if (attack.attackKind === 'ranged') return hasLineOfSight(encounter, actor, enemy, actor.cell);
+        return true;
+      }))
+      .map((enemy) => enemy.id)
+  );
+}
+
+function behaviorTargetSelectionModifiers(encounter, actor = {}, candidate = {}) {
+  const behavior = behaviorProfileForActor(actor);
+  const target = encounter.actors.find((entry) => candidate.targetIds?.includes(entry.id));
+  if (!target) return {};
+
+  const breakdown = {};
+  if (behavior.drive === 'nearest_living_prey') {
+    const enemies = enemiesFor(encounter, actor);
+    const nearestDistance = enemies.length
+      ? Math.min(...enemies.map((enemy) => gridDistance(actor.cell, enemy.cell)))
+      : Infinity;
+    const targetDistance = gridDistance(actor.cell, target.cell);
+    if (targetDistance === nearestDistance) {
+      breakdown.behaviorNearestPreyBonus = 6;
+    } else if (Number.isFinite(nearestDistance)) {
+      breakdown.behaviorFartherPreyPenalty = -4 - Math.min(2, Math.max(0, targetDistance - nearestDistance));
+    }
+  }
+
+  if (behavior.targetStickiness === 'high') {
+    const currentTargets = currentAttackableTargetIds(encounter, actor);
+    if (currentTargets.has(target.id)) {
+      breakdown.behaviorTargetStickinessBonus = 4;
+    } else if (currentTargets.size) {
+      breakdown.behaviorTargetSwitchPenalty = -5;
+    }
+  }
+
+  return breakdown;
+}
+
+function behaviorScoreModifiers(encounter, actor = {}, candidate = {}, { weights = {}, features = {} } = {}) {
+  const behavior = behaviorProfileForActor(actor);
+  const breakdown = {
+    ...behaviorTargetSelectionModifiers(encounter, actor, candidate)
+  };
+
+  if (behavior.cognition === 'mindless') {
+    const repositionContribution = normalizeNumber(weights.repositionValue, 0) * normalizeNumber(features.repositionValue, 0);
+    const losBreakContribution = normalizeNumber(weights.lineOfSightBreakValue, 0) * normalizeNumber(features.lineOfSightBreakValue, 0);
+    const defensiveContribution = normalizeNumber(weights.defensiveValue, 0) * normalizeNumber(features.defensiveValue, 0);
+    if (Math.abs(repositionContribution) > 0.0001) breakdown.behaviorMindlessFuturePositionPenalty = -Number(repositionContribution.toFixed(3));
+    if (Math.abs(losBreakContribution) > 0.0001) breakdown.behaviorMindlessLosBreakPenalty = -Number(losBreakContribution.toFixed(3));
+    if (Math.abs(defensiveContribution) > 0.0001) breakdown.behaviorMindlessSafetyPenalty = -Number(defensiveContribution.toFixed(3));
+  }
+
+  return breakdown;
+}
+
 function distanceToSegment(cell, start, end) {
   if (!cell || !start || !end) return Infinity;
   const px = Number(cell.x);
@@ -1444,7 +1533,7 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
     legal: true
   });
 
-  return truncateCandidatesPreservingBaseline(candidates, limit);
+  return truncateCandidatesPreservingBaseline(filterCandidatesByBehaviorProfile(candidates, actor), limit);
 }
 
 /**
@@ -1616,13 +1705,23 @@ export function scoreCandidate(encounter, candidate, { stance = 'opportunistic' 
   };
   const features = extractScoringFeatures(encounter, candidate);
   const weights = weightsByStance[stance] || weightsByStance.opportunistic;
-  const score = Object.entries(features).reduce((sum, [key, value]) => sum + (weights[key] || 0) * value, 0);
+  const actor = encounter.actors.find((entry) => entry.id === candidate.actorId);
+  const baseScore = Object.entries(features).reduce((sum, [key, value]) => sum + (weights[key] || 0) * value, 0);
   const scoreBreakdown = Object.entries(features).reduce((breakdown, [key, value]) => {
     const contribution = (weights[key] || 0) * value;
     if (Math.abs(contribution) > 0.0001) breakdown[key] = Number(contribution.toFixed(3));
     return breakdown;
   }, {});
-  return { score, features, scoreBreakdown, stance };
+  const behaviorModifiers = actor ? behaviorScoreModifiers(encounter, actor, candidate, { weights, features }) : {};
+  return {
+    score: baseScore + sumBreakdown(behaviorModifiers),
+    features,
+    scoreBreakdown: {
+      ...scoreBreakdown,
+      ...behaviorModifiers
+    },
+    stance
+  };
 }
 
 function candidateActionName(candidate) {
@@ -2308,21 +2407,23 @@ function targetPriorityModifiers(encounter, actor, candidate, doctrineContext = 
   const target = encounter.actors.find((entry) => candidate.targetIds?.includes(entry.id));
   if (!target) return {};
   const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
+  const coordinated = !behaviorHasCoordination(actor, 'none');
   const breakdown = {};
-  if (mainThreat?.id && target.id === mainThreat.id) breakdown.targetPriorityMainThreatBonus = 4;
+  if (mainThreat?.id && coordinated && target.id === mainThreat.id) breakdown.targetPriorityMainThreatBonus = 4;
   const hp = currentHpValue(target);
   if (hp != null && hp <= 10) breakdown.targetPriorityLowHpBonus = 3;
   if (isLikelyCaster(target)) breakdown.targetPriorityCasterBonus = 3;
   if (isTargetIsolated(encounter, target)) breakdown.targetPriorityIsolatedBonus = 2;
-  if (doctrineContext.primaryFocusTarget?.id && target.id === doctrineContext.primaryFocusTarget.id) breakdown.targetPriorityGroupFocusBonus = 1.5;
+  if (doctrineContext.primaryFocusTarget?.id && coordinated && target.id === doctrineContext.primaryFocusTarget.id) breakdown.targetPriorityGroupFocusBonus = 1.5;
   if (normalizeNumber(candidate.expectedDamage, 0) < 3) breakdown.targetPriorityPoorDamagePenalty = -2;
-  if (protectedAsset && target.id === mainThreat?.id && gridDistance(target.cell, protectedAsset.cell) <= 8) {
+  if (protectedAsset && coordinated && target.id === mainThreat?.id && gridDistance(target.cell, protectedAsset.cell) <= 8) {
     breakdown.targetPriorityThreatensProtectedBonus = 4;
   }
   return breakdown;
 }
 
 function doctrineScoreModifiers(encounter, actor, candidate, doctrineContext = {}) {
+  if (behaviorHasCoordination(actor, 'none')) return {};
   if (doctrineContext.doctrine !== 'protect_caster') return {};
   const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
   if (!protectedAsset || !mainThreat) return {};
@@ -2368,7 +2469,12 @@ function scriptedAttackPriority(encounter, actor, candidate) {
     candidate.family === 'move_and_attack' &&
     candidate.action?.attackKind === 'melee' &&
     currentNearestEnemyDistance > 1 ? -2 : 0;
-  return normalizeNumber(candidate.expectedDamage, 0) + longRangedBonus + shootAndScootBonus + spellBonus + avoidUnforcedMelee;
+  return normalizeNumber(candidate.expectedDamage, 0) +
+    longRangedBonus +
+    shootAndScootBonus +
+    spellBonus +
+    avoidUnforcedMelee +
+    sumBreakdown(behaviorTargetSelectionModifiers(encounter, actor, candidate));
 }
 
 function sumBreakdown(breakdown = {}) {
@@ -2382,7 +2488,8 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
   const currentEnemyDistance = actor
     ? Math.min(...enemiesFor(encounter, actor).map((enemy) => gridDistance(actor.cell, enemy.cell)), Infinity)
     : Infinity;
-  const safeRangedBonus = candidate.action?.attackKind === 'ranged' && currentEnemyDistance > 1 ? 1.5 : 0;
+  const behavior = behaviorProfileForActor(actor);
+  const safeRangedBonus = candidate.action?.attackKind === 'ranged' && currentEnemyDistance > 1 && behavior.cognition !== 'mindless' ? 1.5 : 0;
   const shootAndScootBonus = candidate.family === 'shoot_and_scoot' ? 3 + normalizeNumber(candidate.metadata?.visibilityReduction, 0) : 0;
   const spellBonus = candidate.action?.type === 'spell'
     ? 3 + normalizeNumber(candidate.metadata?.spellValue, 0) + (candidate.action?.spellKind === 'support' ? 2 : 0)
