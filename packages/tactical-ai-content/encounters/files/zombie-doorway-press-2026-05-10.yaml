@@ -5,24 +5,21 @@ description: |
   name: "Zombie Doorway Press"
 
   encounter_purpose: >
-    Metadata-only benchmark fixture for future low-cognition behavior testing.
-    This fixture should load cleanly with explicit zombie behavior profiles but
-    should not change controller behavior until a later phase introduces
-    mindless gating.
+    Low-cognition benchmark fixture for mindless behavior testing. This
+    fixture should confirm that zombies press nearest reachable prey, tolerate
+    doorway congestion, and avoid trained-squad style tactics.
 
   setup: >
     Four zombies are pressing toward a narrow doorway from the west side of a
     small crypt. Three heroes are on the east side of the doorway. One hero is
     closest to the choke, one farther hero is wounded and tactically tempting,
-    and one backline hero supports from behind. The fixture is intended to
-    support future tests for nearest-target bias, doorway clogging, and low
-    tactical sophistication.
+    and one backline hero supports from behind. The fixture supports
+    nearest-target bias, doorway clogging, and low tactical sophistication.
 
   ideal_behavior: >
-    Later phases should make these zombies act mindlessly: press the nearest
-    reachable living prey, accept congestion, avoid coordinated focus fire, and
-    show high target stickiness. Phase 1B only preserves the metadata needed to
-    express that intent.
+    These zombies should act mindlessly: press the nearest reachable living
+    prey, accept congestion, avoid coordinated focus fire, and show high
+    target stickiness.
 
 controllers:
   - supervisor_scripted_group
@@ -67,7 +64,7 @@ actors:
       role: brute_blocker
       mapped_core_role: disciplined_blocker
       objective_role: press_doorway
-      role_notes: "Undead melee pressure body. Future phases should gate this role through mindless behavior."
+      role_notes: "Undead melee pressure body. This role is intentionally gated through mindless behavior rather than trained squad logic."
     behavior:
       cognition: mindless
       drive: nearest_living_prey
@@ -91,7 +88,7 @@ actors:
       role: brute_blocker
       mapped_core_role: disciplined_blocker
       objective_role: press_doorway
-      role_notes: "Undead melee pressure body. Future phases should gate this role through mindless behavior."
+      role_notes: "Undead melee pressure body. This role is intentionally gated through mindless behavior rather than trained squad logic."
     behavior:
       cognition: mindless
       drive: nearest_living_prey
@@ -115,7 +112,7 @@ actors:
       role: brute_blocker
       mapped_core_role: disciplined_blocker
       objective_role: press_doorway
-      role_notes: "Undead melee pressure body. Future phases should gate this role through mindless behavior."
+      role_notes: "Undead melee pressure body. This role is intentionally gated through mindless behavior rather than trained squad logic."
     behavior:
       cognition: mindless
       drive: nearest_living_prey
@@ -139,7 +136,7 @@ actors:
       role: brute_blocker
       mapped_core_role: disciplined_blocker
       objective_role: press_doorway
-      role_notes: "Undead melee pressure body. Future phases should gate this role through mindless behavior."
+      role_notes: "Undead melee pressure body. This role is intentionally gated through mindless behavior rather than trained squad logic."
     behavior:
       cognition: mindless
       drive: nearest_living_prey

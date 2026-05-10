@@ -2,20 +2,6 @@ id: the_stony_shore_ambush
 title: The Stony Shore Ambush
 category: custom
 description: |
-  name: "The Stony Shore Ambush"
-  benchmark_status: "new_pressure_test"
-  party_assumption:
-    level: 8
-    size: 4
-  map:
-    name: "The Stony Shore - Combined"
-    creator: "Dyson Logos"
-    commercial_maps_url: "https://dysonlogos.blog/maps/commercial-maps/"
-    source_urls:
-      - "https://dysonlogos.blog/2023/06/06/the-stony-shore-map-1/"
-      - "https://dysonlogos.blog/2023/06/13/the-stony-shore-combined/"
-    attribution: "Map by Dyson Logos. Used with attribution according to Dyson Logos commercial-use map terms."
-  
   This fixture intentionally includes commercial-use map attribution and source URLs only.
   It does not download, embed, or redistribute the map image.
 

@@ -5,24 +5,21 @@ description: |
   name: "Wolf Pack Harrier"
 
   encounter_purpose: >
-    Metadata-only benchmark fixture for future animal/pack behavior testing.
-    This fixture should load cleanly with explicit animal/pack behavior
-    profiles, but should not change controller behavior until a later phase
-    introduces animal scoring and movement-reaction risk handling.
+    Animal/pack benchmark fixture for melee-harrier behavior testing. This
+    fixture should confirm that wolves pressure isolated or wounded prey, use
+    local pack convergence, and avoid disciplined squad doctrine.
 
   setup: >
     Four wolves are pressuring a small trail bend with one light blocker wall.
     Three heroes are moving through the area. One hero is slightly isolated and
     wounded, one is closer but screened by the choke, and one remains in a
-    supporting position. The fixture is intended to support later tests for
-    isolated-prey bias, local pack convergence, and moderate self-preserving
-    risk handling.
+    supporting position. The fixture supports isolated-prey bias, local pack
+    convergence, and moderate self-preserving risk handling.
 
   ideal_behavior: >
-    Later phases should make these wolves behave as animals rather than
-    soldiers: prefer isolated or weak prey, converge locally without disciplined
-    doctrine, and care about obvious danger more than zombies do. Phase 3A only
-    preserves the metadata needed to express that intent.
+    These wolves should behave as animals rather than soldiers: prefer
+    isolated or weak prey, converge locally without disciplined doctrine, and
+    care about obvious danger more than zombies do.
 
 controllers:
   - supervisor_scripted_group
@@ -67,7 +64,7 @@ actors:
       role: skirmisher
       mapped_core_role: skirmisher
       objective_role: harry_isolated_prey
-      role_notes: "Fast melee beast. Future phases should gate this role through animal pack behavior instead of soldier-like doctrine."
+      role_notes: "Fast melee beast. This skirmisher role is intentionally expressed through animal/pack melee harassment instead of soldier-like doctrine."
     behavior:
       cognition: animal
       drive: isolate_weak_prey
@@ -91,7 +88,7 @@ actors:
       role: skirmisher
       mapped_core_role: skirmisher
       objective_role: harry_isolated_prey
-      role_notes: "Fast melee beast. Future phases should gate this role through animal pack behavior instead of soldier-like doctrine."
+      role_notes: "Fast melee beast. This skirmisher role is intentionally expressed through animal/pack melee harassment instead of soldier-like doctrine."
     behavior:
       cognition: animal
       drive: isolate_weak_prey
@@ -115,7 +112,7 @@ actors:
       role: skirmisher
       mapped_core_role: skirmisher
       objective_role: harry_isolated_prey
-      role_notes: "Fast melee beast. Future phases should gate this role through animal pack behavior instead of soldier-like doctrine."
+      role_notes: "Fast melee beast. This skirmisher role is intentionally expressed through animal/pack melee harassment instead of soldier-like doctrine."
     behavior:
       cognition: animal
       drive: isolate_weak_prey
@@ -139,7 +136,7 @@ actors:
       role: skirmisher
       mapped_core_role: skirmisher
       objective_role: harry_isolated_prey
-      role_notes: "Fast melee beast. Future phases should gate this role through animal pack behavior instead of soldier-like doctrine."
+      role_notes: "Fast melee beast. This skirmisher role is intentionally expressed through animal/pack melee harassment instead of soldier-like doctrine."
     behavior:
       cognition: animal
       drive: isolate_weak_prey

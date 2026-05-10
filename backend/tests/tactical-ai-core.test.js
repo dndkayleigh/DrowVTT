@@ -1446,7 +1446,7 @@ test('Zombie Doorway Press fixture loads metadata for future mindless behavior w
   assert.equal(zombies.length, 4);
   assert.equal(heroes.length, 3);
   assert.equal(fixture.raw.controllers.includes('supervisor_scripted_group'), true);
-  assert.match(fixture.description, /metadata-only benchmark fixture/i);
+  assert.match(fixture.description, /low-cognition benchmark fixture/i);
 });
 
 test('Zombie Doorway Press preserves explicit mindless zombie behavior while other actors keep defaults', () => {
@@ -1486,7 +1486,7 @@ test('Wolf Pack Harrier fixture loads animal/pack behavior metadata', () => {
   assert.equal(wolves.length, 4);
   assert.equal(heroes.length, 3);
   assert.equal(fixture.raw.controllers.includes('supervisor_scripted_group'), true);
-  assert.match(fixture.description, /metadata-only benchmark fixture/i);
+  assert.match(fixture.description, /animal\/pack benchmark fixture/i);
 });
 
 test('Wolf Pack Harrier preserves explicit animal/pack behavior while default behavior remains unchanged elsewhere', () => {
