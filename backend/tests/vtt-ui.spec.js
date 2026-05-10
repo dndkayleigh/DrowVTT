@@ -1613,9 +1613,17 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
     '    speed: 30',
     '    tactical:',
     '      role: boss_caster',
+    '      mapped_core_role: support_caster',
     '      protected_asset: true',
     '      objective_role: ritual_actor',
     '      role_notes: Protected caster from fixture.',
+    '    behavior:',
+    '      cognition: cunning',
+    '      drive: complete_objective',
+    '      riskTolerance: self_preserving',
+    '      coordination: commander_led',
+    '      planningHorizon: long',
+    '      targetStickiness: high',
     '    attacks:',
     '      - name: Dagger',
     '        kind: ranged',
@@ -1648,34 +1656,68 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
   const mageToken = snapshot.state.tokens.find((token) => token.id === 'mage');
   expect(mageToken?.tactical).toMatchObject({
     role: 'boss_caster',
+    coreRole: 'support_caster',
     protectedAsset: true,
     objectiveRole: 'ritual_actor'
+  });
+  expect(mageToken?.behavior).toMatchObject({
+    cognition: 'cunning',
+    coordination: 'commander_led',
+    planningHorizon: 'long'
   });
   expect(mageToken?.spells?.map((spell) => spell.name)).toContain('Shield');
   expect(mageToken?.attacks?.map((attack) => attack.name)).toContain('Dagger');
 
+  await setCurrentTurnToken(page, 'Mage');
   await openDetails(page, '#turnSection');
   await page.locator('[data-turn-tab="tactics"]').click();
   await expect(page.locator('#selTacticalRole')).toHaveValue('boss_caster');
+  await expect(page.locator('#selMappedCoreRole')).toHaveValue('support_caster');
   await expect(page.locator('#selProtectedAsset')).toBeChecked();
   await expect(page.locator('#selObjectiveRole')).toHaveValue('ritual_actor');
+  await expect(page.locator('#selBehaviorCognition')).toHaveValue('cunning');
+  await expect(page.locator('#selBehaviorCoordination')).toHaveValue('commander_led');
   await expect(page.locator('#selSpellsJson')).toHaveValue(/Shield/);
 
-  await page.locator('#selRoleNotes').fill('Edited role note.');
-  await page.locator('#selSpellsJson').fill(JSON.stringify([
-    { name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 },
-    { name: 'Magic Missile', kind: 'damage', target: 'enemy', rangeFt: 120, expectedValue: 10 }
-  ], null, 2));
+  await page.evaluate(() => {
+    const setInputValue = (selector, value) => {
+      const element = document.querySelector(selector);
+      if (!element) throw new Error(`Missing element: ${selector}`);
+      element.value = value;
+    };
+    setInputValue('#selMappedCoreRole', 'ambusher_bruiser');
+    setInputValue('#selBehaviorCognition', 'trained');
+    setInputValue('#selBehaviorCoordination', 'squad');
+    setInputValue('#selBehaviorDrive', 'protect_master');
+    setInputValue('#selSpellsJson', JSON.stringify([
+      { name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 },
+      { name: 'Magic Missile', kind: 'damage', target: 'enemy', rangeFt: 120, expectedValue: 10 }
+    ], null, 2));
+    window.__VTT_DEBUG__.saveCurrentTurnEditor();
+  });
 
   const editedSnapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
   const editedMage = editedSnapshot.state.tokens.find((token) => token.id === 'mage');
-  expect(editedMage?.tactical?.roleNotes).toBe('Edited role note.');
+  expect(editedMage?.tactical?.coreRole).toBe('ambusher_bruiser');
+  expect(editedMage?.behavior).toMatchObject({
+    cognition: 'trained',
+    coordination: 'squad',
+    drive: 'protect_master'
+  });
   expect(editedMage?.spells?.map((spell) => spell.name)).toEqual(['Shield', 'Magic Missile']);
 
   const yaml = await page.evaluate(() => window.__VTT_DEBUG__.getTacticalFixtureYaml());
   const fixture = parseVisibleEncounterFixture(yaml);
   const mage = fixture.encounter.actors.find((actor) => actor.id === 'mage');
-  expect(mage?.tactical?.coreRole).toBe('support_caster');
+  expect(yaml).toContain('mapped_core_role: ambusher_bruiser');
+  expect(yaml).toContain('cognition: trained');
+  expect(yaml).toContain('coordination: squad');
+  expect(mage?.tactical?.coreRole).toBe('ambusher_bruiser');
+  expect(mage?.behavior).toMatchObject({
+    cognition: 'trained',
+    coordination: 'squad',
+    drive: 'protect_master'
+  });
   expect(mage?.spells?.map((spell) => spell.name)).toContain('Magic Missile');
 });
 

@@ -588,6 +588,7 @@ import { BOARD_STATE_VERSION, createBoardSnapshot, parseBoardSnapshot } from '/d
 import { buildDefaultSlotName, normalizeSlotName } from '/data/save-slots-utils.mjs';
 import { buildTokenArtImagePlacement, clampTokenArtPan, clampTokenArtScale } from '/data/token-art-utils.mjs';
 import {
+  behaviorProfileForActor,
   createControllerRegistry,
   getController,
   tacticalOutputToVttPlan,
@@ -3667,17 +3668,67 @@ import {
   const selNotes = document.getElementById('selNotes');
   const selStatblock = document.getElementById('selStatblock');
   const selTacticalRole = document.getElementById('selTacticalRole');
+  const selMappedCoreRole = document.getElementById('selMappedCoreRole');
   const selProtectedAsset = document.getElementById('selProtectedAsset');
   const selObjectiveRole = document.getElementById('selObjectiveRole');
   const selRoleNotes = document.getElementById('selRoleNotes');
+  const selBehaviorCognition = document.getElementById('selBehaviorCognition');
+  const selBehaviorDrive = document.getElementById('selBehaviorDrive');
+  const selBehaviorRiskTolerance = document.getElementById('selBehaviorRiskTolerance');
+  const selBehaviorCoordination = document.getElementById('selBehaviorCoordination');
+  const selBehaviorPlanningHorizon = document.getElementById('selBehaviorPlanningHorizon');
+  const selBehaviorTargetStickiness = document.getElementById('selBehaviorTargetStickiness');
   const selSpellsJson = document.getElementById('selSpellsJson');
   const selAttacksJson = document.getElementById('selAttacksJson');
+  const tokenCoreRoleStatus = document.getElementById('tokenCoreRoleStatus');
   const tokenMetadataStatus = document.getElementById('tokenMetadataStatus');
   const turnTabButtons = Array.from(document.querySelectorAll('[data-turn-tab]'));
   const turnTabPanels = Array.from(document.querySelectorAll('[data-turn-panel]'));
   const drawerTabButtons = Array.from(document.querySelectorAll('[data-drawer-tab]'));
   const drawerTabPanels = Array.from(document.querySelectorAll('[data-drawer-panel]'));
-  const metadataEditorFields = [selTacticalRole, selProtectedAsset, selObjectiveRole, selRoleNotes, selSpellsJson, selAttacksJson];
+  const metadataEditorFields = [
+    selTacticalRole,
+    selMappedCoreRole,
+    selProtectedAsset,
+    selObjectiveRole,
+    selRoleNotes,
+    selBehaviorCognition,
+    selBehaviorDrive,
+    selBehaviorRiskTolerance,
+    selBehaviorCoordination,
+    selBehaviorPlanningHorizon,
+    selBehaviorTargetStickiness,
+    selSpellsJson,
+    selAttacksJson
+  ];
+
+  function tokenBehaviorEditorFields(token = null) {
+    const behavior = behaviorProfileForActor(token || {});
+    const explicit = token?.behavior && typeof token.behavior === 'object' ? token.behavior : {};
+    return {
+      cognition: String(explicit.cognition ?? '').trim(),
+      drive: String(explicit.drive ?? '').trim(),
+      riskTolerance: String(explicit.riskTolerance ?? explicit.risk_tolerance ?? '').trim(),
+      coordination: String(explicit.coordination ?? '').trim(),
+      planningHorizon: String(explicit.planningHorizon ?? explicit.planning_horizon ?? '').trim(),
+      targetStickiness: String(explicit.targetStickiness ?? explicit.target_stickiness ?? '').trim(),
+      defaults: behavior
+    };
+  }
+
+  function updateTokenMetadataStatus(token = null) {
+    const tactical = token?.tactical || {};
+    const mappedCoreRole = String(tactical.mapped_core_role ?? tactical.mappedCoreRole ?? tactical.coreRole ?? '').trim();
+    if (tokenCoreRoleStatus) {
+      tokenCoreRoleStatus.textContent = mappedCoreRole
+        ? `Core role override: ${mappedCoreRole}`
+        : 'Core role is inferred at runtime unless explicitly overridden.';
+    }
+    if (tokenMetadataStatus) {
+      const behavior = behaviorProfileForActor(token || {});
+      tokenMetadataStatus.textContent = `Structured metadata is saved with board exports and sent to the tactical controller. Current behavior: ${behavior.cognition}/${behavior.coordination}.`;
+    }
+  }
 
   function setTurnTab(tab) {
     for (const btn of turnTabButtons) {
@@ -3743,13 +3794,27 @@ import {
     selStatblock.value = editorState.values.statblock;
     const token = getCurrentTurnToken();
     const tactical = token?.tactical || {};
+    const behaviorFields = tokenBehaviorEditorFields(token);
     selTacticalRole.value = tactical.role || tactical.authoredRole || '';
+    selMappedCoreRole.value = tactical.mapped_core_role || tactical.mappedCoreRole || tactical.coreRole || '';
     selProtectedAsset.checked = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
     selObjectiveRole.value = tactical.objective_role || tactical.objectiveRole || '';
     selRoleNotes.value = tactical.role_notes || tactical.roleNotes || '';
+    selBehaviorCognition.value = behaviorFields.cognition;
+    selBehaviorDrive.value = behaviorFields.drive;
+    selBehaviorRiskTolerance.value = behaviorFields.riskTolerance;
+    selBehaviorCoordination.value = behaviorFields.coordination;
+    selBehaviorPlanningHorizon.value = behaviorFields.planningHorizon;
+    selBehaviorTargetStickiness.value = behaviorFields.targetStickiness;
+    selBehaviorCognition.title = behaviorFields.cognition ? '' : `Default: ${behaviorFields.defaults.cognition}`;
+    selBehaviorDrive.title = behaviorFields.drive ? '' : `Default: ${behaviorFields.defaults.drive}`;
+    selBehaviorRiskTolerance.title = behaviorFields.riskTolerance ? '' : `Default: ${behaviorFields.defaults.riskTolerance}`;
+    selBehaviorCoordination.title = behaviorFields.coordination ? '' : `Default: ${behaviorFields.defaults.coordination}`;
+    selBehaviorPlanningHorizon.title = behaviorFields.planningHorizon ? '' : `Default: ${behaviorFields.defaults.planningHorizon}`;
+    selBehaviorTargetStickiness.title = behaviorFields.targetStickiness ? '' : `Default: ${behaviorFields.defaults.targetStickiness}`;
     selSpellsJson.value = metadataJson(token?.spells);
     selAttacksJson.value = metadataJson(token?.attacks);
-    if (tokenMetadataStatus) tokenMetadataStatus.textContent = 'Structured metadata is saved with board exports and sent to the tactical controller.';
+    updateTokenMetadataStatus(token);
   }
 
   function saveEditorToCurrentTurnToken() {
@@ -3771,15 +3836,40 @@ import {
     });
 
     const role = selTacticalRole.value.trim();
+    const mappedCoreRole = selMappedCoreRole.value.trim();
     const objectiveRole = selObjectiveRole.value.trim();
     const roleNotes = selRoleNotes.value.trim();
     const protectedAsset = selProtectedAsset.checked;
-    t.tactical = role || protectedAsset || objectiveRole || roleNotes
+    const previousTactical = t.tactical && typeof t.tactical === 'object' ? t.tactical : {};
+    t.tactical = role || mappedCoreRole || protectedAsset || objectiveRole || roleNotes
       ? {
+        ...previousTactical,
         role,
+        mapped_core_role: mappedCoreRole,
+        coreRole: mappedCoreRole,
+        mappedCoreRole,
+        protected_asset: protectedAsset,
         protectedAsset,
+        objective_role: objectiveRole,
         objectiveRole,
+        role_notes: roleNotes,
         roleNotes
+      }
+      : null;
+    const cognition = selBehaviorCognition.value.trim();
+    const drive = selBehaviorDrive.value.trim();
+    const riskTolerance = selBehaviorRiskTolerance.value.trim();
+    const coordination = selBehaviorCoordination.value.trim();
+    const planningHorizon = selBehaviorPlanningHorizon.value.trim();
+    const targetStickiness = selBehaviorTargetStickiness.value.trim();
+    t.behavior = cognition || drive || riskTolerance || coordination || planningHorizon || targetStickiness
+      ? {
+        cognition,
+        drive,
+        riskTolerance,
+        coordination,
+        planningHorizon,
+        targetStickiness
       }
       : null;
     try {
@@ -3787,7 +3877,7 @@ import {
       t.attacks = parseMetadataJsonArray(selAttacksJson.value, 'Structured attacks');
       selSpellsJson.style.borderColor = '';
       selAttacksJson.style.borderColor = '';
-      if (tokenMetadataStatus) tokenMetadataStatus.textContent = 'Structured metadata is saved with board exports and sent to the tactical controller.';
+      updateTokenMetadataStatus(t);
     } catch (err) {
       if (tokenMetadataStatus) tokenMetadataStatus.textContent = err.message || String(err);
       if (String(err.message || err).includes('spells')) selSpellsJson.style.borderColor = 'rgba(255,90,122,.75)';
@@ -3804,6 +3894,9 @@ import {
     el.addEventListener('input', saveEditorToCurrentTurnToken);
   }
   selProtectedAsset.addEventListener('change', saveEditorToCurrentTurnToken);
+  for (const el of [selBehaviorCognition, selBehaviorRiskTolerance, selBehaviorCoordination, selBehaviorPlanningHorizon, selBehaviorTargetStickiness]) {
+    el.addEventListener('change', saveEditorToCurrentTurnToken);
+  }
 
   menuAddArt.addEventListener('click', () => {
     if (state.contextMenuTokenId) openTokenArtEditor(state.contextMenuTokenId);
@@ -4872,6 +4965,7 @@ import {
     getAutosaveSnapshot: async (entryId) => await boardPersistence.loadAutosaveSnapshot(entryId),
     getSaveSlots: () => loadSaveSlotsFromStorage().map((slot) => ({ id: slot.id, name: slot.name, savedAt: slot.savedAt })),
 	    getSaveSlotSnapshot: async (slotId) => await boardPersistence.loadSaveSlotSnapshot(slotId),
+    saveCurrentTurnEditor: () => saveEditorToCurrentTurnToken(),
     selectSaveSlotByName: (name) => {
       const slots = loadSaveSlotsFromStorage();
       const slot = slots.find((entry) => entry.name === String(name || '')) || null;

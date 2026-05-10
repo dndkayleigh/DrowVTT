@@ -328,16 +328,82 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
               <input id="selTacticalRole" type="text" placeholder="boss_caster" />
             </div>
             <div>
+              <label for="selMappedCoreRole">Core role override</label>
+              <input id="selMappedCoreRole" type="text" placeholder="support_caster" />
+            </div>
+            <div>
               <label for="selObjectiveRole">Objective role</label>
               <input id="selObjectiveRole" type="text" placeholder="ritual_actor" />
             </div>
           </div>
+          <div class="sectionNote" id="tokenCoreRoleStatus" style="margin-top:8px;">Core role is inferred at runtime unless explicitly overridden.</div>
           <div class="checkRow" style="margin-top:8px">
             <input id="selProtectedAsset" type="checkbox" />
             <label for="selProtectedAsset" style="margin:0;color:var(--muted)">Protected asset</label>
           </div>
           <label for="selRoleNotes" style="margin-top:8px;">Role notes</label>
           <textarea id="selRoleNotes" spellcheck="false" placeholder="How this token should behave tactically."></textarea>
+          <div class="compactRow" style="margin-top:8px;">
+            <div>
+              <label for="selBehaviorCognition">Cognition</label>
+              <select id="selBehaviorCognition">
+                <option value="">Default</option>
+                <option value="mindless">mindless</option>
+                <option value="simple">simple</option>
+                <option value="animal">animal</option>
+                <option value="trained">trained</option>
+                <option value="cunning">cunning</option>
+                <option value="genius">genius</option>
+              </select>
+            </div>
+            <div>
+              <label for="selBehaviorCoordination">Coordination</label>
+              <select id="selBehaviorCoordination">
+                <option value="">Default</option>
+                <option value="none">none</option>
+                <option value="pack">pack</option>
+                <option value="squad">squad</option>
+                <option value="commander_led">commander_led</option>
+                <option value="hive">hive</option>
+              </select>
+            </div>
+            <div>
+              <label for="selBehaviorRiskTolerance">Risk tolerance</label>
+              <select id="selBehaviorRiskTolerance">
+                <option value="">Default</option>
+                <option value="fearless">fearless</option>
+                <option value="normal">normal</option>
+                <option value="self_preserving">self_preserving</option>
+                <option value="cowardly">cowardly</option>
+                <option value="berserk">berserk</option>
+              </select>
+            </div>
+          </div>
+          <div class="compactRow" style="margin-top:8px;">
+            <div>
+              <label for="selBehaviorDrive">Drive</label>
+              <input id="selBehaviorDrive" type="text" placeholder="nearest_living_prey" />
+            </div>
+            <div>
+              <label for="selBehaviorPlanningHorizon">Planning horizon</label>
+              <select id="selBehaviorPlanningHorizon">
+                <option value="">Default</option>
+                <option value="immediate">immediate</option>
+                <option value="short">short</option>
+                <option value="medium">medium</option>
+                <option value="long">long</option>
+              </select>
+            </div>
+            <div>
+              <label for="selBehaviorTargetStickiness">Target stickiness</label>
+              <select id="selBehaviorTargetStickiness">
+                <option value="">Default</option>
+                <option value="low">low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+              </select>
+            </div>
+          </div>
           <label for="selSpellsJson" style="margin-top:8px;">Structured spells JSON</label>
           <textarea id="selSpellsJson" spellcheck="false" placeholder='[{"name":"Shield","kind":"defensive","target":"self","rangeFt":0,"expectedValue":5}]'></textarea>
           <label for="selAttacksJson" style="margin-top:8px;">Structured attacks JSON</label>
