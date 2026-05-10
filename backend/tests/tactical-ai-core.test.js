@@ -1355,7 +1355,9 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
   const dragon = byActorId.get('young_black_dragon');
   assert.ok(dragon, 'expected group decision for Young Black Dragon');
   assert.equal(dragon.diagnostics.candidateSetHealth?.role, 'ambusher_bruiser');
+  assert.equal(dragon.diagnostics.candidateSetHealth?.roleSource, 'tactical.mapped_core_role');
   assert.equal(dragon.diagnostics.roleCompliance?.role, 'ambusher_bruiser');
+  assert.equal(dragon.diagnostics.roleCompliance?.roleSource, 'tactical.mapped_core_role');
   assert.equal(dragon.selected.family, 'shoot_and_scoot');
   assert.equal(dragon.selected.actionName, 'Acid Breath');
 
@@ -1366,7 +1368,9 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
   );
   for (const decision of lizardfolkDecisions) {
     assert.equal(decision.diagnostics.candidateSetHealth?.role, 'skirmisher');
+    assert.equal(decision.diagnostics.candidateSetHealth?.roleSource, 'tactical.mapped_core_role');
     assert.equal(decision.diagnostics.roleCompliance?.role, 'skirmisher');
+    assert.equal(decision.diagnostics.roleCompliance?.roleSource, 'tactical.mapped_core_role');
     assert.equal(harassmentFamilies.has(decision.selected.family), true, `${decision.actor.name} should use harassment-compatible family`);
     assert.equal(decision.selected.actionName, 'Javelin');
   }
@@ -1374,7 +1378,9 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
   assert.equal(trollDecisions.length, 2);
   for (const decision of trollDecisions) {
     assert.equal(decision.diagnostics.candidateSetHealth?.role, 'disciplined_blocker');
+    assert.equal(decision.diagnostics.candidateSetHealth?.roleSource, 'tactical.mapped_core_role');
     assert.equal(decision.diagnostics.roleCompliance?.role, 'disciplined_blocker');
+    assert.equal(decision.diagnostics.roleCompliance?.roleSource, 'tactical.mapped_core_role');
     assert.equal(decision.selected.family, 'move_and_attack');
     assert.equal(['Claw', 'Bite'].includes(decision.selected.actionName), true);
   }
@@ -1382,7 +1388,9 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
   const crocodile = byActorId.get('giant_crocodile');
   assert.ok(crocodile, 'expected group decision for Giant Crocodile');
   assert.equal(crocodile.diagnostics.candidateSetHealth?.role, 'ambusher_bruiser');
+  assert.equal(crocodile.diagnostics.candidateSetHealth?.roleSource, 'tactical.mapped_core_role');
   assert.equal(crocodile.diagnostics.roleCompliance?.role, 'ambusher_bruiser');
+  assert.equal(crocodile.diagnostics.roleCompliance?.roleSource, 'tactical.mapped_core_role');
   assert.equal(crocodile.selected.family, 'hold_hidden');
   assert.equal(crocodile.selected.actionName, 'hold_hidden');
   assert.equal(crocodile.diagnostics.candidateSetHealth?.status, 'warning');
@@ -1399,6 +1407,98 @@ test('Stony Shore exported blocking edges still block movement while nearby gaps
 
   assert.equal(hasBlockedMovementPath(encounter, { x: 3, y: 7 }, { x: 3, y: 8 }), true);
   assert.equal(hasBlockedMovementPath(encounter, { x: 4, y: 7 }, { x: 4, y: 8 }), false);
+});
+
+test('group controller preserves direct tactical coreRole on live-token-shaped actors', async () => {
+  const encounter = normalizeEncounterState({
+    activeActorId: 'dragon',
+    activationGroups: [{
+      id: 'monsters',
+      actorIds: ['dragon', 'crocodile', 'lizardfolk', 'troll'],
+      activationMode: 'coordinated_sequential'
+    }],
+    battlefield: {
+      width: 12,
+      height: 8,
+      gridSize: 64,
+      edges: [],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'dragon',
+        name: 'Young Black Dragon',
+        side: 'monsters',
+        cell: { x: 1, y: 1 },
+        speed: 40,
+        tactical: { role: 'mobile_boss_controller', coreRole: 'ambusher_bruiser' },
+        attacks: [{ name: 'Acid Breath', attackKind: 'ranged', rangeFt: 60, expectedDamage: 20 }]
+      },
+      {
+        id: 'crocodile',
+        name: 'Giant Crocodile',
+        side: 'monsters',
+        cell: { x: 1, y: 3 },
+        speed: 30,
+        tactical: { role: 'grappler_ambusher', coreRole: 'ambusher_bruiser' },
+        attacks: [{ name: 'Bite', attackKind: 'melee', rangeFt: 5, expectedDamage: 12 }]
+      },
+      {
+        id: 'lizardfolk',
+        name: 'Lizardfolk A',
+        side: 'monsters',
+        cell: { x: 1, y: 5 },
+        speed: 30,
+        tactical: { role: 'mobile_harasser', coreRole: 'skirmisher' },
+        attacks: [{ name: 'Javelin', attackKind: 'ranged', rangeFt: 30, expectedDamage: 5 }]
+      },
+      {
+        id: 'troll',
+        name: 'Troll A',
+        side: 'monsters',
+        cell: { x: 1, y: 6 },
+        speed: 30,
+        tactical: { role: 'brute_blocker', coreRole: 'disciplined_blocker' },
+        attacks: [{ name: 'Claw', attackKind: 'melee', rangeFt: 5, expectedDamage: 8 }]
+      },
+      {
+        id: 'hero_a',
+        name: 'Hero A',
+        side: 'heroes',
+        cell: { x: 8, y: 1 },
+        speed: 30,
+        attacks: [{ name: 'Longsword', attackKind: 'melee', rangeFt: 5, expectedDamage: 7 }]
+      },
+      {
+        id: 'hero_b',
+        name: 'Hero B',
+        side: 'heroes',
+        cell: { x: 8, y: 3 },
+        speed: 30,
+        attacks: [{ name: 'Longsword', attackKind: 'melee', rangeFt: 5, expectedDamage: 7 }]
+      }
+    ]
+  });
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter,
+    activationGroup: encounter.activationGroups[0],
+    candidateLimit: 24
+  });
+  const decisionLogs = new Map(
+    output.logs
+      .filter((log) => log.phase === 'decision')
+      .map((log) => [log.actorId, log])
+  );
+
+  assert.equal(decisionLogs.get('dragon')?.data?.diagnostics?.candidateSetHealth?.role, 'ambusher_bruiser');
+  assert.equal(decisionLogs.get('dragon')?.data?.diagnostics?.candidateSetHealth?.roleSource, 'tactical.coreRole');
+  assert.equal(decisionLogs.get('crocodile')?.data?.diagnostics?.candidateSetHealth?.role, 'ambusher_bruiser');
+  assert.equal(decisionLogs.get('crocodile')?.data?.diagnostics?.candidateSetHealth?.roleSource, 'tactical.coreRole');
+  assert.equal(decisionLogs.get('lizardfolk')?.data?.diagnostics?.candidateSetHealth?.role, 'skirmisher');
+  assert.equal(decisionLogs.get('lizardfolk')?.data?.diagnostics?.candidateSetHealth?.roleSource, 'tactical.coreRole');
+  assert.equal(decisionLogs.get('troll')?.data?.diagnostics?.candidateSetHealth?.role, 'disciplined_blocker');
+  assert.equal(decisionLogs.get('troll')?.data?.diagnostics?.candidateSetHealth?.roleSource, 'tactical.coreRole');
 });
 
 test('visible fixture actors without tactical metadata keep inferred roles', async () => {

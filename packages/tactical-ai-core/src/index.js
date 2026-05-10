@@ -119,24 +119,47 @@ const AUTHORED_TACTICAL_ROLE_TO_CORE_ROLE = {
   melee_disrupter: 'ambusher_bruiser'
 };
 
+const CORE_TACTICAL_ROLES = new Set([
+  'skirmisher',
+  'disciplined_blocker',
+  'ambusher_bruiser',
+  'support_caster',
+  'soldier'
+]);
+
+function resolveCoreRole(tactical = null) {
+  if (!tactical || typeof tactical !== 'object') return { coreRole: '', source: '' };
+  const mappedCoreRole = String(tactical.mapped_core_role ?? tactical.mappedCoreRole ?? '').trim();
+  if (mappedCoreRole) return { coreRole: mappedCoreRole, source: 'tactical.mapped_core_role' };
+  const directCoreRole = String(tactical.core_role ?? tactical.coreRole ?? '').trim();
+  if (directCoreRole) return { coreRole: directCoreRole, source: 'tactical.coreRole' };
+  const authoredRole = String(tactical.role ?? tactical.authoredRole ?? '').trim();
+  if (CORE_TACTICAL_ROLES.has(authoredRole)) return { coreRole: authoredRole, source: 'tactical.role' };
+  const mappedAuthoredRole = AUTHORED_TACTICAL_ROLE_TO_CORE_ROLE[authoredRole] || '';
+  if (mappedAuthoredRole) return { coreRole: mappedAuthoredRole, source: 'tactical.role_map' };
+  return { coreRole: '', source: '' };
+}
+
 function normalizeTacticalMetadata(tactical = null) {
   const empty = {
     role: '',
     authoredRole: '',
     coreRole: '',
+    coreRoleSource: '',
     protectedAsset: false,
     objectiveRole: '',
     roleNotes: ''
   };
   if (!tactical || typeof tactical !== 'object') return empty;
   const authoredRole = String(tactical.role || tactical.authoredRole || '').trim();
-  const coreRole = AUTHORED_TACTICAL_ROLE_TO_CORE_ROLE[authoredRole] || tactical.mapped_core_role || tactical.mappedCoreRole || '';
+  const { coreRole, source: coreRoleSource } = resolveCoreRole(tactical);
   return {
     ...empty,
     ...tactical,
     role: authoredRole,
     authoredRole,
     coreRole,
+    coreRoleSource,
     protectedAsset: Boolean(tactical.protected_asset ?? tactical.protectedAsset),
     objectiveRole: String(tactical.objective_role ?? tactical.objectiveRole ?? '').trim(),
     roleNotes: String(tactical.role_notes ?? tactical.roleNotes ?? '').trim()
@@ -1708,7 +1731,8 @@ function expectedCandidateFamiliesForRole(role) {
 }
 
 function buildCandidateSetHealth(actor, uniqueScored = []) {
-  const role = inferActorRole(actor);
+  const normalizedTactical = normalizeTacticalMetadata(actor.tactical);
+  const role = normalizedTactical.coreRole || inferActorRole(actor);
   const availableFamilies = [...new Set(uniqueScored.map((entry) => entry.candidate.family).filter(Boolean))].sort();
   const expectedFamilies = expectedCandidateFamiliesForRole(role);
   const missingExpectedCandidates = expectedFamilies.filter((family) => !availableFamilies.includes(family));
@@ -1717,6 +1741,7 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
     : missingExpectedCandidates.length ? 'weak_pass' : 'pass';
   return {
     role,
+    roleSource: normalizedTactical.coreRoleSource || 'heuristic',
     status,
     availableFamilies,
     expectedFamilies,
@@ -1756,7 +1781,8 @@ function buildSpellTargetExplanation(encounter, actor, selected, uniqueScored = 
 }
 
 function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null) {
-  const role = inferActorRole(actor);
+  const normalizedTactical = normalizeTacticalMetadata(actor.tactical);
+  const role = normalizedTactical.coreRole || inferActorRole(actor);
   const checks = [];
   let status = 'pass';
   let concern = '';
@@ -1798,7 +1824,7 @@ function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null)
     }
   }
 
-  return { role, status, concern, checks };
+  return { role, roleSource: normalizedTactical.coreRoleSource || 'heuristic', status, concern, checks };
 }
 
 function protectedAssetSafetyDelta(encounter, actor, candidate, doctrineContext = {}) {
@@ -2489,7 +2515,7 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       actorId: actor.id,
       phase: 'role_compliance',
       level: role.status === 'pass' ? 'info' : 'warning',
-      message: `${actor.name} role compliance ${role.status.toUpperCase()}: role=${role.role}${role.concern ? `; concern=${role.concern}` : ''}.`,
+      message: `${actor.name} role compliance ${role.status.toUpperCase()}: role=${role.role}${role.roleSource ? `; source=${role.roleSource}` : ''}${role.concern ? `; concern=${role.concern}` : ''}.`,
       data: { roleCompliance: role }
     }));
   }
@@ -2500,7 +2526,7 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       actorId: actor.id,
       phase: 'candidate_health',
       level: health.status === 'pass' ? 'info' : 'warning',
-      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}.`,
+      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}${health.roleSource ? `; source=${health.roleSource}` : ''}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}.`,
       data: { candidateSetHealth: health }
     }));
   }
