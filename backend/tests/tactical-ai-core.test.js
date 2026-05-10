@@ -75,6 +75,25 @@ function encounterWithBlocking() {
   });
 }
 
+function stonyShoreFixture() {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/the-stony-shore-ambush-2026-05-09.yaml'),
+    'utf8'
+  );
+  return parseVisibleEncounterFixture(source);
+}
+
+function isCellInBounds(encounter, cell) {
+  const x = Number(cell?.x);
+  const y = Number(cell?.y);
+  return Number.isInteger(x)
+    && Number.isInteger(y)
+    && x >= 0
+    && y >= 0
+    && x < encounter.battlefield.width
+    && y < encounter.battlefield.height;
+}
+
 test('tactical core validates and normalizes encounter state', () => {
   const result = validateEncounterState(encounterWithBlocking());
   assert.equal(result.ok, true);
@@ -1218,11 +1237,7 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
 });
 
 test('Stony Shore Ambush fixture loads benchmark metadata', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/the-stony-shore-ambush-2026-05-09.yaml'),
-    'utf8'
-  );
-  const fixture = parseVisibleEncounterFixture(source);
+  const fixture = stonyShoreFixture();
   const monsters = fixture.encounter.actors.filter((actor) => actor.side === 'monsters');
   const monsterCounts = monsters.reduce((counts, actor) => {
     const baseName = actor.name.replace(/ [A-Z]$/, '');
@@ -1273,7 +1288,101 @@ test('Stony Shore Ambush fixture loads benchmark metadata', () => {
   assert.equal(expectations.includes('moveDoesNotCrossBlocking'), true);
   assert.equal(mustExpectations.includes('noOccupiedDestination'), true);
   assert.equal(mustExpectations.includes('moveDoesNotCrossBlocking'), true);
+  assert.equal(fixture.encounter.battlefield.width, 56);
+  assert.equal(fixture.encounter.battlefield.height, 24);
+  assert.equal(fixture.encounter.battlefield.gridSize, 300);
+  assert.ok(fixture.encounter.battlefield.edges.length > 0);
   assert.equal(fixture.encounter.activationGroups[0]?.actorIds.length, 8);
+});
+
+test('Stony Shore bounds include logged coordinates on the exported board', () => {
+  const fixture = stonyShoreFixture();
+  const { encounter } = fixture;
+
+  assert.equal(isCellInBounds(encounter, { x: 39, y: 10 }), true);
+  assert.equal(isCellInBounds(encounter, { x: 41, y: 12 }), true);
+  assert.equal(isCellInBounds(encounter, { x: 56, y: 10 }), false);
+  assert.equal(isCellInBounds(encounter, { x: -1, y: 10 }), false);
+  assert.equal(isCellInBounds(encounter, { x: 10, y: -1 }), false);
+});
+
+test('Stony Shore group controller destinations stay within battlefield bounds', async () => {
+  const fixture = stonyShoreFixture();
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter: fixture.encounter,
+    activationGroup: fixture.encounter.activationGroups[0],
+    candidateLimit: 36
+  });
+
+  for (const move of output.plan?.moves || []) {
+    assert.equal(
+      isCellInBounds(fixture.encounter, { x: move.to?.[0], y: move.to?.[1] }),
+      true,
+      `expected in-bounds move destination for ${move.token}: (${move.to?.[0]},${move.to?.[1]})`
+    );
+  }
+});
+
+test('Stony Shore group controller preserves benchmark behavior roles', async () => {
+  const fixture = stonyShoreFixture();
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter: fixture.encounter,
+    activationGroup: fixture.encounter.activationGroups[0],
+    candidateLimit: 36
+  });
+  const actorById = new Map(fixture.encounter.actors.map((actor) => [actor.id, actor]));
+  const decisions = (output.logs || [])
+    .filter((log) => log.phase === 'decision' && actorById.has(log.actorId))
+    .filter((log) => log.data?.selected)
+    .map((log) => ({
+      actor: actorById.get(log.actorId),
+      selected: log.data.selected,
+      diagnostics: log.data.diagnostics || {}
+    }));
+  const byActorId = new Map(decisions.map((entry) => [entry.actor.id, entry]));
+  const lizardfolkDecisions = decisions.filter((entry) => entry.actor.name.startsWith('Lizardfolk '));
+  const trollDecisions = decisions.filter((entry) => entry.actor.name.startsWith('Troll '));
+  const harassmentFamilies = new Set(['shoot_and_scoot', 'move_and_attack']);
+
+  const dragon = byActorId.get('young_black_dragon');
+  assert.ok(dragon, 'expected group decision for Young Black Dragon');
+  assert.equal(dragon.selected.family, 'shoot_and_scoot');
+  assert.equal(dragon.selected.actionName, 'Acid Breath');
+
+  assert.ok(lizardfolkDecisions.length >= 4, 'expected decisions for all lizardfolk');
+  assert.ok(
+    lizardfolkDecisions.some((entry) => entry.selected.family === 'shoot_and_scoot'),
+    'expected at least one lizardfolk to use shoot_and_scoot harassment'
+  );
+  for (const decision of lizardfolkDecisions) {
+    assert.equal(harassmentFamilies.has(decision.selected.family), true, `${decision.actor.name} should use harassment-compatible family`);
+    assert.equal(decision.selected.actionName, 'Javelin');
+  }
+
+  assert.equal(trollDecisions.length, 2);
+  for (const decision of trollDecisions) {
+    assert.equal(decision.selected.family, 'move_and_attack');
+    assert.equal(['Claw', 'Bite'].includes(decision.selected.actionName), true);
+  }
+
+  const crocodile = byActorId.get('giant_crocodile');
+  assert.ok(crocodile, 'expected group decision for Giant Crocodile');
+  assert.equal(crocodile.selected.family, 'hold_hidden');
+  assert.equal(crocodile.selected.actionName, 'hold_hidden');
+  assert.equal(crocodile.diagnostics.candidateSetHealth?.status, 'warning');
+  assert.equal(crocodile.diagnostics.roleCompliance?.status, 'warning');
+  assert.deepEqual(
+    crocodile.diagnostics.candidateSetHealth?.missingExpectedCandidates,
+    ['intercept_flanker', 'attack_isolated_target', 'move_and_attack']
+  );
+});
+
+test('Stony Shore exported blocking edges still block movement while nearby gaps stay open', () => {
+  const fixture = stonyShoreFixture();
+  const { encounter } = fixture;
+
+  assert.equal(hasBlockedMovementPath(encounter, { x: 3, y: 7 }, { x: 3, y: 8 }), true);
+  assert.equal(hasBlockedMovementPath(encounter, { x: 4, y: 7 }, { x: 4, y: 8 }), false);
 });
 
 test('visible fixture actors without tactical metadata keep inferred roles', async () => {

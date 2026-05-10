@@ -97,10 +97,15 @@ activationGroups:
     actorIds: [young_black_dragon, troll_a, troll_b, lizardfolk_a, lizardfolk_b, lizardfolk_c, lizardfolk_d, giant_crocodile]
     activationMode: coordinated_sequential
 
+# Dimensions and grid size come from the VTT-exported board built against the
+# original 300 px-per-cell map workflow, not the older 36-column abstraction.
 battlefield:
   width: 56
   height: 24
   gridSize: 300
+  # Preserve the edge geometry exactly as exported from the VTT board. These
+  # coordinates align with the 56x24 board and should not be re-authored until
+  # a deliberate visual redraw is needed.
   blockingEdges:
     - orientation: h
       x: 0
