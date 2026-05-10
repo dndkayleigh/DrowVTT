@@ -93,6 +93,33 @@ Expected deliverables:
 - decision logging format
 - README with architecture and extension points
 
+## Near-Term Roadmap Additions
+
+These are the next practical slices that should be folded into the shared OSS/SaaS tactical roadmap.
+
+1. Re-implement AI tactics around the behavior-aware stack
+- consolidate the active tactics experience around deterministic legality, candidate generation, behavior profiles, and the supervisory coordination layer
+- reduce legacy mode sprawl in the UI so users see clearer tactical choices without losing the underlying engine flexibility
+- preserve Stony Shore, Zombie Doorway, and Wolf Pack as the benchmark guardrails while this cleanup happens
+
+2. Expose role and cognition in the Turn UI
+- surface tactical role, inferred/core role, and behavior-profile cognition/coordination fields for monsters directly in the Turn panel
+- make these fields editable in the live VTT without requiring YAML or debug-hook workflows
+- keep authored metadata and inferred defaults distinguishable so users can tell when they are overriding versus inheriting behavior
+
+3. Simplify hosted tactical choices in SaaS
+- SaaS should expose only one standard tactical AI option and one supervisory tactical AI option
+- single-actor versus grouped activation should be chosen automatically from the current monster selection count
+- do not expose separate single/group tactical choices in the hosted product UI even if the underlying engine still supports both execution scopes
+- keep this as a hosted-shell/product decision, not a change to the underlying shared controller capabilities
+
+4. Add a visible player-facing combat log
+- create a semi-transparent floating log on the right side of the map
+- make it filterable so users can focus on narration, moves, attacks, or system messages
+- make it vertically resizable with a visible drag handle
+- keep it distinct from the current heavy debugging log in the Tactics drawer
+- use it for readable encounter feedback during live play, not deep tactical debugging
+
 ## Current Implementation Seam
 
 The smallest clean seam already exists:
