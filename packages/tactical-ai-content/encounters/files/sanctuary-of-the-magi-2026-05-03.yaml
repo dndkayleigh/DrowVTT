@@ -1,6 +1,7 @@
 id: sanctuary_of_the_magi_2026_05_03
 title: The Ossuary Gate Rite
 category: custom
+benchmark_status: pressure_test
 description: |
   name: "The Ossuary Gate Rite"
   map: "Sanctuary of the Magi"

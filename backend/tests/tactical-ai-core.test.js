@@ -103,6 +103,14 @@ function wolfPackFixture() {
   return parseVisibleEncounterFixture(source);
 }
 
+function sinkholeWatchFixture() {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/the-sinkhole-watch-2026-04-29.yaml'),
+    'utf8'
+  );
+  return parseVisibleEncounterFixture(source);
+}
+
 function isCellInBounds(encounter, cell) {
   const x = Number(cell?.x);
   const y = Number(cell?.y);
@@ -1515,6 +1523,30 @@ test('Wolf Pack Harrier preserves explicit animal/pack behavior while default be
   assert.ok(zombie);
   assert.equal(zombie.behavior.cognition, 'mindless');
   assert.deepEqual(dragon.behavior, inferDefaultBehaviorProfile(dragon));
+});
+
+test('Sinkhole Watch preserves explicit trained/squad monster behavior while heroes keep defaults', () => {
+  const fixture = sinkholeWatchFixture();
+  const goblin = fixture.encounter.actors.find((actor) => actor.id === 'cbnpkbyw');
+  const bugbear = fixture.encounter.actors.find((actor) => actor.id === 'z1xkam45');
+  const hero = fixture.encounter.actors.find((actor) => actor.id === 'cp05pyfz');
+  const rawGoblin = (fixture.raw.actors || []).find((actor) => actor.id === 'cbnpkbyw');
+
+  assert.equal(fixture.raw.benchmark_status, 'regression');
+  assert.ok(goblin);
+  assert.deepEqual(rawGoblin?.behavior, {
+    cognition: 'trained',
+    drive: 'tactical_role_objective',
+    riskTolerance: 'normal',
+    coordination: 'squad',
+    planningHorizon: 'short',
+    targetStickiness: 'medium'
+  });
+  assert.deepEqual(goblin.behavior, inferDefaultBehaviorProfile(goblin));
+  assert.ok(bugbear);
+  assert.deepEqual(bugbear.behavior, inferDefaultBehaviorProfile(bugbear));
+  assert.ok(hero);
+  assert.deepEqual(hero.behavior, inferDefaultBehaviorProfile(hero));
 });
 
 test('animal pack prefers isolated or wounded reachable prey over protected prey', async () => {

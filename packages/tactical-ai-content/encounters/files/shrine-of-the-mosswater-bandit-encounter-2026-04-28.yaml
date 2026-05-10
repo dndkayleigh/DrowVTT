@@ -1,6 +1,7 @@
 id: shrine_of_the_mosswater_2026_04_28
 title: Shrine of the Mosswater
 category: mosswater ranged skirmish
+benchmark_status: regression
 description: |
   ideal_behavior:
     summary: >

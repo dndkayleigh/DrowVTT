@@ -1,6 +1,7 @@
 id: the_sinkhole_watch_2026_04_29
 title: The Sinkhole Watch - 2026-04-29
 category: custom
+benchmark_status: regression
 description: |
   name: "The Sinkhole Watch"
   
@@ -324,6 +325,13 @@ actors:
     side: monsters
     position: [16, 6]
     speed: 30
+    behavior:
+      cognition: trained
+      drive: tactical_role_objective
+      riskTolerance: normal
+      coordination: squad
+      planningHorizon: short
+      targetStickiness: medium
     attacks:
       - name: Scimitar
         kind: melee
@@ -338,6 +346,13 @@ actors:
     side: monsters
     position: [17, 9]
     speed: 30
+    behavior:
+      cognition: trained
+      drive: tactical_role_objective
+      riskTolerance: normal
+      coordination: squad
+      planningHorizon: short
+      targetStickiness: medium
     attacks:
       - name: Scimitar
         kind: melee
@@ -352,6 +367,13 @@ actors:
     side: monsters
     position: [7, 6]
     speed: 30
+    behavior:
+      cognition: trained
+      drive: tactical_role_objective
+      riskTolerance: normal
+      coordination: squad
+      planningHorizon: short
+      targetStickiness: medium
     attacks:
       - name: Scimitar
         kind: melee
@@ -366,6 +388,13 @@ actors:
     side: monsters
     position: [14, 6]
     speed: 30
+    behavior:
+      cognition: trained
+      drive: tactical_role_objective
+      riskTolerance: normal
+      coordination: squad
+      planningHorizon: short
+      targetStickiness: medium
     attacks:
       - name: Longsword
         kind: melee
@@ -380,6 +409,13 @@ actors:
     side: monsters
     position: [21, 6]
     speed: 30
+    behavior:
+      cognition: trained
+      drive: tactical_role_objective
+      riskTolerance: normal
+      coordination: squad
+      planningHorizon: short
+      targetStickiness: medium
     attacks:
       - name: Longsword
         kind: melee
@@ -394,6 +430,13 @@ actors:
     side: monsters
     position: [17, 14]
     speed: 30
+    behavior:
+      cognition: trained
+      drive: tactical_role_objective
+      riskTolerance: normal
+      coordination: squad
+      planningHorizon: short
+      targetStickiness: medium
     attacks:
       - name: Morningstar
         kind: melee
@@ -412,6 +455,13 @@ actors:
     side: monsters
     position: [17, 6]
     speed: 30
+    behavior:
+      cognition: trained
+      drive: tactical_role_objective
+      riskTolerance: normal
+      coordination: squad
+      planningHorizon: short
+      targetStickiness: medium
     attacks:
       - name: Club
         kind: melee

@@ -1,6 +1,7 @@
 id: bandit_doorway_ambush
 title: Bandit Doorway Ambush
 category: doorway ranged skirmish
+benchmark_status: smoke
 description: |
   ideal_behavior:
     summary: >

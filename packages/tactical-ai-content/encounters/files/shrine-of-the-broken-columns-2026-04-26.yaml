@@ -1,6 +1,7 @@
 id: shrine_of_the_broken_columns_2026_04_26
 title: Shrine of the Broken Columns
 category: ranged cover skirmish
+benchmark_status: regression
 description: |
   Four PCs enter a ruined shrine from the south. The playable tactical interior
   is a 13x13 grid; the visual outer wall from the source sketch is intentionally
