@@ -320,6 +320,8 @@ Current supported behavior tiers in the local controller path are:
 - `trained / squad` default
 - advanced trained/squad tactical behavior exercised by the Stony Shore benchmark
 
+The live VTT authoring surface for these fields is documented in [docs/turn-panel-tactical-metadata.md](docs/turn-panel-tactical-metadata.md).
+
 Behavior profiles are portable. System-specific mechanics such as movement-reaction risk are interpreted inside the tactical rules/adapter layer, then weighted by behavior.
 
 ### How Tactical Decisions Are Executed

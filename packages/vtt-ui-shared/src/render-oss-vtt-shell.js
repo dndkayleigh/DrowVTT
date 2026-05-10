@@ -347,7 +347,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
             <div>
               <label for="selBehaviorCognition">Cognition</label>
               <select id="selBehaviorCognition">
-                <option value="">Default</option>
+                <option value="">Use default (trained)</option>
                 <option value="mindless">mindless</option>
                 <option value="simple">simple</option>
                 <option value="animal">animal</option>
@@ -359,7 +359,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
             <div>
               <label for="selBehaviorCoordination">Coordination</label>
               <select id="selBehaviorCoordination">
-                <option value="">Default</option>
+                <option value="">Use default (squad)</option>
                 <option value="none">none</option>
                 <option value="pack">pack</option>
                 <option value="squad">squad</option>
@@ -370,7 +370,7 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
             <div>
               <label for="selBehaviorRiskTolerance">Risk tolerance</label>
               <select id="selBehaviorRiskTolerance">
-                <option value="">Default</option>
+                <option value="">Use default (normal)</option>
                 <option value="fearless">fearless</option>
                 <option value="normal">normal</option>
                 <option value="self_preserving">self_preserving</option>
@@ -382,12 +382,12 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
           <div class="compactRow" style="margin-top:8px;">
             <div>
               <label for="selBehaviorDrive">Drive</label>
-              <input id="selBehaviorDrive" type="text" placeholder="nearest_living_prey" />
+              <input id="selBehaviorDrive" type="text" placeholder="blank = default (tactical_role_objective)" />
             </div>
             <div>
               <label for="selBehaviorPlanningHorizon">Planning horizon</label>
               <select id="selBehaviorPlanningHorizon">
-                <option value="">Default</option>
+                <option value="">Use default (short)</option>
                 <option value="immediate">immediate</option>
                 <option value="short">short</option>
                 <option value="medium">medium</option>
@@ -397,13 +397,14 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
             <div>
               <label for="selBehaviorTargetStickiness">Target stickiness</label>
               <select id="selBehaviorTargetStickiness">
-                <option value="">Default</option>
+                <option value="">Use default (medium)</option>
                 <option value="low">low</option>
                 <option value="medium">medium</option>
                 <option value="high">high</option>
               </select>
             </div>
           </div>
+          <div class="sectionNote" style="margin-top:8px;">Blank behavior fields inherit the controller defaults shown in parentheses unless you set an explicit override.</div>
           <label for="selSpellsJson" style="margin-top:8px;">Structured spells JSON</label>
           <textarea id="selSpellsJson" spellcheck="false" placeholder='[{"name":"Shield","kind":"defensive","target":"self","rangeFt":0,"expectedValue":5}]'></textarea>
           <label for="selAttacksJson" style="margin-top:8px;">Structured attacks JSON</label>
