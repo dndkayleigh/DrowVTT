@@ -4872,6 +4872,21 @@ import {
     getAutosaveSnapshot: async (entryId) => await boardPersistence.loadAutosaveSnapshot(entryId),
     getSaveSlots: () => loadSaveSlotsFromStorage().map((slot) => ({ id: slot.id, name: slot.name, savedAt: slot.savedAt })),
 	    getSaveSlotSnapshot: async (slotId) => await boardPersistence.loadSaveSlotSnapshot(slotId),
+    selectSaveSlotByName: (name) => {
+      const slots = loadSaveSlotsFromStorage();
+      const slot = slots.find((entry) => entry.name === String(name || '')) || null;
+      if (!slot) return null;
+      saveSlotSelect.value = slot.id;
+      saveSlotSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      return { id: slot.id, name: slot.name, savedAt: slot.savedAt };
+    },
+    loadSelectedSaveSlot: async () => await loadBoardFromSelectedSlot(),
+    deleteSaveSlotByName: async (name) => {
+      const slot = window.__VTT_DEBUG__.selectSaveSlotByName(name);
+      if (!slot) return false;
+      await deleteSelectedSlot();
+      return true;
+    },
 	    getSessionEvents: () => sessionSync.getPublishedEvents(),
 	    getUsageEvents: () => usageTracking.getUsageEvents(),
 	    getBlockingEdges: () => getBlockingEdgeKeys(),

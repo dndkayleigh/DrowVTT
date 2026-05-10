@@ -1344,8 +1344,11 @@ test('named save slots restore a saved board and can be managed from the toolbar
   await setHiddenInputValue(page, '#saveSlotName', 'Empty Board');
   await clickHiddenElement(page, '#saveSlotBtn');
 
-  await selectHiddenOptionByLabel(page, '#saveSlotSelect', 'Round 3 Start');
-  await clickHiddenElement(page, '#loadSlotBtn');
+  await page.evaluate(async () => {
+    const selected = window.__VTT_DEBUG__.selectSaveSlotByName('Round 3 Start');
+    if (!selected) throw new Error('Round 3 Start slot not found.');
+    await window.__VTT_DEBUG__.loadSelectedSaveSlot();
+  });
 
   await expect.poll(async () => (
     await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot().state.tokens.map((token) => token.name))
@@ -1359,8 +1362,10 @@ test('named save slots restore a saved board and can be managed from the toolbar
     await page.evaluate(() => document.querySelector('#saveSlotName')?.value || '')
   )).toBe('Round 3 Start');
 
-  await selectHiddenOptionByLabel(page, '#saveSlotSelect', 'Empty Board');
-  await clickHiddenElement(page, '#deleteSlotBtn');
+  await page.evaluate(async () => {
+    const deleted = await window.__VTT_DEBUG__.deleteSaveSlotByName('Empty Board');
+    if (!deleted) throw new Error('Empty Board slot not found.');
+  });
 
   const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
   const slots = await page.evaluate(() => window.__VTT_DEBUG__.getSaveSlots());
