@@ -172,18 +172,18 @@ behavior:
 ```
 
 In the Turn panel:
-- blank behavior fields mean “use the default/inferred value”
-- explicit non-blank fields mean “store this value on the token”
+- behavior dropdowns always show the currently active value, even when that value is inherited
+- the `Drive` text field may stay blank to mean “use the default/inferred value”
+- explicit non-blank values mean “store this value on the token”
 
 The panel shows current default values through status text and field tooltips so a user can tell whether they are inheriting behavior or overriding it.
 
-For the select-style behavior fields, the blank option is labeled with the inherited default in parentheses, such as:
+For the select-style behavior fields, the dropdown always shows the currently active value.
 
-- `Use default (trained)`
-- `Use default (squad)`
-- `Use default (normal)`
+- if the token is inheriting controller defaults, the dropdown shows that inherited value
+- if the token has an explicit override, the dropdown shows the override
 
-The `Drive` text field uses a placeholder that explains its blank-state default.
+The `Drive` text field remains blank when it is inheriting the default, and its placeholder explains that blank-state default.
 
 ## What Saves Where
 

@@ -3721,6 +3721,28 @@ import {
     };
   }
 
+  function setBehaviorSelectState(selectEl, explicitValue, defaultValue) {
+    if (!selectEl) return;
+    const explicit = String(explicitValue ?? '').trim();
+    const fallback = String(defaultValue ?? '').trim();
+    const optionValues = new Set(Array.from(selectEl.options || []).map((option) => String(option.value || '')));
+    const active = explicit && optionValues.has(explicit) ? explicit : fallback;
+    selectEl.dataset.defaultValue = fallback;
+    selectEl.dataset.inherited = explicit ? 'false' : 'true';
+    if (active) selectEl.value = active;
+    selectEl.title = explicit
+      ? `Explicit override. Inherited default: ${fallback}`
+      : `Inherited default: ${fallback}`;
+  }
+
+  function behaviorSelectOverrideValue(selectEl) {
+    if (!selectEl) return '';
+    const value = String(selectEl.value ?? '').trim();
+    const defaultValue = String(selectEl.dataset.defaultValue ?? '').trim();
+    const inherited = String(selectEl.dataset.inherited ?? 'false') === 'true';
+    return inherited && value === defaultValue ? '' : value;
+  }
+
   function updateTokenMetadataStatus(token = null) {
     const tactical = token?.tactical || {};
     const mappedCoreRole = String(tactical.mapped_core_role ?? tactical.mappedCoreRole ?? tactical.coreRole ?? '').trim();
@@ -3805,18 +3827,13 @@ import {
     selProtectedAsset.checked = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
     selObjectiveRole.value = tactical.objective_role || tactical.objectiveRole || '';
     selRoleNotes.value = tactical.role_notes || tactical.roleNotes || '';
-    selBehaviorCognition.value = behaviorFields.cognition;
+    setBehaviorSelectState(selBehaviorCognition, behaviorFields.cognition, behaviorFields.defaults.cognition);
     selBehaviorDrive.value = behaviorFields.drive;
-    selBehaviorRiskTolerance.value = behaviorFields.riskTolerance;
-    selBehaviorCoordination.value = behaviorFields.coordination;
-    selBehaviorPlanningHorizon.value = behaviorFields.planningHorizon;
-    selBehaviorTargetStickiness.value = behaviorFields.targetStickiness;
-    selBehaviorCognition.title = behaviorFields.cognition ? '' : `Default: ${behaviorFields.defaults.cognition}`;
+    setBehaviorSelectState(selBehaviorRiskTolerance, behaviorFields.riskTolerance, behaviorFields.defaults.riskTolerance);
+    setBehaviorSelectState(selBehaviorCoordination, behaviorFields.coordination, behaviorFields.defaults.coordination);
+    setBehaviorSelectState(selBehaviorPlanningHorizon, behaviorFields.planningHorizon, behaviorFields.defaults.planningHorizon);
+    setBehaviorSelectState(selBehaviorTargetStickiness, behaviorFields.targetStickiness, behaviorFields.defaults.targetStickiness);
     selBehaviorDrive.title = behaviorFields.drive ? '' : `Default: ${behaviorFields.defaults.drive}`;
-    selBehaviorRiskTolerance.title = behaviorFields.riskTolerance ? '' : `Default: ${behaviorFields.defaults.riskTolerance}`;
-    selBehaviorCoordination.title = behaviorFields.coordination ? '' : `Default: ${behaviorFields.defaults.coordination}`;
-    selBehaviorPlanningHorizon.title = behaviorFields.planningHorizon ? '' : `Default: ${behaviorFields.defaults.planningHorizon}`;
-    selBehaviorTargetStickiness.title = behaviorFields.targetStickiness ? '' : `Default: ${behaviorFields.defaults.targetStickiness}`;
     selSpellsJson.value = metadataJson(token?.spells);
     selAttacksJson.value = metadataJson(token?.attacks);
     updateTokenMetadataStatus(token);
@@ -3861,12 +3878,12 @@ import {
         roleNotes
       }
       : null;
-    const cognition = selBehaviorCognition.value.trim();
+    const cognition = behaviorSelectOverrideValue(selBehaviorCognition);
     const drive = selBehaviorDrive.value.trim();
-    const riskTolerance = selBehaviorRiskTolerance.value.trim();
-    const coordination = selBehaviorCoordination.value.trim();
-    const planningHorizon = selBehaviorPlanningHorizon.value.trim();
-    const targetStickiness = selBehaviorTargetStickiness.value.trim();
+    const riskTolerance = behaviorSelectOverrideValue(selBehaviorRiskTolerance);
+    const coordination = behaviorSelectOverrideValue(selBehaviorCoordination);
+    const planningHorizon = behaviorSelectOverrideValue(selBehaviorPlanningHorizon);
+    const targetStickiness = behaviorSelectOverrideValue(selBehaviorTargetStickiness);
     t.behavior = cognition || drive || riskTolerance || coordination || planningHorizon || targetStickiness
       ? {
         cognition,
@@ -3900,7 +3917,11 @@ import {
   }
   selProtectedAsset.addEventListener('change', saveEditorToCurrentTurnToken);
   for (const el of [selBehaviorCognition, selBehaviorRiskTolerance, selBehaviorCoordination, selBehaviorPlanningHorizon, selBehaviorTargetStickiness]) {
-    el.addEventListener('change', saveEditorToCurrentTurnToken);
+    el.addEventListener('change', () => {
+      const defaultValue = String(el.dataset.defaultValue ?? '').trim();
+      el.dataset.inherited = String(el.value ?? '').trim() === defaultValue ? 'true' : 'false';
+      saveEditorToCurrentTurnToken();
+    });
   }
 
   menuAddArt.addEventListener('click', () => {
