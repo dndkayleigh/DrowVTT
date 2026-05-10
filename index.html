@@ -2115,11 +2115,17 @@ import {
   function tacticalFieldsForYaml(tactical) {
     if (!tactical || typeof tactical !== 'object') return null;
     const role = String(tactical.role ?? tactical.authoredRole ?? '').trim();
+    const mappedCoreRole = String(
+      tactical.mapped_core_role
+      ?? tactical.mappedCoreRole
+      ?? tactical.coreRole
+      ?? ''
+    ).trim();
     const protectedAsset = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
     const objectiveRole = String(tactical.objective_role ?? tactical.objectiveRole ?? '').trim();
     const roleNotes = String(tactical.role_notes ?? tactical.roleNotes ?? '').trim();
-    if (!role && !protectedAsset && !objectiveRole && !roleNotes) return null;
-    return { role, protectedAsset, objectiveRole, roleNotes };
+    if (!role && !mappedCoreRole && !protectedAsset && !objectiveRole && !roleNotes) return null;
+    return { role, mappedCoreRole, protectedAsset, objectiveRole, roleNotes };
   }
 
   function buildTacticalFixtureYaml() {
@@ -2180,6 +2186,7 @@ import {
       if (tactical) {
         lines.push('    tactical:');
         if (tactical.role) lines.push(`      role: ${yamlScalar(tactical.role)}`);
+        if (tactical.mappedCoreRole) lines.push(`      mapped_core_role: ${yamlScalar(tactical.mappedCoreRole)}`);
         if (tactical.protectedAsset) lines.push('      protected_asset: true');
         if (tactical.objectiveRole) lines.push(`      objective_role: ${yamlScalar(tactical.objectiveRole)}`);
         if (tactical.roleNotes) lines.push(`      role_notes: ${yamlScalar(tactical.roleNotes)}`);

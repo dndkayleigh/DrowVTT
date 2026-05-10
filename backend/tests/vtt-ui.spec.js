@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
 import { SupervisorScriptedGroupController } from '../../packages/tactical-ai-core/src/index.js';
 import { parseVisibleEncounterFixture } from '../../packages/tactical-ai-content/src/index.js';
 import {
@@ -1644,6 +1645,29 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
   const mage = fixture.encounter.actors.find((actor) => actor.id === 'mage');
   expect(mage?.tactical?.coreRole).toBe('support_caster');
   expect(mage?.spells?.map((spell) => spell.name)).toContain('Magic Missile');
+});
+
+test('tactical fixture export preserves mapped core roles from loaded fixtures', async ({ page }) => {
+  const fixtureYaml = fs.readFileSync(
+    new URL('./fixtures/stony-shore-export-role.fixture.yaml', import.meta.url),
+    'utf8'
+  );
+
+  await page.evaluate(async (yaml) => {
+    await window.__VTT_DEBUG__.loadTacticalFixtureYaml(yaml);
+  }, fixtureYaml);
+
+  const exportedYaml = await page.evaluate(() => window.__VTT_DEBUG__.getTacticalFixtureYaml());
+  const exportedFixture = parseVisibleEncounterFixture(exportedYaml);
+  const actorsById = Object.fromEntries(exportedFixture.encounter.actors.map((actor) => [actor.id, actor]));
+
+  expect(exportedYaml).toContain('mapped_core_role: ambusher_bruiser');
+  expect(exportedYaml).toContain('mapped_core_role: skirmisher');
+  expect(exportedYaml).toContain('mapped_core_role: disciplined_blocker');
+  expect(actorsById.young_black_dragon?.tactical?.coreRole).toBe('ambusher_bruiser');
+  expect(actorsById.giant_crocodile?.tactical?.coreRole).toBe('ambusher_bruiser');
+  expect(actorsById.lizardfolk_a?.tactical?.coreRole).toBe('skirmisher');
+  expect(actorsById.troll_a?.tactical?.coreRole).toBe('disciplined_blocker');
 });
 
 test('legacy board snapshot omits tactical fixture metadata and warns about missing structure', async ({ page }) => {

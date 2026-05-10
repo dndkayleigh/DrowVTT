@@ -1,0 +1,57 @@
+id: stony_shore_export_role_fixture
+title: Stony Shore Export Role Fixture
+category: custom
+description: |
+  Minimal fixture used to verify tactical fixture export preserves mapped core roles.
+controllers:
+  - supervisor_scripted_group
+battlefield:
+  width: 8
+  height: 6
+  gridSize: 300
+  blockingEdges: []
+activeActor: young_black_dragon
+activationGroups:
+  - id: monsters
+    actorIds: [young_black_dragon, giant_crocodile, lizardfolk_a, troll_a]
+    activationMode: coordinated_sequential
+actors:
+  - id: young_black_dragon
+    name: Young Black Dragon
+    side: monsters
+    position: [2, 2]
+    speed: 40
+    tactical:
+      role: mobile_boss_controller
+      mapped_core_role: ambusher_bruiser
+    attacks: []
+  - id: giant_crocodile
+    name: Giant Crocodile
+    side: monsters
+    position: [2, 4]
+    speed: 30
+    tactical:
+      role: grappler_ambusher
+      mapped_core_role: ambusher_bruiser
+    attacks: []
+  - id: lizardfolk_a
+    name: Lizardfolk A
+    side: monsters
+    position: [4, 2]
+    speed: 30
+    tactical:
+      role: ranged_harasser
+      mapped_core_role: skirmisher
+    attacks: []
+  - id: troll_a
+    name: Troll A
+    side: monsters
+    position: [4, 4]
+    speed: 30
+    tactical:
+      role: disciplined_frontliner
+      mapped_core_role: disciplined_blocker
+    attacks: []
+expected:
+  must: []
+  mustNot: []

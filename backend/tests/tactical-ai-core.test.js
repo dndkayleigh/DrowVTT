@@ -1251,6 +1251,10 @@ test('Stony Shore Ambush fixture loads benchmark metadata', () => {
   const unsupportedFeatures = fixture.raw.known_unsupported_features_to_watch || [];
   const expectations = fixture.raw.expectations || [];
   const mustExpectations = (fixture.expected.must || []).flatMap((entry) => Object.keys(entry));
+  const rawDragon = (fixture.raw.actors || []).find((actor) => actor.id === 'young_black_dragon');
+  const rawTroll = (fixture.raw.actors || []).find((actor) => actor.id === 'troll_a');
+  const rawLizardfolk = (fixture.raw.actors || []).find((actor) => actor.id === 'lizardfolk_a');
+  const rawCrocodile = (fixture.raw.actors || []).find((actor) => actor.id === 'giant_crocodile');
 
   assert.equal(fixture.id, 'the_stony_shore_ambush');
   assert.equal(fixture.label, 'The Stony Shore Ambush');
@@ -1264,6 +1268,10 @@ test('Stony Shore Ambush fixture loads benchmark metadata', () => {
   assert.equal(monsterCounts.Troll, 2);
   assert.equal(monsterCounts.Lizardfolk, 4);
   assert.equal(monsterCounts['Giant Crocodile'], 1);
+  assert.equal(rawDragon?.tactical?.mapped_core_role, 'ambusher_bruiser');
+  assert.equal(rawCrocodile?.tactical?.mapped_core_role, 'ambusher_bruiser');
+  assert.equal(rawLizardfolk?.tactical?.mapped_core_role, 'skirmisher');
+  assert.equal(rawTroll?.tactical?.mapped_core_role, 'disciplined_blocker');
   assert.ok(dragon);
   assert.equal(dragon.sizeCells, 2);
   assert.equal(dragon.tactical.role, 'mobile_boss_controller');
@@ -1346,6 +1354,8 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
 
   const dragon = byActorId.get('young_black_dragon');
   assert.ok(dragon, 'expected group decision for Young Black Dragon');
+  assert.equal(dragon.diagnostics.candidateSetHealth?.role, 'ambusher_bruiser');
+  assert.equal(dragon.diagnostics.roleCompliance?.role, 'ambusher_bruiser');
   assert.equal(dragon.selected.family, 'shoot_and_scoot');
   assert.equal(dragon.selected.actionName, 'Acid Breath');
 
@@ -1355,18 +1365,24 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
     'expected at least one lizardfolk to use shoot_and_scoot harassment'
   );
   for (const decision of lizardfolkDecisions) {
+    assert.equal(decision.diagnostics.candidateSetHealth?.role, 'skirmisher');
+    assert.equal(decision.diagnostics.roleCompliance?.role, 'skirmisher');
     assert.equal(harassmentFamilies.has(decision.selected.family), true, `${decision.actor.name} should use harassment-compatible family`);
     assert.equal(decision.selected.actionName, 'Javelin');
   }
 
   assert.equal(trollDecisions.length, 2);
   for (const decision of trollDecisions) {
+    assert.equal(decision.diagnostics.candidateSetHealth?.role, 'disciplined_blocker');
+    assert.equal(decision.diagnostics.roleCompliance?.role, 'disciplined_blocker');
     assert.equal(decision.selected.family, 'move_and_attack');
     assert.equal(['Claw', 'Bite'].includes(decision.selected.actionName), true);
   }
 
   const crocodile = byActorId.get('giant_crocodile');
   assert.ok(crocodile, 'expected group decision for Giant Crocodile');
+  assert.equal(crocodile.diagnostics.candidateSetHealth?.role, 'ambusher_bruiser');
+  assert.equal(crocodile.diagnostics.roleCompliance?.role, 'ambusher_bruiser');
   assert.equal(crocodile.selected.family, 'hold_hidden');
   assert.equal(crocodile.selected.actionName, 'hold_hidden');
   assert.equal(crocodile.diagnostics.candidateSetHealth?.status, 'warning');
