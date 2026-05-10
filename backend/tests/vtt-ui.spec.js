@@ -2016,6 +2016,41 @@ test('movement path allows friendlies but blocks opponents', async ({ page }) =>
   await expectTokenCell(page, 'Hero', 1, 1);
 });
 
+test('blocked move-and-attack plans do not execute melee from the unreachable destination for Large creatures', async ({ page }) => {
+  await addToken(page, { name: 'Young Black Dragon', size: 2, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 2, cellX: 1, cellY: 1 });
+  await addToken(page, { name: 'Blocker', size: 1, type: 'PC' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Blocker', cellX: 3, cellY: 1 });
+  await addToken(page, { name: 'Hero', size: 1, type: 'PC' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Hero', cellX: 6, cellY: 1 });
+  await setAiControls(page, 'Monsters');
+  await setCurrentTurnToken(page, 'Young Black Dragon');
+
+  await openDrawerTab(page, 'apply');
+  await page.locator('#applyJson').fill(JSON.stringify({
+    summary: 'Young Black Dragon advances and bites.',
+    moves: [{ token: 'Young Black Dragon', to: [4, 1], path: [[1, 1], [2, 1], [3, 1], [4, 1]] }],
+    actions: [{
+      token: 'Young Black Dragon',
+      type: 'attack',
+      target: 'Hero',
+      details: 'Bite',
+      attack_kind: 'melee',
+      range_ft: 5,
+      from: [4, 1]
+    }],
+    end_turn: false
+  }));
+  await page.locator('#applyBtn').click();
+
+  await expectTokenCell(page, 'Young Black Dragon', 1, 1);
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('Move ignored: Young Black Dragon cannot pass through Blocker');
+  await expect(page.locator('#logBox')).toContainText('Action ignored after failed move: Young Black Dragon remained at (1,1)');
+  await expect(page.locator('#logBox')).toContainText('Action ignored: Young Black Dragon cannot make a melee attack on Hero');
+  await expect(page.locator('#logBox')).not.toContainText('Action: Young Black Dragon attack vs Hero');
+});
+
 test('map controls update the map pill and drag mode label', async ({ page }) => {
   await openDetails(page, '#mapSection');
   await page.locator('#showBoardStatus').check();

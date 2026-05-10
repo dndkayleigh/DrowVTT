@@ -2288,7 +2288,7 @@ import {
     return result;
   }
 
-  function validateAction(a) {
+  function validateAction(a, options = {}) {
     const tokenName = (a?.token ?? "").toString();
     const type = (a?.type ?? "other").toString().toLowerCase();
     const targetName = a?.target == null ? null : String(a.target);
@@ -2306,7 +2306,9 @@ import {
     const target = state.tokens.find((token) => token.name === targetName);
     if (!target) return { ok: false, reason: `${tokenName} attack ignored: target not found (${targetName}).` };
     const { attackKind, rangeFt } = resolveAttackProfileForAction(actor, a);
-    const originCell = parseGridCellTuple(a?.from) || null;
+    const originCell = options.originCell === null
+      ? null
+      : options.originCell || parseGridCellTuple(a?.from) || null;
     if (attackKind === 'melee') {
       const maxCells = attackRangeCells(rangeFt ?? 5);
       const actualCells = minTokenDistanceCells(actor, target, originCell);
@@ -4059,6 +4061,7 @@ import {
     const { source = 'AI' } = options;
     const nextPaths = [];
     const nextSightLines = [];
+    const moveOutcomes = new Map();
 
     for (const m of moves) {
       const name = (m?.token ?? "").toString();
@@ -4066,16 +4069,35 @@ import {
       if (!name || !Array.isArray(to) || to.length !== 2) continue;
 
       const t = state.tokens.find(t => t.name === name);
-      if (!t) { pushLog(`Move ignored (token not found): ${name}`); continue; }
+      if (!t) {
+        pushLog(`Move ignored (token not found): ${name}`);
+        moveOutcomes.set(name, { ok: false, token: null, currentCell: null, plannedCell: parseGridCellTuple(to) });
+        continue;
+      }
 
       const gx = Number(to[0]), gy = Number(to[1]);
       if (!Number.isFinite(gx) || !Number.isFinite(gy)) continue;
 
       const result = applyTokenMoveAlongPath(t, { x: gx, y: gy }, m?.path, { source });
       if (!result.ok) {
+        moveOutcomes.set(name, {
+          ok: false,
+          token: t,
+          currentCell: gridCoords(t),
+          plannedCell: { x: gx, y: gy },
+          plannedOriginCell: parseGridCellTuple(m?.path?.[0]) || gridCoords(t),
+          reason: result.reason
+        });
         pushLog(`Move ignored: ${result.reason}`);
         continue;
       }
+      moveOutcomes.set(name, {
+        ok: true,
+        token: t,
+        currentCell: { x: gx, y: gy },
+        plannedCell: { x: gx, y: gy },
+        plannedOriginCell: result.fromCell
+      });
 
       const movePath = result.path || normalizeMovePath(m?.path, result.fromCell, result.toCell);
       nextPaths.push({
@@ -4107,7 +4129,20 @@ import {
       const actionTarget = actionTargetName ? state.tokens.find((entry) => entry.name === actionTargetName) : null;
       const actionProfile = actionActor ? resolveAttackProfileForAction(actionActor, a) : { attackKind: '' };
       const isRangedAttack = type.toLowerCase() === 'attack' && actionProfile.attackKind === 'ranged';
-      const actionOriginCell = parseGridCellTuple(a?.from) || null;
+      const declaredOriginCell = parseGridCellTuple(a?.from) || null;
+      const moveOutcome = moveOutcomes.get(token) || null;
+      const actualOriginCell = actionActor ? gridCoords(actionActor) : null;
+      const shouldUseActualOrigin = Boolean(
+        actionActor &&
+        declaredOriginCell &&
+        actualOriginCell &&
+        (
+          (moveOutcome && !moveOutcome.ok)
+          || declaredOriginCell.x !== actualOriginCell.x
+          || declaredOriginCell.y !== actualOriginCell.y
+        )
+      );
+      const actionOriginCell = shouldUseActualOrigin ? actualOriginCell : declaredOriginCell;
       if (isRangedAttack && actionActor && actionTarget) {
         const from = tokenAimPoint(actionActor, actionOriginCell);
         const to = tokenAimPoint(actionTarget);
@@ -4122,7 +4157,7 @@ import {
           label: `${actionActor.name} ranged line`
         });
       }
-      const validation = validateAction(a);
+      const validation = validateAction(a, { originCell: actionOriginCell });
       if (!validation.ok) {
         if (isRangedAttack && nextSightLines.length) {
           const lastLine = nextSightLines[nextSightLines.length - 1];
@@ -4134,6 +4169,9 @@ import {
               ? `${actionActor.name} blocked line`
               : `${actionActor.name} rejected line`;
           }
+        }
+        if (moveOutcome && !moveOutcome.ok && shouldUseActualOrigin) {
+          pushLog(`Action ignored after failed move: ${token} remained at (${actualOriginCell?.x},${actualOriginCell?.y}), so the planned action from (${declaredOriginCell?.x},${declaredOriginCell?.y}) was revalidated from the actual position.`);
         }
         pushLog(`Action ignored: ${validation.reason}`);
         continue;
