@@ -3995,7 +3995,20 @@ import {
     return buildAiTurnPacketForStrategy(state, strategy || { id: DEFAULT_AI_TURN_STRATEGY_ID, packetVariant: 'compact_moves5' });
   }
 
-  function refreshExport() { exportBox.value = buildAiTurnPacket(); }
+  let exportRefreshScheduled = false;
+  function flushExportRefresh() {
+    exportRefreshScheduled = false;
+    exportBox.value = buildAiTurnPacket();
+  }
+  function refreshExport({ immediate = false } = {}) {
+    if (immediate) {
+      flushExportRefresh();
+      return;
+    }
+    if (exportRefreshScheduled) return;
+    exportRefreshScheduled = true;
+    requestAnimationFrame(() => flushExportRefresh());
+  }
   aiStrategySelect.addEventListener('change', () => {
     enforceAiSelectionForStrategy(getSelectionStrategyId());
     if (getSelectedActivationScope() === 'group') {
@@ -4022,6 +4035,7 @@ import {
   });
   document.getElementById('refreshExport').addEventListener('click', refreshExport);
   document.getElementById('copyExport').addEventListener('click', async () => {
+    refreshExport({ immediate: true });
     try { await navigator.clipboard.writeText(exportBox.value); }
     catch { exportBox.select(); document.execCommand('copy'); }
   });
@@ -4239,6 +4253,7 @@ import {
       status.textContent = 'Create a monster group by selecting monsters first.';
       return;
     }
+    refreshExport({ immediate: true });
     const userContext = authAdapter.requireAuthenticatedUser();
     if (!authAdapter.canPerform('run_ai', { userContext })) {
       status.textContent = 'Run AI is not permitted for this user.';
