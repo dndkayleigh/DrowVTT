@@ -86,6 +86,14 @@ function stonyShoreFixture() {
   return parseVisibleEncounterFixture(source);
 }
 
+function zombieDoorwayFixture() {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/zombie-doorway-press-2026-05-10.yaml'),
+    'utf8'
+  );
+  return parseVisibleEncounterFixture(source);
+}
+
 function isCellInBounds(encounter, cell) {
   const x = Number(cell?.x);
   const y = Number(cell?.y);
@@ -1412,6 +1420,46 @@ test('Stony Shore Ambush fixture loads benchmark metadata', () => {
   assert.equal(fixture.encounter.battlefield.gridSize, 300);
   assert.ok(fixture.encounter.battlefield.edges.length > 0);
   assert.equal(fixture.encounter.activationGroups[0]?.actorIds.length, 8);
+});
+
+test('Zombie Doorway Press fixture loads metadata for future mindless behavior work', () => {
+  const fixture = zombieDoorwayFixture();
+  const zombies = fixture.encounter.actors.filter((actor) => actor.side === 'monsters');
+  const heroes = fixture.encounter.actors.filter((actor) => actor.side === 'heroes');
+
+  assert.equal(fixture.id, 'zombie_doorway_press_2026_05_10');
+  assert.equal(fixture.label, 'Zombie Doorway Press - 2026-05-10');
+  assert.equal(fixture.encounter.battlefield.width, 10);
+  assert.equal(fixture.encounter.battlefield.height, 8);
+  assert.equal(fixture.encounter.battlefield.gridSize, 64);
+  assert.equal(fixture.encounter.battlefield.edges.length, 7);
+  assert.equal(fixture.encounter.activationGroups[0]?.actorIds.length, 4);
+  assert.equal(zombies.length, 4);
+  assert.equal(heroes.length, 3);
+  assert.equal(fixture.raw.controllers.includes('supervisor_scripted_group'), true);
+  assert.match(fixture.description, /metadata-only benchmark fixture/i);
+});
+
+test('Zombie Doorway Press preserves explicit mindless zombie behavior while other actors keep defaults', () => {
+  const fixture = zombieDoorwayFixture();
+  const zombie = fixture.encounter.actors.find((actor) => actor.id === 'zombie_a');
+  const hero = fixture.encounter.actors.find((actor) => actor.id === 'hero_a');
+  const rawZombie = (fixture.raw.actors || []).find((actor) => actor.id === 'zombie_a');
+
+  assert.ok(zombie);
+  assert.equal(rawZombie?.behavior?.cognition, 'mindless');
+  assert.equal(zombie.tactical.role, 'brute_blocker');
+  assert.equal(zombie.tactical.coreRole, 'disciplined_blocker');
+  assert.deepEqual(zombie.behavior, {
+    cognition: 'mindless',
+    drive: 'nearest_living_prey',
+    riskTolerance: 'fearless',
+    coordination: 'none',
+    planningHorizon: 'immediate',
+    targetStickiness: 'high'
+  });
+  assert.ok(hero);
+  assert.deepEqual(hero.behavior, inferDefaultBehaviorProfile(hero));
 });
 
 test('Stony Shore bounds include logged coordinates on the exported board', () => {

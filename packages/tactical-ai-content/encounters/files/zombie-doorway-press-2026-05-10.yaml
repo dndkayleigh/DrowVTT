@@ -1,0 +1,190 @@
+id: zombie_doorway_press_2026_05_10
+title: Zombie Doorway Press - 2026-05-10
+category: custom
+description: |
+  name: "Zombie Doorway Press"
+
+  encounter_purpose: >
+    Metadata-only benchmark fixture for future low-cognition behavior testing.
+    This fixture should load cleanly with explicit zombie behavior profiles but
+    should not change controller behavior until a later phase introduces
+    mindless gating.
+
+  setup: >
+    Four zombies are pressing toward a narrow doorway from the west side of a
+    small crypt. Three heroes are on the east side of the doorway. One hero is
+    closest to the choke, one farther hero is wounded and tactically tempting,
+    and one backline hero supports from behind. The fixture is intended to
+    support future tests for nearest-target bias, doorway clogging, and low
+    tactical sophistication.
+
+  ideal_behavior: >
+    Later phases should make these zombies act mindlessly: press the nearest
+    reachable living prey, accept congestion, avoid coordinated focus fire, and
+    show high target stickiness. Phase 1B only preserves the metadata needed to
+    express that intent.
+
+controllers:
+  - supervisor_scripted_group
+  - supervisor_scripted_single
+  - utility_baseline_group
+
+round: 1
+activeActor: zombie_a
+
+activationGroups:
+  - id: zombie_press
+    actorIds: [zombie_a, zombie_b, zombie_c, zombie_d]
+    activationMode: coordinated_sequential
+
+battlefield:
+  width: 10
+  height: 8
+  gridSize: 64
+  blockingEdges:
+    - orientation: v
+      x: 4
+      y: 0
+      length: 3
+      blocksMovement: true
+      blocksLineOfSight: true
+    - orientation: v
+      x: 4
+      y: 4
+      length: 4
+      blocksMovement: true
+      blocksLineOfSight: true
+
+actors:
+  - id: zombie_a
+    name: Zombie A
+    side: monsters
+    position: [2, 3]
+    ac: 8
+    hp: "22/22"
+    speed: 20
+    tactical:
+      role: brute_blocker
+      mapped_core_role: disciplined_blocker
+      objective_role: press_doorway
+      role_notes: "Undead melee pressure body. Future phases should gate this role through mindless behavior."
+    behavior:
+      cognition: mindless
+      drive: nearest_living_prey
+      riskTolerance: fearless
+      coordination: none
+      planningHorizon: immediate
+      targetStickiness: high
+    attacks:
+      - name: Slam
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 4
+  - id: zombie_b
+    name: Zombie B
+    side: monsters
+    position: [1, 2]
+    ac: 8
+    hp: "22/22"
+    speed: 20
+    tactical:
+      role: brute_blocker
+      mapped_core_role: disciplined_blocker
+      objective_role: press_doorway
+      role_notes: "Undead melee pressure body. Future phases should gate this role through mindless behavior."
+    behavior:
+      cognition: mindless
+      drive: nearest_living_prey
+      riskTolerance: fearless
+      coordination: none
+      planningHorizon: immediate
+      targetStickiness: high
+    attacks:
+      - name: Slam
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 4
+  - id: zombie_c
+    name: Zombie C
+    side: monsters
+    position: [1, 4]
+    ac: 8
+    hp: "22/22"
+    speed: 20
+    tactical:
+      role: brute_blocker
+      mapped_core_role: disciplined_blocker
+      objective_role: press_doorway
+      role_notes: "Undead melee pressure body. Future phases should gate this role through mindless behavior."
+    behavior:
+      cognition: mindless
+      drive: nearest_living_prey
+      riskTolerance: fearless
+      coordination: none
+      planningHorizon: immediate
+      targetStickiness: high
+    attacks:
+      - name: Slam
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 4
+  - id: zombie_d
+    name: Zombie D
+    side: monsters
+    position: [2, 5]
+    ac: 8
+    hp: "22/22"
+    speed: 20
+    tactical:
+      role: brute_blocker
+      mapped_core_role: disciplined_blocker
+      objective_role: press_doorway
+      role_notes: "Undead melee pressure body. Future phases should gate this role through mindless behavior."
+    behavior:
+      cognition: mindless
+      drive: nearest_living_prey
+      riskTolerance: fearless
+      coordination: none
+      planningHorizon: immediate
+      targetStickiness: high
+    attacks:
+      - name: Slam
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 4
+  - id: hero_a
+    name: Hero A
+    side: heroes
+    position: [6, 3]
+    ac: 16
+    hp: "30/30"
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 8
+  - id: hero_b
+    name: Hero B
+    side: heroes
+    position: [8, 2]
+    ac: 14
+    hp: "8/24"
+    speed: 30
+    attacks:
+      - name: Bolt
+        kind: ranged
+        rangeFt: 60
+        expectedDamage: 8
+  - id: hero_c
+    name: Hero C
+    side: heroes
+    position: [7, 5]
+    ac: 15
+    hp: "24/24"
+    speed: 30
+    attacks:
+      - name: Strike
+        kind: melee
+        rangeFt: 5
+        expectedDamage: 8
