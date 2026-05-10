@@ -27,6 +27,7 @@ import {
   inferDefaultBehaviorProfile,
   normalizeEncounterState,
   normalizeBehaviorProfile,
+  scoreCandidate,
   tacticalOutputToVttPlan,
   validateEncounterState
 } from '../../packages/tactical-ai-core/src/index.js';
@@ -1514,6 +1515,168 @@ test('Wolf Pack Harrier preserves explicit animal/pack behavior while default be
   assert.ok(zombie);
   assert.equal(zombie.behavior.cognition, 'mindless');
   assert.deepEqual(dragon.behavior, inferDefaultBehaviorProfile(dragon));
+});
+
+test('animal pack prefers isolated or wounded reachable prey over protected prey', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'animal-pack-isolated-prey',
+    activeActorId: 'wolf',
+    battlefield: { width: 12, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'wolf',
+        name: 'Wolf',
+        side: 'monsters',
+        cell: { x: 2, y: 3 },
+        speed: 40,
+        tactical: { role: 'skirmisher', mapped_core_role: 'skirmisher' },
+        behavior: {
+          cognition: 'animal',
+          drive: 'isolate_weak_prey',
+          riskTolerance: 'self_preserving',
+          coordination: 'pack',
+          planningHorizon: 'short',
+          targetStickiness: 'medium'
+        },
+        attacks: [{ name: 'Bite', attackKind: 'melee', rangeFt: 5, expectedDamage: 7 }]
+      },
+      { id: 'hero_protected', name: 'Hero Protected', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, hp: '24/24', attacks: [] },
+      { id: 'hero_screen', name: 'Hero Screen', side: 'heroes', cell: { x: 7, y: 3 }, speed: 30, hp: '24/24', attacks: [] },
+      { id: 'hero_weak', name: 'Hero Weak', side: 'heroes', cell: { x: 7, y: 1 }, speed: 30, hp: '8/24', attacks: [] }
+    ]
+  });
+
+  const output = await new SupervisorScriptedController().chooseAction({
+    encounter,
+    actorId: 'wolf',
+    candidateLimit: 36
+  });
+  const selected = output.logs[0]?.data?.selected;
+
+  assert.equal(selected?.family, 'move_and_attack');
+  assert.deepEqual(selected?.targetIds, ['hero_weak']);
+  assert.equal(selected?.scoreBreakdown?.behaviorWoundedPreyBonus >= 2, true);
+});
+
+test('animal pack does not receive squad doctrine focus bonuses', async () => {
+  const fixture = wolfPackFixture();
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter: fixture.encounter,
+    activationGroup: fixture.encounter.activationGroups[0],
+    candidateLimit: 36
+  });
+  const decisions = (output.logs || [])
+    .filter((log) => log.phase === 'decision')
+    .filter((log) => ['wolf_a', 'wolf_b', 'wolf_c', 'wolf_d'].includes(log.actorId))
+    .filter((log) => log.data?.selected)
+    .map((log) => ({
+      actorId: log.actorId,
+      selected: log.data.selected,
+      supervisorBreakdown: log.data.selected?.supervisorBreakdown || {},
+      scoreBreakdown: log.data.selected?.scoreBreakdown || {}
+    }));
+
+  assert.equal(decisions.length, 4);
+  for (const decision of decisions) {
+    assert.equal(decision.supervisorBreakdown.targetPriorityGroupFocusBonus ?? 0, 0);
+    assert.equal(decision.supervisorBreakdown.targetPriorityMainThreatBonus ?? 0, 0);
+    assert.equal(Object.keys(decision.supervisorBreakdown).some((key) => key.startsWith('doctrine')), false);
+  }
+  assert.equal(
+    decisions.some((decision) => (decision.scoreBreakdown.behaviorWoundedPreyBonus ?? 0) > 0 || (decision.scoreBreakdown.behaviorIsolatedPreyBonus ?? 0) > 0),
+    true
+  );
+});
+
+test('movement reaction risk penalizes self-preserving animals more than mindless zombies', () => {
+  const buildEncounter = (id, actorName, behavior) => normalizeEncounterState({
+    id,
+    activeActorId: 'actor',
+    battlefield: { width: 12, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'actor',
+        name: actorName,
+        side: 'monsters',
+        cell: { x: 3, y: 3 },
+        speed: 30,
+        tactical: { role: 'skirmisher', mapped_core_role: 'skirmisher' },
+        behavior,
+        attacks: [{ name: 'Bite', attackKind: 'melee', rangeFt: 5, expectedDamage: 7 }]
+      },
+      {
+        id: 'guard',
+        name: 'Guard',
+        side: 'heroes',
+        cell: { x: 4, y: 3 },
+        speed: 30,
+        attacks: [{ name: 'Spear', attackKind: 'melee', rangeFt: 5, expectedDamage: 6 }]
+      },
+      {
+        id: 'prey',
+        name: 'Prey',
+        side: 'heroes',
+        cell: { x: 8, y: 4 },
+        speed: 30,
+        hp: '10/24',
+        attacks: []
+      }
+    ]
+  });
+
+  const animalEncounter = buildEncounter('animal-risk', 'Wolf', {
+    cognition: 'animal',
+    drive: 'isolate_weak_prey',
+    riskTolerance: 'self_preserving',
+    coordination: 'pack',
+    planningHorizon: 'short',
+    targetStickiness: 'medium'
+  });
+  const zombieEncounter = buildEncounter('zombie-risk', 'Zombie', {
+    cognition: 'mindless',
+    drive: 'nearest_living_prey',
+    riskTolerance: 'fearless',
+    coordination: 'none',
+    planningHorizon: 'immediate',
+    targetStickiness: 'high'
+  });
+
+  const candidate = {
+    id: 'move_and_attack:actor:prey:Bite:6,4',
+    family: 'move_and_attack',
+    actorId: 'actor',
+    move: {
+      actorId: 'actor',
+      to: { x: 6, y: 4 },
+      path: [{ x: 3, y: 4 }, { x: 4, y: 5 }, { x: 5, y: 5 }, { x: 6, y: 4 }]
+    },
+    action: {
+      type: 'attack',
+      actorId: 'actor',
+      targetId: 'prey',
+      details: 'Bite',
+      attackKind: 'melee',
+      rangeFt: 5
+    },
+    targetIds: ['prey'],
+    fromCell: { x: 6, y: 4 },
+    expectedDamage: 7,
+    moveSteps: 4,
+    legal: true
+  };
+
+  const animalScore = scoreCandidate(animalEncounter, candidate, { stance: 'opportunistic' });
+  const zombieScore = scoreCandidate(zombieEncounter, candidate, { stance: 'opportunistic' });
+
+  assert.equal((animalScore.scoreBreakdown.movementReactionRisk ?? 0) < 0, true);
+  assert.equal((animalScore.scoreBreakdown.behaviorMovementReactionRiskAdjustment ?? 0) < 0, true);
+  assert.equal((zombieScore.scoreBreakdown.movementReactionRisk ?? 0) < 0, true);
+  assert.equal((zombieScore.scoreBreakdown.behaviorMovementReactionRiskAdjustment ?? 0) > 0, true);
+  assert.equal(
+    Math.abs(animalScore.scoreBreakdown.movementReactionRisk + animalScore.scoreBreakdown.behaviorMovementReactionRiskAdjustment)
+      > Math.abs(zombieScore.scoreBreakdown.movementReactionRisk + zombieScore.scoreBreakdown.behaviorMovementReactionRiskAdjustment),
+    true
+  );
 });
 
 test('mindless behavior suppresses retreat and skirmish candidate families', () => {

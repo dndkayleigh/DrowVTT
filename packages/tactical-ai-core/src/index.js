@@ -184,6 +184,11 @@ function behaviorHasTargetStickiness(actor = {}, targetStickiness = '') {
   return behaviorProfileForActor(actor).targetStickiness === targetStickiness;
 }
 
+function coordinationUsesSquadDoctrine(actor = {}) {
+  const coordination = behaviorProfileForActor(actor).coordination;
+  return coordination !== 'none' && coordination !== 'pack';
+}
+
 function suppressCandidateFamilyForBehavior(actor = {}, family = '') {
   if (!behaviorHasCognition(actor, 'mindless')) return false;
   return family === 'disengage_retreat' || family === 'shoot_and_scoot' || family === 'stalk_to_cover';
@@ -508,6 +513,48 @@ function occupiedCellMap(encounter, { excludeActorId = null } = {}) {
     }
   }
   return occupied;
+}
+
+function actorOccupiedCells(actor = {}, fromCell = null) {
+  const origin = normalizeCell(fromCell || actor.cell);
+  const size = Math.max(1, Math.round(Number(actor?.sizeCells) || 1));
+  const cells = [];
+  for (let dx = 0; dx < size; dx += 1) {
+    for (let dy = 0; dy < size; dy += 1) {
+      cells.push({ x: origin.x + dx, y: origin.y + dy });
+    }
+  }
+  return cells;
+}
+
+function occupiedCellDistance(actor = {}, fromCell = null, target = {}, targetCell = null) {
+  const sourceCells = actorOccupiedCells(actor, fromCell);
+  const targetCells = actorOccupiedCells(target, targetCell);
+  let best = Infinity;
+  for (const source of sourceCells) {
+    for (const destination of targetCells) {
+      best = Math.min(best, gridDistance(source, destination));
+    }
+  }
+  return best;
+}
+
+function maxMeleeReachCells(actor = {}) {
+  const meleeAttacks = (actor.attacks || []).filter((attack) => attack.attackKind === 'melee');
+  if (!meleeAttacks.length) return 0;
+  return Math.max(...meleeAttacks.map((attack) => Math.max(1, Math.ceil(Number(attack.rangeFt || 5) / 5))));
+}
+
+function estimatedMeleeThreatValue(actor = {}) {
+  const meleeAttacks = (actor.attacks || []).filter((attack) => attack.attackKind === 'melee');
+  if (!meleeAttacks.length) return 0;
+  return Math.max(...meleeAttacks.map((attack) => Math.max(1, normalizeNumber(attack.expectedDamage, 4) / 5)));
+}
+
+function isWithinThreatRange(fromActor = {}, fromCell = null, enemy = {}) {
+  const reach = maxMeleeReachCells(enemy);
+  if (!reach) return false;
+  return occupiedCellDistance(fromActor, fromCell, enemy, enemy.cell) <= reach;
 }
 
 function cellIsOccupied(encounter, cell, { excludeActorId = null } = {}) {
@@ -1118,6 +1165,28 @@ function currentAttackableTargetIds(encounter, actor = {}) {
   );
 }
 
+function movementReactionRiskFromPath(encounter, actor = {}, path = [], { action = null } = {}) {
+  if (!Array.isArray(path) || !path.length) return 0;
+  if (action?.type === 'disengage') return 0;
+  let risk = 0;
+  for (const enemy of enemiesFor(encounter, actor)) {
+    if (!maxMeleeReachCells(enemy)) continue;
+    let previous = normalizeCell(actor.cell);
+    let provoked = false;
+    for (const step of path.map(normalizeCell)) {
+      const wasThreatened = isWithinThreatRange(actor, previous, enemy);
+      const remainsThreatened = isWithinThreatRange(actor, step, enemy);
+      if (wasThreatened && !remainsThreatened) {
+        provoked = true;
+        break;
+      }
+      previous = step;
+    }
+    if (provoked) risk += estimatedMeleeThreatValue(enemy);
+  }
+  return Number(risk.toFixed(3));
+}
+
 function behaviorTargetSelectionModifiers(encounter, actor = {}, candidate = {}) {
   const behavior = behaviorProfileForActor(actor);
   const target = encounter.actors.find((entry) => candidate.targetIds?.includes(entry.id));
@@ -1146,6 +1215,25 @@ function behaviorTargetSelectionModifiers(encounter, actor = {}, candidate = {})
     }
   }
 
+  if (behavior.drive === 'isolate_weak_prey') {
+    const targetHp = currentHpValue(target);
+    const targetMaxHpMatch = String(target.hp || '').match(/\/\s*(\d+)/);
+    const targetMaxHp = targetMaxHpMatch ? Number(targetMaxHpMatch[1]) : null;
+    const wounded = targetHp != null && targetMaxHp != null
+      ? targetHp < targetMaxHp
+      : targetHp != null && targetHp <= 10;
+    if (isTargetIsolated(encounter, target)) breakdown.behaviorIsolatedPreyBonus = 4;
+    if (wounded) breakdown.behaviorWoundedPreyBonus =
+      targetHp != null && targetMaxHp != null && targetHp <= Math.max(1, targetMaxHp / 2) ? 4 : 2;
+    if (!isTargetIsolated(encounter, target) && !wounded) breakdown.behaviorProtectedPreyPenalty = -2;
+    if (behavior.coordination === 'pack') {
+      const packSupport = alliesFor(encounter, actor)
+        .filter((ally) => occupiedCellDistance(ally, ally.cell, target, target.cell) <= 2)
+        .length;
+      if (packSupport > 0) breakdown.behaviorLocalPackPressureBonus = Math.min(3, packSupport);
+    }
+  }
+
   return breakdown;
 }
 
@@ -1162,6 +1250,27 @@ function behaviorScoreModifiers(encounter, actor = {}, candidate = {}, { weights
     if (Math.abs(repositionContribution) > 0.0001) breakdown.behaviorMindlessFuturePositionPenalty = -Number(repositionContribution.toFixed(3));
     if (Math.abs(losBreakContribution) > 0.0001) breakdown.behaviorMindlessLosBreakPenalty = -Number(losBreakContribution.toFixed(3));
     if (Math.abs(defensiveContribution) > 0.0001) breakdown.behaviorMindlessSafetyPenalty = -Number(defensiveContribution.toFixed(3));
+  }
+
+  const movementReactionContribution = normalizeNumber(weights.movementReactionRisk, 0) * normalizeNumber(features.movementReactionRisk, 0);
+  if (Math.abs(movementReactionContribution) > 0.0001) {
+    const riskTolerance = behavior.riskTolerance;
+    const cognition = behavior.cognition;
+    let multiplier = 1;
+    if (riskTolerance === 'fearless') multiplier *= 0.2;
+    else if (riskTolerance === 'self_preserving') multiplier *= 1.6;
+    else if (riskTolerance === 'cowardly') multiplier *= 2.2;
+    else if (riskTolerance === 'berserk') multiplier *= 0.4;
+
+    if (cognition === 'mindless') multiplier *= 0.1;
+    else if (cognition === 'animal') multiplier *= 1.15;
+    else if (cognition === 'cunning') multiplier *= 1.2;
+    else if (cognition === 'genius') multiplier *= 1.35;
+
+    const adjustment = movementReactionContribution * (multiplier - 1);
+    if (Math.abs(adjustment) > 0.0001) {
+      breakdown.behaviorMovementReactionRiskAdjustment = Number(adjustment.toFixed(3));
+    }
   }
 
   return breakdown;
@@ -1568,6 +1677,7 @@ const BASE_SCORE_TERM_NAMESPACES = {
   repositionValue: 'universal',
   shootAndScootValue: 'universal',
   lineOfSightBreakValue: 'universal',
+  movementReactionRisk: 'universal',
   exposedAfterActionPenalty: 'universal',
   meleeClosingPenalty: 'dnd5e',
   killChance: 'dnd5e',
@@ -1669,6 +1779,7 @@ export function extractScoringFeatures(encounterInput, candidate) {
     repositionValue: candidate.family === 'move_and_attack' || candidate.family === 'advance_to_attack' || candidate.family === 'shoot_and_scoot' || candidate.family === 'move_and_spell' ? 1 : 0,
     shootAndScootValue: candidate.family === 'shoot_and_scoot' ? 1 : 0,
     lineOfSightBreakValue: Math.max(0, normalizeNumber(candidate.metadata?.visibilityReduction, 0)),
+    movementReactionRisk: movementReactionRiskFromPath(encounter, actor, candidate.move?.path || [], { action: candidate.action }),
     exposedAfterActionPenalty: candidate.action?.attackKind === 'ranged' && normalizeNumber(candidate.metadata?.visibleEnemiesAfterScoot, 0) > 0 ? 1 : 0,
     meleeClosingPenalty: actorHasLongRangedAttack &&
       candidate.family === 'move_and_attack' &&
@@ -1696,12 +1807,12 @@ export function extractScoringFeatures(encounterInput, candidate) {
 
 export function scoreCandidate(encounter, candidate, { stance = 'opportunistic' } = {}) {
   const weightsByStance = {
-    aggressive: { expectedDamage: 2.2, attackValue: 4, spellValue: 0.7, controlSpellValue: 1.2, damageSpellValue: 1.6, rangedAttackValue: 0.4, longRangedAttackValue: 0.6, currentPositionValue: 0.8, repositionValue: 0.4, shootAndScootValue: 1.8, lineOfSightBreakValue: 0.6, exposedAfterActionPenalty: -1, killChance: 1.5, retaliationRisk: -0.4, meleeClosingPenalty: -1.2, holdPenalty: -3, retreatPenalty: -2 },
-    cautious: { expectedDamage: 1.2, attackValue: 3, spellValue: 1, supportSpellValue: 1.8, controlSpellValue: 1.4, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.3, shootAndScootValue: 2.6, lineOfSightBreakValue: 1.1, exposedAfterActionPenalty: -1.8, defensiveValue: 0.8, retaliationRisk: -1.4, meleeClosingPenalty: -1.8, holdPenalty: -2, retreatPenalty: -1.2 },
-    evasive: { expectedDamage: 0.7, attackValue: 2, spellValue: 0.9, supportSpellValue: 1.4, controlSpellValue: 1.8, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, shootAndScootValue: 3, lineOfSightBreakValue: 1.4, exposedAfterActionPenalty: -2, defensiveValue: 1.2, retaliationRisk: -2, meleeClosingPenalty: -2, holdPenalty: -1.5, retreatPenalty: -0.4 },
-    protective: { expectedDamage: 1, attackValue: 3, spellValue: 1.2, supportSpellValue: 2.6, controlSpellValue: 1.6, rangedAttackValue: 0.4, longRangedAttackValue: 0.8, currentPositionValue: 0.6, shootAndScootValue: 1.6, lineOfSightBreakValue: 0.7, exposedAfterActionPenalty: -1.2, allySupport: 1.8, formationValue: 1.2, meleeClosingPenalty: -1.4, holdPenalty: -2, retreatPenalty: -1 },
-    desperate: { expectedDamage: 2.4, attackValue: 5, spellValue: 0.8, damageSpellValue: 1.8, currentPositionValue: 0.8, shootAndScootValue: 0.8, lineOfSightBreakValue: 0.3, killChance: 2, retaliationRisk: -0.1, meleeClosingPenalty: -0.8, holdPenalty: -4, retreatPenalty: -3 },
-    opportunistic: { expectedDamage: 1.6, attackValue: 4, spellValue: 1, supportSpellValue: 1.5, controlSpellValue: 1.5, damageSpellValue: 1.2, rangedAttackValue: 0.6, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.4, shootAndScootValue: 2.5, lineOfSightBreakValue: 1, exposedAfterActionPenalty: -1.5, killChance: 1.2, defensiveValue: 0.2, retaliationRisk: -0.8, meleeClosingPenalty: -1.6, holdPenalty: -1, retreatPenalty: -2.5 }
+    aggressive: { expectedDamage: 2.2, attackValue: 4, spellValue: 0.7, controlSpellValue: 1.2, damageSpellValue: 1.6, rangedAttackValue: 0.4, longRangedAttackValue: 0.6, currentPositionValue: 0.8, repositionValue: 0.4, shootAndScootValue: 1.8, lineOfSightBreakValue: 0.6, movementReactionRisk: -0.3, exposedAfterActionPenalty: -1, killChance: 1.5, retaliationRisk: -0.4, meleeClosingPenalty: -1.2, holdPenalty: -3, retreatPenalty: -2 },
+    cautious: { expectedDamage: 1.2, attackValue: 3, spellValue: 1, supportSpellValue: 1.8, controlSpellValue: 1.4, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.3, shootAndScootValue: 2.6, lineOfSightBreakValue: 1.1, movementReactionRisk: -1.1, exposedAfterActionPenalty: -1.8, defensiveValue: 0.8, retaliationRisk: -1.4, meleeClosingPenalty: -1.8, holdPenalty: -2, retreatPenalty: -1.2 },
+    evasive: { expectedDamage: 0.7, attackValue: 2, spellValue: 0.9, supportSpellValue: 1.4, controlSpellValue: 1.8, rangedAttackValue: 0.8, longRangedAttackValue: 1.2, shootAndScootValue: 3, lineOfSightBreakValue: 1.4, movementReactionRisk: -1.4, exposedAfterActionPenalty: -2, defensiveValue: 1.2, retaliationRisk: -2, meleeClosingPenalty: -2, holdPenalty: -1.5, retreatPenalty: -0.4 },
+    protective: { expectedDamage: 1, attackValue: 3, spellValue: 1.2, supportSpellValue: 2.6, controlSpellValue: 1.6, rangedAttackValue: 0.4, longRangedAttackValue: 0.8, currentPositionValue: 0.6, shootAndScootValue: 1.6, lineOfSightBreakValue: 0.7, movementReactionRisk: -0.9, exposedAfterActionPenalty: -1.2, allySupport: 1.8, formationValue: 1.2, meleeClosingPenalty: -1.4, holdPenalty: -2, retreatPenalty: -1 },
+    desperate: { expectedDamage: 2.4, attackValue: 5, spellValue: 0.8, damageSpellValue: 1.8, currentPositionValue: 0.8, shootAndScootValue: 0.8, lineOfSightBreakValue: 0.3, movementReactionRisk: -0.1, killChance: 2, retaliationRisk: -0.1, meleeClosingPenalty: -0.8, holdPenalty: -4, retreatPenalty: -3 },
+    opportunistic: { expectedDamage: 1.6, attackValue: 4, spellValue: 1, supportSpellValue: 1.5, controlSpellValue: 1.5, damageSpellValue: 1.2, rangedAttackValue: 0.6, longRangedAttackValue: 1.2, currentPositionValue: 0.8, repositionValue: 0.4, shootAndScootValue: 2.5, lineOfSightBreakValue: 1, movementReactionRisk: -0.7, exposedAfterActionPenalty: -1.5, killChance: 1.2, defensiveValue: 0.2, retaliationRisk: -0.8, meleeClosingPenalty: -1.6, holdPenalty: -1, retreatPenalty: -2.5 }
   };
   const features = extractScoringFeatures(encounter, candidate);
   const weights = weightsByStance[stance] || weightsByStance.opportunistic;
@@ -2407,7 +2518,7 @@ function targetPriorityModifiers(encounter, actor, candidate, doctrineContext = 
   const target = encounter.actors.find((entry) => candidate.targetIds?.includes(entry.id));
   if (!target) return {};
   const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
-  const coordinated = !behaviorHasCoordination(actor, 'none');
+  const coordinated = coordinationUsesSquadDoctrine(actor);
   const breakdown = {};
   if (mainThreat?.id && coordinated && target.id === mainThreat.id) breakdown.targetPriorityMainThreatBonus = 4;
   const hp = currentHpValue(target);
@@ -2423,7 +2534,7 @@ function targetPriorityModifiers(encounter, actor, candidate, doctrineContext = 
 }
 
 function doctrineScoreModifiers(encounter, actor, candidate, doctrineContext = {}) {
-  if (behaviorHasCoordination(actor, 'none')) return {};
+  if (!coordinationUsesSquadDoctrine(actor)) return {};
   if (doctrineContext.doctrine !== 'protect_caster') return {};
   const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
   if (!protectedAsset || !mainThreat) return {};
