@@ -55,8 +55,8 @@ test('OSS AI turn strategies use the new tactical family and scope mapping', () 
 
   assert.deepEqual(getAiTurnStrategy('controller_scripted'), {
     id: 'controller_scripted',
-    label: 'Scripted',
-    description: 'Runs a deterministic behavior-rule baseline locally with no LLM dependency.',
+    label: 'Simple Rules',
+    description: 'Checklist-style local tactics. The monster attacks if possible, moves to attack if possible, otherwise advances, holds, or retreats.',
     model: 'none',
     packetVariant: 'controller',
     controllerId: 'scripted_baseline',
@@ -69,8 +69,8 @@ test('OSS AI turn strategies use the new tactical family and scope mapping', () 
 
   assert.deepEqual(getAiTurnStrategy('controller_utility'), {
     id: 'controller_utility',
-    label: 'Utility',
-    description: 'Runs deterministic candidate scoring locally with line-of-sight and blocking-edge legality.',
+    label: 'Scored Tactics',
+    description: 'Local utility-scored tactics. The monster scores legal options using damage, safety, range, positioning, and behavior features.',
     model: 'none',
     packetVariant: 'controller',
     controllerId: 'utility_baseline',
@@ -81,16 +81,24 @@ test('OSS AI turn strategies use the new tactical family and scope mapping', () 
     supportsActivationScope: true
   });
 
-  assert.deepEqual(getAiTurnStrategy('controller_supervisor_scripted'), {
-    id: 'controller_supervisor_scripted',
-    label: 'Supervisor',
-    description: 'Runs scripted candidate generation, then a deterministic supervisor ranks candidate actions.',
+  assert.deepEqual(getAiTurnStrategy('controller_supervised_utility'), {
+    id: 'controller_supervised_utility',
+    label: 'Supervised Utility',
+    description: 'Local supervised utility tactics. The controller starts from utility scoring, then adds supervisor adjustments for role compliance, safety, doctrine, and tactical pressure.',
     model: 'none',
     packetVariant: 'controller',
-    controllerId: 'supervisor_scripted_single',
+    controllerId: 'supervised_utility_single',
     controllerIds: {
-      single: 'supervisor_scripted_single',
-      group: 'supervisor_scripted_group'
+      single: 'supervised_utility_single',
+      group: 'supervised_utility_group'
+    },
+    scopeLabels: {
+      single: 'Supervised Utility (Single)',
+      group: 'Coordinated Tactics'
+    },
+    scopeDescriptions: {
+      single: 'Local supervised utility tactics. The controller starts from utility scoring, then adds supervisor adjustments for role compliance, safety, doctrine, and tactical pressure.',
+      group: 'Group supervised utility tactics. The controller plans grouped monsters with shared reservations to reduce collisions and redundant crowding.'
     },
     supportsActivationScope: true
   });
@@ -104,10 +112,13 @@ test('OSS AI turn strategy aliases stay backward compatible', () => {
   assert.equal(getAiTurnStrategy('group_strategy')?.id, 'group_tactical');
   assert.equal(getAiTurnStrategy('llm_supervisor')?.id, 'llm_supervisor_single');
   assert.equal(getAiTurnStrategy('llm-supervisor-group')?.id, 'llm_supervisor_group');
-  assert.equal(getAiTurnStrategy('supervisor_scripted')?.id, 'controller_supervisor_scripted');
-  assert.equal(getAiTurnStrategy('supervisor_scripted_group')?.id, 'controller_supervisor_scripted');
-  assert.equal(getAiTurnStrategy('controller_supervisor_scripted_single')?.id, 'controller_supervisor_scripted');
-  assert.equal(getAiTurnStrategy('controller_supervisor_scripted_group')?.id, 'controller_supervisor_scripted');
+  assert.equal(getAiTurnStrategy('supervised_utility')?.id, 'controller_supervised_utility');
+  assert.equal(getAiTurnStrategy('supervised_utility_group')?.id, 'controller_supervised_utility');
+  assert.equal(getAiTurnStrategy('controller_supervisor_scripted')?.id, 'controller_supervised_utility');
+  assert.equal(getAiTurnStrategy('supervisor_scripted')?.id, 'controller_supervised_utility');
+  assert.equal(getAiTurnStrategy('supervisor_scripted_group')?.id, 'controller_supervised_utility');
+  assert.equal(getAiTurnStrategy('controller_supervisor_scripted_single')?.id, 'controller_supervised_utility');
+  assert.equal(getAiTurnStrategy('controller_supervisor_scripted_group')?.id, 'controller_supervised_utility');
 });
 
 test('resolveAiTurnRequest returns the expected model and packet for each tactical mode', () => {
@@ -141,14 +152,14 @@ test('resolveAiTurnRequest returns the expected model and packet for each tactic
     packetVariant: 'full_moves5_attacks6'
   });
 
-  assert.deepEqual(resolveAiTurnRequest({ strategy: 'controller_supervisor_scripted' }), {
-    strategyId: 'controller_supervisor_scripted',
+  assert.deepEqual(resolveAiTurnRequest({ strategy: 'controller_supervised_utility' }), {
+    strategyId: 'controller_supervised_utility',
     model: 'none',
     packetVariant: 'controller'
   });
 
   assert.deepEqual(resolveAiTurnRequest({ strategy: 'controller_supervisor_scripted_group' }), {
-    strategyId: 'controller_supervisor_scripted',
+    strategyId: 'controller_supervised_utility',
     model: 'none',
     packetVariant: 'controller'
   });

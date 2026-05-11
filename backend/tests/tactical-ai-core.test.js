@@ -21,6 +21,7 @@ import {
   findPath,
   rankApproachCells,
   generateCandidateActions,
+  getController,
   behaviorProfileForActor,
   hasBlockedMovementPath,
   hasLineOfSight,
@@ -243,19 +244,20 @@ test('human scripted and utility controllers share one output contract', async (
   }
 });
 
-test('supervisor scripted single ranks scripted candidates through the same output contract', async () => {
+test('supervised utility single ranks candidates through the same output contract', async () => {
   const encounter = SAMPLE_ENCOUNTER_FIXTURES[0].encounter;
   const output = await new SupervisorScriptedController().chooseAction({ encounter });
   const plan = tacticalOutputToVttPlan(output);
 
-  assert.equal(output.controllerId, 'supervisor_scripted_single');
-  assert.equal(plan._controller.id, 'supervisor_scripted_single');
+  assert.equal(output.controllerId, 'supervised_utility_single');
+  assert.equal(plan._controller.id, 'supervised_utility_single');
   assert.equal(plan.actions[0].type, 'attack');
   assert.ok(output.logs[0].data.supervisor.testedCandidateCount > 0);
-  assert.match(output.logs[0].message, /Supervisor \+ Scripted selected/);
+  assert.match(output.logs[0].message, /Supervised Utility selected/);
+  assert.equal(output.logs[0].data.supervisor.baseControllerId, 'utility_baseline');
 });
 
-test('supervisor scripted group emits one combined VTT plan for grouped actors', async () => {
+test('supervised utility group emits one combined VTT plan for grouped actors', async () => {
   const encounter = normalizeEncounterState({
     id: 'supervisor-group',
     round: 1,
@@ -289,9 +291,9 @@ test('supervisor scripted group emits one combined VTT plan for grouped actors',
   const output = await new SupervisorScriptedGroupController().chooseAction({ encounter });
   const plan = tacticalOutputToVttPlan(output);
 
-  assert.equal(output.controllerId, 'supervisor_scripted_group');
+  assert.equal(output.controllerId, 'supervised_utility_group');
   assert.equal(plan.actions.length, 2);
-  assert.equal(plan._controller.id, 'supervisor_scripted_group');
+  assert.equal(plan._controller.id, 'supervised_utility_group');
   assert.match(output.logs[0].message, /supervised 2 grouped activations/);
   assert.ok(output.logs[0].data.battlefieldAssessment.doctrine);
   assert.ok(output.logs[0].data.doctrineActionTension.status);
@@ -309,6 +311,29 @@ test('supervisor scripted group emits one combined VTT plan for grouped actors',
   assert.ok(actorLog.data.diagnostics.roleCompliance.role);
   const doctrineInfluenceLog = output.logs.find((log) => log.phase === 'doctrine_influence');
   assert.match(doctrineInfluenceLog.message, /doctrine bonuses applied=/);
+});
+
+test('controller registry resolves canonical and legacy supervised utility ids to the same plan shape', async () => {
+  const encounter = SAMPLE_ENCOUNTER_FIXTURES[0].encounter;
+  const registry = createControllerRegistry();
+  const canonicalSingle = getController('supervised_utility_single', registry);
+  const canonicalGroup = getController('supervised_utility_group', registry);
+  const legacySingle = getController('supervisor_scripted_single', registry);
+  const legacyGroup = getController('supervisor_scripted_group', registry);
+
+  assert.equal(canonicalSingle.id, 'supervised_utility_single');
+  assert.equal(canonicalGroup.id, 'supervised_utility_group');
+  assert.equal(legacySingle, canonicalSingle);
+  assert.equal(legacyGroup, canonicalGroup);
+
+  const canonicalOutput = await canonicalSingle.chooseAction({ encounter });
+  const legacyOutput = await legacySingle.chooseAction({ encounter });
+  assert.deepEqual(
+    Object.keys(tacticalOutputToVttPlan(canonicalOutput)),
+    Object.keys(tacticalOutputToVttPlan(legacyOutput))
+  );
+  assert.equal(canonicalOutput.controllerId, 'supervised_utility_single');
+  assert.equal(legacyOutput.controllerId, 'supervised_utility_single');
 });
 
 test('scripted baseline prefers a legal ranged attack over retreating', async () => {
@@ -1198,7 +1223,10 @@ test('portable SRD tactical overrides seed representative monster behavior profi
   const goblin = normalizeMonsterProfile({ name: 'Goblin', statblock: '- Scimitar: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 slashing damage.' }, { archetype: 'skirmisher' });
   const mage = normalizeMonsterProfile({ name: 'Mage', statblock: '- Dagger: Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 piercing damage.' }, { archetype: 'controller' });
 
-  assert.deepEqual(zombie.tactical, { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' });
+  assert.equal(zombie.tactical?.role, 'brute_blocker');
+  assert.equal(zombie.tactical?.mapped_core_role, 'disciplined_blocker');
+  assert.equal(zombie.tactical?.mappedCoreRole, 'disciplined_blocker');
+  assert.equal(zombie.tactical?.coreRole, 'disciplined_blocker');
   assert.deepEqual(zombie.behavior, {
     cognition: 'mindless',
     drive: 'nearest_living_prey',

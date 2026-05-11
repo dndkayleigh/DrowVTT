@@ -54,6 +54,11 @@ Current supported tiers:
 - Stony Shore must remain the advanced tactical benchmark
 - Zombie Doorway and Wolf Pack must remain the canonical low-cognition and animal/pack behavior fixtures
 
+## Compatibility Note
+
+- `supervisor_scripted_single` and `supervisor_scripted_group` are legacy controller IDs retained as aliases for older fixtures and saved boards.
+- New fixtures and UI should use `supervised_utility_single` and `supervised_utility_group`.
+
 ## Running Tests
 
 Core tactical regression file:

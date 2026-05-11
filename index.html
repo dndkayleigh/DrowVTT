@@ -4016,8 +4016,12 @@ import {
     if (!strategy) return null;
     const scope = getSelectedActivationScope();
     if (!strategy.supportsActivationScope) return strategy;
+    const scopeLabel = strategy.scopeLabels?.[scope] || `${strategy.label}${scope === 'group' ? ' (Group)' : scope === 'single' ? ' (Single)' : ''}`;
+    const scopeDescription = strategy.scopeDescriptions?.[scope] || strategy.description;
     return {
       ...strategy,
+      label: scopeLabel,
+      description: scopeDescription,
       activationScope: scope,
       controllerId: strategy.controllerIds?.[scope] || strategy.controllerId,
       requiresGroup: scope === 'group'
@@ -4082,16 +4086,16 @@ import {
         return 'Preparing the human-controller action contract...';
       case 'controller_scripted':
         return strategy.activationScope === 'group'
-          ? 'Running scripted tactics for the selected group locally...'
-          : 'Running scripted tactics for the current token locally...';
+          ? 'Running simple rules for the selected group locally...'
+          : 'Running simple rules for the current token locally...';
       case 'controller_utility':
         return strategy.activationScope === 'group'
-          ? 'Scoring legal tactical candidates for the selected group locally...'
-          : 'Scoring legal tactical candidates for the current token locally...';
-      case 'controller_supervisor_scripted':
+          ? 'Running scored tactics for the selected group locally...'
+          : 'Running scored tactics for the current token locally...';
+      case 'controller_supervised_utility':
         return strategy.activationScope === 'group'
-          ? 'Supervising grouped tactical candidates locally...'
-          : 'Supervising current-token tactical candidates locally...';
+          ? 'Running coordinated supervised utility tactics locally...'
+          : 'Running supervised utility tactics for the current token locally...';
       case 'llm_supervisor_single':
         return 'Asking the LLM supervisor to rank single-monster tactical options...';
       case 'llm_supervisor_group':
@@ -4929,7 +4933,7 @@ import {
   document.getElementById('gridSize').dispatchEvent(new Event('input'));
   document.getElementById('snapMode').dispatchEvent(new Event('change'));
   syncBoardStatusVisibility();
-  aiStrategySelect.value = 'controller_supervisor_scripted';
+  aiStrategySelect.value = 'controller_supervised_utility';
   syncAiStrategyUi();
   syncTokenSelectionUi();
   sessionSync.connect('local-session', authAdapter.getCurrentUserContext());

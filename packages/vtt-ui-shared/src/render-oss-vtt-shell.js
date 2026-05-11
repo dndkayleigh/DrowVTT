@@ -453,9 +453,9 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
             <div style="margin-top:8px;">
               <label>Tactics Mode</label>
               <select id="aiStrategy">
-                <option value="controller_scripted">Scripted</option>
-                <option value="controller_utility">Utility</option>
-                <option value="controller_supervisor_scripted">Supervisor</option>
+                <option value="controller_scripted">Simple Rules</option>
+                <option value="controller_utility">Scored Tactics</option>
+                <option value="controller_supervised_utility">Supervised Utility</option>
               </select>
               <label style="margin-top:8px;">Activation Scope</label>
               <select id="aiActivationScope">

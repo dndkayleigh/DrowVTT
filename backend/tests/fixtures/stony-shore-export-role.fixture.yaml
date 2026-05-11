@@ -4,7 +4,7 @@ category: custom
 description: |
   Minimal fixture used to verify tactical fixture export preserves mapped core roles.
 controllers:
-  - supervisor_scripted_group
+  - supervised_utility_group
 battlefield:
   width: 8
   height: 6

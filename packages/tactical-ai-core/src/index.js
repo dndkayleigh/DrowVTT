@@ -3072,8 +3072,8 @@ export class UtilityController {
 }
 
 export class SupervisorScriptedController {
-  id = 'supervisor_scripted_single';
-  label = 'Supervisor + Scripted';
+  id = 'supervised_utility_single';
+  label = 'Supervised Utility';
   kind = 'hybrid';
   supportsGroupPlanning = false;
   supportsSimultaneousPlanning = false;
@@ -3094,7 +3094,7 @@ export class SupervisorScriptedController {
       message: decisionSummary({ controllerLabel: this.label, selected, candidates, topCandidates, diagnostics }),
       data: {
         supervisor: {
-          baseControllerId: 'scripted_baseline',
+          baseControllerId: 'utility_baseline',
           testedCandidateCount: candidates.length,
           selectionMode: 'supervised_candidate_ranking',
           difficultyProfile: {
@@ -3119,8 +3119,8 @@ export class SupervisorScriptedController {
 }
 
 export class SupervisorScriptedGroupController extends SupervisorScriptedController {
-  id = 'supervisor_scripted_group';
-  label = 'Supervisor + Scripted Group';
+  id = 'supervised_utility_group';
+  label = 'Supervised Utility Group';
   supportsGroupPlanning = true;
 
   async chooseAction(input = {}) {
@@ -3388,7 +3388,10 @@ export function createControllerRegistry() {
     new RoleSpecializedPlannerController(),
     new SquadPlannerController()
   ];
-  return new Map(controllers.map((controller) => [controller.id, controller]));
+  const registry = new Map(controllers.map((controller) => [controller.id, controller]));
+  registry.set('supervisor_scripted_single', registry.get('supervised_utility_single'));
+  registry.set('supervisor_scripted_group', registry.get('supervised_utility_group'));
+  return registry;
 }
 
 export function getController(controllerId, registry = createControllerRegistry()) {

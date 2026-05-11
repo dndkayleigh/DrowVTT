@@ -273,17 +273,17 @@ For the current benchmark fixtures and behavior-profile test matrix, see [docs/b
 - It emits structured logs with the selected candidate and top alternatives, which makes it easier to debug why it attacked, moved, advanced, retreated, or held.
 - Tradeoff: the scoring model is hand-authored and will only be as good as the current features and weights.
 
-`Supervisor + Scripted (Single)`
+`Supervised Utility (Single)`
 
 - Runs locally with no model call.
-- Generates scripted candidates, then passes them through a deterministic supervisor/ranker for one actor.
-- Intended as a bridge between simple scripted behavior and stronger tactical selection.
-- Useful when the baseline generator can produce a reasonable set of options but needs a better selection pass.
+- Starts from utility-scored legal candidates, then adds deterministic supervisor adjustments for one actor.
+- Intended as a bridge between local utility scoring and stronger role-aware tactical selection.
+- Useful when the shared legal generator can produce a good set of options but needs stronger role, safety, and pressure-aware ranking.
 
-`Supervisor + Scripted (Group)`
+`Coordinated Tactics`
 
 - Runs locally with no model call.
-- Generates grouped scripted candidates and ranks them with a deterministic supervisor.
+- Starts from supervised utility candidate ranking for each grouped actor.
 - Uses group context and reservation-aware planning to reduce collisions and redundant destinations.
 - Intended for testing coordinated monster activations before relying on an LLM supervisor.
 
@@ -435,7 +435,7 @@ The utility log includes the selected candidate, feature values, stance, family 
 
 ### Deterministic Supervisor Decision Logic
 
-`Supervisor + Scripted (Single)` uses the same candidate generator, but it applies a stronger ranking pass than `Scripted Baseline`.
+`Supervised Utility (Single)` uses the shared legal candidate generator, starts from utility-style scoring, and then applies a stronger supervisor ranking pass than `Scripted Baseline`.
 
 The supervisor starts with the utility score, then adds supervisor-specific adjustments:
 
@@ -464,7 +464,7 @@ Supervisor selection:
 - Pick move_and_attack because it is legal, applies pressure now, preserves spacing, and beats the closest alternative by score.
 ```
 
-`Supervisor + Scripted (Group)` repeats that supervised ranking for each actor in the active group. After one actor claims a destination, that destination is reserved. Later actors receive a large reservation penalty for choosing the same destination, which reduces pileups and obvious collisions.
+`Coordinated Tactics` repeats that supervised utility ranking for each actor in the active group. After one actor claims a destination, that destination is reserved. Later actors receive a large reservation penalty for choosing the same destination, which reduces pileups and obvious collisions.
 
 Current group planning is `coordinated_sequential`: actors are planned one after another with shared reservations. It is not yet full simultaneous movement planning or beam-search squad planning.
 
@@ -508,7 +508,7 @@ If the LLM returns a destination or attack outside the candidate set, the VTT ma
 - `Ctrl`-click on Windows/Linux or `Cmd`-click on macOS adds or removes AI-controlled tokens from the active selection.
 - On mobile/tablet, use `Group Select` in the token list when modifier-click is not available.
 - When more than one AI-controlled monster is selected from a non-group mode, Tactics Director automatically switches to `Group (Tactical)`.
-- If you are already in a group mode, such as `LLM Supervisor + Tactical (Group)` or `Supervisor + Scripted (Group)`, multi-selection preserves that selected group mode instead of switching away from it.
+- If you are already in a group mode, such as `LLM Supervisor + Tactical (Group)` or `Coordinated Tactics`, multi-selection preserves that selected group mode instead of switching away from it.
 - Clicking a non-AI-controlled token such as a PC clears the active monster group unless AI controls are configured to allow that token type.
 
 ### Group Workflow
@@ -582,9 +582,10 @@ Notes:
 - `strategy` is the preferred control and maps to a server-side model plus packet variant.
 - `model` is still sent by the frontend for transparency and logging, but strategy selection now drives the intended mode.
 - Canonical LLM strategies are `single_fast`, `single_tactical`, `group_tactical`, `llm_supervisor_single`, and `llm_supervisor_group`.
-- Canonical local-controller strategy families are `controller_scripted`, `controller_utility`, and `controller_supervisor_scripted`.
+- Canonical local-controller strategy families are `controller_scripted`, `controller_utility`, and `controller_supervised_utility`.
 - In the OSS UI, deterministic tactics are selected as a strategy family plus an activation scope: `Current Token` or `Selected Group`. The scope maps the same family to the matching controller, such as `scripted_baseline` versus `scripted_baseline_group`.
-- Older aliases such as `controller_supervisor_scripted_single` and `controller_supervisor_scripted_group` remain accepted for backward compatibility, but new integrations should use the canonical family names plus explicit scope.
+- `supervisor_scripted_single` and `supervisor_scripted_group` are legacy controller IDs retained as aliases for older fixtures and saved boards. New fixtures and UI should use `supervised_utility_single` and `supervised_utility_group`.
+- Older aliases such as `controller_supervisor_scripted`, `controller_supervisor_scripted_single`, and `controller_supervisor_scripted_group` remain accepted for backward compatibility, but new integrations should use `controller_supervised_utility` plus explicit scope.
 
 ### Response
 

@@ -851,8 +851,8 @@ test('AI drawer settings persist across tab changes', async ({ page }) => {
   await expect(page.locator('#aiStrategyHint')).toContainText('current token only');
   await expect(page.locator('#aiStrategyHint')).toContainText('portable tactical controller contract');
 
-  await page.locator('#aiStrategy').selectOption('controller_supervisor_scripted');
-  await expect(page.locator('#aiStrategyHint')).toContainText('supervisor ranks candidate actions');
+  await page.locator('#aiStrategy').selectOption('controller_supervised_utility');
+  await expect(page.locator('#aiStrategyHint')).toContainText('supervisor adjustments for role compliance');
   await openDrawerTab(page, 'packet');
   await expect(page.locator('#aiExport')).toHaveValue(/TACTICAL CONTROLLER:/);
 });
@@ -879,14 +879,14 @@ test('local tactical controllers hot-swap through the same VTT apply contract', 
   expect(Array.isArray(plan.actions)).toBe(true);
 
   await openDrawerTab(page, 'settings');
-  await page.locator('#aiStrategy').selectOption('controller_supervisor_scripted');
+  await page.locator('#aiStrategy').selectOption('controller_supervised_utility');
   await page.locator('#aiActivationScope').selectOption('single');
-  await expect(page.locator('#aiStrategyHint')).toContainText('supervisor ranks candidate actions');
+  await expect(page.locator('#aiStrategyHint')).toContainText('supervisor adjustments for role compliance');
   await page.getByRole('button', { name: 'Run Tactics' }).click();
-  await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted');
+  await expect(page.locator('#sendStatus')).toContainText('Supervised Utility');
   await openDrawerTab(page, 'apply');
   const supervisedPlan = await page.evaluate(() => JSON.parse(document.querySelector('#applyJson')?.value || '{}'));
-  expect(supervisedPlan._controller.id).toBe('supervisor_scripted_single');
+  expect(supervisedPlan._controller.id).toBe('supervised_utility_single');
 });
 
 test('AI rail item opens the unified drawer instead of a floating draggable panel', async ({ page }) => {
@@ -1153,7 +1153,7 @@ test('ctrl-clicking a monster after selecting a PC drops the PC instead of formi
   await expect(tokenRow(page, 'Hero')).not.toContainText('Grouped');
   await expect(tokenRow(page, 'Goblin A')).toHaveClass(/selected/);
   await openDrawerTab(page, 'settings');
-  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervisor_scripted');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervised_utility');
   await expect(page.locator('#aiActivationScope')).toHaveValue('single');
 });
 
@@ -1166,7 +1166,7 @@ test('multi-selecting monsters auto-switches tactics director to group scope', a
 
   await openDrawerTab(page, 'settings');
   await openDetails(page, '#tokensSection');
-  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervisor_scripted');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervised_utility');
   await expect(page.locator('#aiActivationScope')).toHaveValue('group');
   await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
   await expect(tokenRow(page, 'Goblin B')).toContainText('Grouped');
@@ -1181,30 +1181,30 @@ test('supervisor group scope preserves ctrl-click grouping and runs local group 
 
   await clickTokenOnStage(page, 'Goblin A');
   await openDrawerTab(page, 'settings');
-  await page.locator('#aiStrategy').selectOption('controller_supervisor_scripted');
+  await page.locator('#aiStrategy').selectOption('controller_supervised_utility');
   await page.locator('#aiActivationScope').selectOption('group');
-  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervisor_scripted');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervised_utility');
   await expect(page.locator('#aiActivationScope')).toHaveValue('group');
 
   await closeDrawer(page);
   await clickTokenOnStage(page, 'Goblin B', ['Control']);
 
   await openDrawerTab(page, 'settings');
-  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervisor_scripted');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervised_utility');
   await expect(page.locator('#aiActivationScope')).toHaveValue('group');
   await openDetails(page, '#tokensSection');
   await expect(tokenRow(page, 'Goblin A')).toContainText('Grouped');
   await expect(tokenRow(page, 'Goblin B')).toContainText('Grouped');
-  await expect(page.locator('#tokenSelectionNote')).toContainText('Supervisor will use 2 grouped AI-controlled tokens');
+  await expect(page.locator('#tokenSelectionNote')).toContainText('Coordinated Tactics will use 2 grouped AI-controlled tokens');
   await expect(page.locator('#aiExport')).toHaveValue(/TACTICAL CONTROLLER:/);
 
   await openDrawerTab(page, 'settings');
   await page.getByRole('button', { name: 'Run Tactics' }).click();
 
-  await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted Group');
+  await expect(page.locator('#sendStatus')).toContainText('Supervised Utility Group');
   await openDrawerTab(page, 'apply');
   const plan = await page.evaluate(() => JSON.parse(document.querySelector('#applyJson')?.value || '{}'));
-  expect(plan._controller.id).toBe('supervisor_scripted_group');
+  expect(plan._controller.id).toBe('supervised_utility_group');
 });
 
 test('mobile group select mode supports grouped selection without ctrl-click', async ({ page }) => {
@@ -1235,7 +1235,7 @@ test('mobile group select mode supports grouped selection without ctrl-click', a
 
   await closeDrawer(page);
   await openDrawerTab(page, 'settings');
-  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervisor_scripted');
+  await expect(page.locator('#aiStrategy')).toHaveValue('controller_supervised_utility');
   await expect(page.locator('#aiActivationScope')).toHaveValue('group');
   await closeDrawer(page);
   await openDetails(page, '#tokensSection');
@@ -1619,7 +1619,7 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
     'description: |',
     '  Fixture actor metadata should become live token metadata.',
     'controllers:',
-    '  - supervisor_scripted_group',
+    '  - supervised_utility_group',
     'battlefield:',
     '  width: 8',
     '  height: 6',
@@ -1788,7 +1788,7 @@ test('legacy board snapshot omits tactical fixture metadata and warns about miss
   await openDrawerTab(page, 'settings');
   await page.locator('#autoApplyAI').uncheck();
   await page.getByRole('button', { name: 'Run Tactics' }).click();
-  await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted');
+  await expect(page.locator('#sendStatus')).toContainText('Supervised Utility');
   await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('Tactical metadata warning: Mage lacks tactical metadata.');
   await expect(page.locator('#logBox')).toContainText('Tactical metadata warning: Mage has Spellcasting text but no structured spells.');

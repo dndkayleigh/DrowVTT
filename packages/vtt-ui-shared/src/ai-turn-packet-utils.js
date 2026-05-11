@@ -869,7 +869,7 @@ export function buildAiTurnPacketForStrategy(state, strategy = {}) {
   if (strategy?.id === 'group_tactical' || strategy?.id === 'llm_supervisor_group' || strategy?.requiresGroup) {
     packet = buildGroupTacticalPacket(packet, state);
   }
-  if (strategy?.id === 'controller_supervisor_scripted') {
+  if (strategy?.id === 'controller_supervised_utility') {
     const lines = [packet, ''];
     const supervisorTokens = strategy?.requiresGroup
       ? getActiveAiGroupTokens(state)
