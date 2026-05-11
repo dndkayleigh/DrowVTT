@@ -2,226 +2,219 @@
 
 This page explains the `Turn -> Tactics` panel in the OSS VTT.
 
-The panel exists so encounter authors and GMs can tune live monster behavior without editing YAML fixtures or using debug hooks. It edits the current turn token's structured tactical metadata and sends that metadata through the same board snapshot and tactical fixture export paths used by the controller.
+The panel is meant to be a GM-facing authoring surface. The top section answers practical encounter questions:
 
-## What The Panel Edits
+- what battlefield job does this token have?
+- how does it think and coordinate?
+- does it have a special local objective?
 
-The `Tactics` tab currently exposes three kinds of metadata:
+The advanced section still exposes the lower-level controller metadata when you need to debug mapping or preserve legacy fixture details.
 
-1. Tactical role metadata
-- `Tactical role`
-- `Core role override`
-- `Objective role`
-- `Protected asset`
-- `Role notes`
+## Normal Authoring Fields
 
-2. Behavior profile metadata
-- `Cognition`
-- `Drive`
-- `Risk tolerance`
-- `Coordination`
-- `Planning horizon`
-- `Target stickiness`
+The default view of the `Tactics` tab focuses on five fields:
 
-3. Structured combat metadata
-- `Structured spells JSON`
-- `Structured attacks JSON`
+1. `Battlefield job`
+2. `Behavior preset`
+3. `Special objective`
+4. `Allies should protect this token`
+5. `Tactics notes`
 
-These fields are saved onto the live token, included in board snapshots, and preserved when exporting the board as a visible tactical fixture YAML.
+These are saved onto the live token, preserved in board snapshots, and exported through visible tactical fixture YAML.
 
-## Tactical Role vs Behavior
+### Battlefield job
 
-These are related but different:
+This is the monster's user-facing combat job.
 
-- `tactical role` answers: what battlefield job is this monster trying to perform?
-- `behavior profile` answers: how intelligently and in what style does it perform that job?
+Current options:
+- `Default / infer`
+- `Skirmisher`
+- `Blocker`
+- `Ambusher / bruiser`
+- `Support caster`
+- `Soldier`
+- `Boss / elite`
 
-Examples:
+This is the main authoring field most GMs should use.
 
-- A `skirmisher` with `animal / pack` behavior should feel like a mobile melee harrier, not a ranged soldier.
-- A `disciplined_blocker` with default `trained / squad` behavior should preserve formation and cooperate more like a battle line.
-- A `brute_blocker` or similar role with `mindless / none` behavior should pressure nearby prey without acting like a coordinated squad.
+Internally, it maps to the structured tactical role metadata the controller already understands. For example:
+- `Skirmisher` maps to `skirmisher`
+- `Blocker` maps to `disciplined_blocker`
+- `Boss / elite` is preserved as authored role intent and then mapped to a supported controller role in the AI interpretation summary
 
-## Field Meanings
+### Behavior preset
 
-### Tactical role
+This is the easiest way to describe how the creature thinks without filling every raw behavior field manually.
 
-Authored battlefield intent for the token.
-
-Examples:
-- `boss_caster`
-- `mobile_striker`
-- `brute_blocker`
-
-This is the higher-level encounter-authoring role label. It may map to a normalized controller-facing core role.
-
-### Core role override
-
-Explicit normalized role for the deterministic controller.
+Current presets:
+- `Default trained squad`
+- `Mindless pressure`
+- `Animal pack`
+- `Trained squad`
+- `Cunning skirmisher`
+- `Cautious defender`
+- `Fearless brute`
 
 Examples:
-- `support_caster`
-- `skirmisher`
-- `disciplined_blocker`
-- `ambusher_bruiser`
+- `Mindless pressure` makes a creature feel more zombie-like
+- `Animal pack` makes a creature behave more like a hunting beast pack
+- `Cunning skirmisher` is a better fit for smart mobile harassers than the default trained profile
 
-If present, this overrides inferred role mapping and is the clearest way to force a token into a specific tactical core role.
+If the token's behavior fields do not exactly match a known preset, the panel shows `Custom mixed`.
 
-If absent, the system infers or maps the core role from authored tactical metadata.
+### Special objective
 
-### Objective role
+This is a local scenario job layered on top of the normal battlefield role.
 
-Encounter-specific purpose layered on top of the tactical role.
+Current options:
+- `None`
+- `Guard location`
+- `Protect ally`
+- `Complete ritual/objective`
+- `Hold doorway/chokepoint`
+- `Flank reserve`
+- `Harass from range`
+- `Custom...`
 
-Examples:
-- `ritual_actor`
-- `door_guard`
-- `flank_reserve`
+When `Custom...` is selected, a text field appears so older fixture values or scenario-specific notes can still be preserved.
 
-This is useful when a monster is not just “a skirmisher” or “a blocker,” but also has a local job in the scenario.
+### Allies should protect this token
 
-### Protected asset
-
-Marks a token as something other monsters may try to screen or protect.
+This marks the token as something allies may try to screen or preserve.
 
 Typical examples:
 - a caster
 - a ritualist
 - a fragile objective carrier
 
-### Role notes
+### Tactics notes
 
-Freeform authoring text describing intended tactical behavior.
+Freeform authoring notes for exports and future context.
 
-Use this for intent that is helpful to preserve in exports and fixtures but is not yet represented by structured fields.
+The panel helper text is intentionally explicit:
+- local deterministic tactics use the structured fields above
+- notes are still useful for encounter design, exports, and future LLM-assisted workflows
 
-## Behavior Profile Fields
+## AI Interpretation Summary
 
-### Cognition
+The panel includes a read-only summary explaining how the deterministic controller will currently interpret the token.
 
-How intelligently the creature chooses among legal options.
-
-Examples:
-- `mindless`
-- `animal`
-- `trained`
-- `cunning`
-
-### Drive
-
-What the creature is trying to do.
+The summary reflects:
+- resolved controller role
+- source of the role mapping
+- effective behavior profile
+- special objective, if any
 
 Examples:
-- `nearest_living_prey`
-- `isolate_weak_prey`
-- `tactical_role_objective`
-- `complete_objective`
+- a mindless blocker will mention nearest-prey pressure and lack of retreat/skirmisher behavior
+- an animal pack skirmisher will mention isolated or wounded prey and lack of full squad doctrine
+- a trained skirmisher will mention harassment and coordinated positioning
 
-### Risk tolerance
+This summary is meant to answer "what will the AI think this creature is?" without requiring the GM to understand internal controller architecture.
 
-How much danger matters to the creature.
+## Advanced / Debug Fields
 
-Examples:
-- `fearless`
-- `normal`
-- `self_preserving`
-- `berserk`
+The advanced section keeps the lower-level tactical metadata visible for debugging and compatibility work.
 
-### Coordination
+Current advanced fields:
+- `Authored encounter role`
+- `Controller role override`
+- `Mapped controller role`
+- raw behavior fields:
+  - `Cognition`
+  - `Drive`
+  - `Risk tolerance`
+  - `Coordination`
+  - `Planning horizon`
+  - `Target stickiness`
+- `Structured spells JSON`
+- `Structured attacks JSON`
 
-Whether the creature behaves alone, as a pack, or as a disciplined group.
+These fields are useful when:
+- diagnosing role mapping
+- preserving imported legacy metadata
+- testing exact controller behavior
+- editing structured combat data directly
 
-Examples:
-- `none`
-- `pack`
-- `squad`
-- `commander_led`
+### Authored encounter role
 
-### Planning horizon
-
-How far ahead the creature should care about positioning and future value.
-
-Examples:
-- `immediate`
-- `short`
-- `long`
-
-### Target stickiness
-
-How reluctant the creature is to switch targets once it has pressure on one.
+This shows the higher-level authored role label stored on the token or imported from a fixture.
 
 Examples:
-- `low`
-- `medium`
-- `high`
+- `mobile_striker`
+- `boss_caster`
+- `door_guard`
 
-## Defaults vs Explicit Values
+### Controller role override
 
-Behavior fields use normalized defaults when left blank.
+This is the explicit normalized controller-facing role.
 
-Current default profile:
+Examples:
+- `skirmisher`
+- `disciplined_blocker`
+- `ambusher_bruiser`
+- `support_caster`
 
-```yaml
-behavior:
-  cognition: trained
-  drive: tactical_role_objective
-  riskTolerance: normal
-  coordination: squad
-  planningHorizon: short
-  targetStickiness: medium
-```
+If present, this is the strongest direct way to force deterministic role interpretation.
 
-In the Turn panel:
-- behavior dropdowns always show the currently active value, even when that value is inherited
-- the `Drive` text field may stay blank to mean “use the default/inferred value”
-- explicit non-blank values mean “store this value on the token”
+### Mapped controller role
 
-The panel shows current default values through status text and field tooltips so a user can tell whether they are inheriting behavior or overriding it.
+This read-only field shows the resolved controller role after mapping and normalization.
 
-For the select-style behavior fields, the dropdown always shows the currently active value.
+It answers:
+- what role the controller will actually use
+- whether that role came from authored role mapping, explicit override, or inference
 
-- if the token is inheriting controller defaults, the dropdown shows that inherited value
-- if the token has an explicit override, the dropdown shows the override
+## Behavior Presets vs Raw Behavior Fields
 
-The `Drive` text field remains blank when it is inheriting the default, and its placeholder explains that blank-state default.
+These are related but different:
 
-## What Saves Where
+- `Behavior preset` is a GM-friendly shortcut
+- raw behavior fields are the detailed structured representation
 
-Editing the panel updates the live token immediately.
+A preset simply fills or implies the raw fields:
+- `cognition`
+- `drive`
+- `riskTolerance`
+- `coordination`
+- `planningHorizon`
+- `targetStickiness`
 
-That metadata then flows through:
-
-1. live board state
-2. board snapshot export/import
-3. visible tactical fixture YAML export
-4. tactical controller packet building
-
-This makes the panel a real authoring surface, not just a local-only UI hint.
+If you need precise control, use the advanced section.
 
 ## Compatibility Notes
 
-The live token/editor path preserves both:
-- camelCase tactical keys used by the runtime
-- snake_case tactical keys that may still exist on fixture-loaded data
+The editor preserves both old and current tactical metadata shapes.
 
-That compatibility layer exists so:
-- legacy or fixture-authored metadata is not lost on edit
-- exported YAML remains stable
-- controller-facing core-role overrides do not disappear when another field is edited
+Supported tactical compatibility fields include:
+- `tactical.role`
+- `tactical.authoredRole`
+- `tactical.core_role`
+- `tactical.coreRole`
+- `tactical.mapped_core_role`
+- `tactical.mappedCoreRole`
+- `tactical.objective_role`
+- `tactical.objectiveRole`
+- `tactical.protected_asset`
+- `tactical.protectedAsset`
+- `tactical.role_notes`
+- `tactical.roleNotes`
+
+Behavior compatibility also preserves both camelCase and snake_case variants where they already exist:
+- `riskTolerance` / `risk_tolerance`
+- `planningHorizon` / `planning_horizon`
+- `targetStickiness` / `target_stickiness`
+
+When saving from the UI, the runtime prefers canonical camelCase fields, but legacy import/export compatibility is preserved.
 
 ## What This Panel Does Not Do
 
 The panel does not:
-- rewrite controller scoring on its own
-- immediately create new role families or candidate generators
-- guarantee a creature will act exactly as described in freeform notes
+- rewrite controller scoring by itself
+- invent new candidate families on its own
+- guarantee freeform notes will change deterministic tactics
 
-It only changes the structured inputs the controller receives.
-
-If behavior still looks wrong after editing these fields, the next place to inspect is:
-- controller diagnostics in the Tactics drawer
-- exported tactical fixture YAML
-- tactical-core behavior/role benchmarks
+It changes the structured tactical and behavior metadata that the controller receives.
 
 ## Related Docs
 

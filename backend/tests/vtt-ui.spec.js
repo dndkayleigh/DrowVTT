@@ -954,8 +954,18 @@ test('adding a tagged SRD monster seeds portable tactical role and behavior meta
 
   await openDetails(page, '#turnSection');
   await page.locator('[data-turn-tab="tactics"]').click();
-  await expect(page.locator('#selTacticalRole')).toHaveValue('mobile_striker');
-  await expect(page.locator('#selMappedCoreRole')).toHaveValue('skirmisher');
+  await expect(page.locator('#selBattlefieldJob')).toHaveValue('skirmisher');
+  await expect(page.locator('#selBehaviorPreset')).toHaveValue('animal_pack');
+  await expect(page.locator('#selSpecialObjective')).toHaveValue('');
+  await expect(page.locator('#selProtectedAsset')).not.toBeChecked();
+  await expect(page.locator('#selTacticsNotes')).toHaveValue('');
+  await expect(page.locator('#tokenAiInterpretationSummary')).toContainText('animal pack skirmisher');
+  await page.locator('#turnTacticsAdvanced').evaluate((el) => {
+    el.open = true;
+  });
+  await expect(page.locator('#selAuthoredEncounterRole')).toHaveValue('mobile_striker');
+  await expect(page.locator('#selControllerRoleOverride')).toHaveValue('skirmisher');
+  await expect(page.locator('#selMappedControllerRole')).toHaveValue('skirmisher');
   await expect(page.locator('#selBehaviorCognition')).toHaveValue('animal');
   await expect(page.locator('#selBehaviorCoordination')).toHaveValue('pack');
 
@@ -1696,13 +1706,22 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
   await setCurrentTurnToken(page, 'Mage');
   await openDetails(page, '#turnSection');
   await page.locator('[data-turn-tab="tactics"]').click();
-  await expect(page.locator('#selTacticalRole')).toHaveValue('boss_caster');
-  await expect(page.locator('#selMappedCoreRole')).toHaveValue('support_caster');
+  await expect(page.locator('#selBattlefieldJob')).toHaveValue('boss');
+  await expect(page.locator('#selBehaviorPreset')).toHaveValue('custom_mixed');
   await expect(page.locator('#selProtectedAsset')).toBeChecked();
-  await expect(page.locator('#selObjectiveRole')).toHaveValue('ritual_actor');
+  await expect(page.locator('#selSpecialObjective')).toHaveValue('custom');
+  await expect(page.locator('#selSpecialObjectiveCustom')).toHaveValue('ritual_actor');
+  await expect(page.locator('#selTacticsNotes')).toHaveValue('Protected caster from fixture.');
+  await expect(page.locator('#tokenAiInterpretationSummary')).toContainText('support caster');
   await expect(page.locator('#selBehaviorCognition')).toHaveValue('cunning');
   await expect(page.locator('#selBehaviorCoordination')).toHaveValue('commander_led');
   await expect(page.locator('#selSpellsJson')).toHaveValue(/Shield/);
+  await page.locator('#turnTacticsAdvanced').evaluate((el) => {
+    el.open = true;
+  });
+  await expect(page.locator('#selAuthoredEncounterRole')).toHaveValue('boss_caster');
+  await expect(page.locator('#selControllerRoleOverride')).toHaveValue('support_caster');
+  await expect(page.locator('#selMappedControllerRole')).toHaveValue('support_caster');
 
   await page.evaluate(() => {
     const setInputValue = (selector, value) => {
@@ -1710,10 +1729,14 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
       if (!element) throw new Error(`Missing element: ${selector}`);
       element.value = value;
     };
-    setInputValue('#selMappedCoreRole', 'ambusher_bruiser');
+    setInputValue('#selBattlefieldJob', 'ambusher_bruiser');
+    setInputValue('#selBehaviorPreset', 'fearless_brute');
+    setInputValue('#selSpecialObjective', 'complete_objective');
+    setInputValue('#selControllerRoleOverride', 'ambusher_bruiser');
     setInputValue('#selBehaviorCognition', 'trained');
     setInputValue('#selBehaviorCoordination', 'squad');
-    setInputValue('#selBehaviorDrive', 'protect_master');
+    setInputValue('#selBehaviorDrive', 'complete_objective');
+    setInputValue('#selTacticsNotes', 'Switches from ritual defense to aggressive pressure if interrupted.');
     setInputValue('#selSpellsJson', JSON.stringify([
       { name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 },
       { name: 'Magic Missile', kind: 'damage', target: 'enemy', rangeFt: 120, expectedValue: 10 }
@@ -1724,10 +1747,12 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
   const editedSnapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
   const editedMage = editedSnapshot.state.tokens.find((token) => token.id === 'mage');
   expect(editedMage?.tactical?.coreRole).toBe('ambusher_bruiser');
+  expect(editedMage?.tactical?.objectiveRole).toBe('complete_objective');
+  expect(editedMage?.tactical?.roleNotes).toBe('Switches from ritual defense to aggressive pressure if interrupted.');
   expect(editedMage?.behavior).toMatchObject({
     cognition: 'trained',
     coordination: 'squad',
-    drive: 'protect_master'
+    drive: 'complete_objective'
   });
   expect(editedMage?.spells?.map((spell) => spell.name)).toEqual(['Shield', 'Magic Missile']);
 
@@ -1737,11 +1762,13 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
   expect(yaml).toContain('mapped_core_role: ambusher_bruiser');
   expect(yaml).toContain('cognition: trained');
   expect(yaml).toContain('coordination: squad');
+  expect(yaml).toContain('objective_role: complete_objective');
   expect(mage?.tactical?.coreRole).toBe('ambusher_bruiser');
+  expect(mage?.tactical?.objectiveRole).toBe('complete_objective');
   expect(mage?.behavior).toMatchObject({
     cognition: 'trained',
     coordination: 'squad',
-    drive: 'protect_master'
+    drive: 'complete_objective'
   });
   expect(mage?.spells?.map((spell) => spell.name)).toContain('Magic Missile');
 });

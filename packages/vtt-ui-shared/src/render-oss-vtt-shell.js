@@ -324,86 +324,147 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
         <div class="tabPanel" data-turn-panel="tactics" hidden>
           <div class="compactRow">
             <div>
-              <label for="selTacticalRole">Tactical role</label>
-              <input id="selTacticalRole" type="text" placeholder="boss_caster" />
+              <label for="selBattlefieldJob">Battlefield job</label>
+              <select id="selBattlefieldJob">
+                <option value="">Default / infer</option>
+                <option value="skirmisher">Skirmisher</option>
+                <option value="disciplined_blocker">Blocker</option>
+                <option value="ambusher_bruiser">Ambusher / bruiser</option>
+                <option value="support_caster">Support caster</option>
+                <option value="soldier">Soldier</option>
+                <option value="boss">Boss / elite</option>
+              </select>
             </div>
             <div>
-              <label for="selMappedCoreRole">Core role override</label>
-              <input id="selMappedCoreRole" type="text" placeholder="support_caster" />
+              <label for="selBehaviorPreset">Behavior preset</label>
+              <select id="selBehaviorPreset">
+                <option value="default_trained_squad">Default trained squad</option>
+                <option value="mindless_pressure">Mindless pressure</option>
+                <option value="animal_pack">Animal pack</option>
+                <option value="trained_squad">Trained squad</option>
+                <option value="cunning_skirmisher">Cunning skirmisher</option>
+                <option value="cautious_defender">Cautious defender</option>
+                <option value="fearless_brute">Fearless brute</option>
+                <option value="custom_mixed">Custom / mixed</option>
+              </select>
             </div>
             <div>
-              <label for="selObjectiveRole">Objective role</label>
-              <input id="selObjectiveRole" type="text" placeholder="ritual_actor" />
+              <label for="selSpecialObjective">Special objective</label>
+              <select id="selSpecialObjective">
+                <option value="">None</option>
+                <option value="guard_location">Guard location</option>
+                <option value="protect_ally">Protect ally</option>
+                <option value="complete_objective">Complete ritual/objective</option>
+                <option value="hold_chokepoint">Hold doorway/chokepoint</option>
+                <option value="flank_reserve">Flank reserve</option>
+                <option value="harass_from_range">Harass from range</option>
+                <option value="custom">Custom...</option>
+              </select>
             </div>
           </div>
-          <div class="sectionNote" id="tokenCoreRoleStatus" style="margin-top:8px;">Core role is inferred at runtime unless explicitly overridden.</div>
+          <div id="specialObjectiveCustomWrap" hidden style="margin-top:8px;">
+            <label for="selSpecialObjectiveCustom">Custom objective</label>
+            <input id="selSpecialObjectiveCustom" type="text" placeholder="ritual_actor" />
+          </div>
           <div class="checkRow" style="margin-top:8px">
             <input id="selProtectedAsset" type="checkbox" />
-            <label for="selProtectedAsset" style="margin:0;color:var(--muted)">Protected asset</label>
+            <label for="selProtectedAsset" style="margin:0;color:var(--muted)">Allies should protect this token</label>
           </div>
-          <label for="selRoleNotes" style="margin-top:8px;">Role notes</label>
-          <textarea id="selRoleNotes" spellcheck="false" placeholder="How this token should behave tactically."></textarea>
-          <div class="compactRow" style="margin-top:8px;">
-            <div>
-              <label for="selBehaviorCognition">Cognition</label>
-              <select id="selBehaviorCognition">
-                <option value="mindless">mindless</option>
-                <option value="simple">simple</option>
-                <option value="animal">animal</option>
-                <option value="trained">trained</option>
-                <option value="cunning">cunning</option>
-                <option value="genius">genius</option>
-              </select>
+          <label for="selTacticsNotes" style="margin-top:8px;">Tactics notes</label>
+          <textarea id="selTacticsNotes" spellcheck="false" placeholder="How this token should behave tactically."></textarea>
+          <div class="sectionNote" style="margin-top:8px;">Freeform notes for encounter authoring, exports, and future LLM context. Local deterministic tactics only use structured fields above.</div>
+          <div class="sectionNote" id="tokenAiInterpretationSummary" style="margin-top:8px;">This token will act using its inferred role and default trained squad behavior.</div>
+          <details id="turnTacticsAdvanced" style="margin-top:10px;">
+            <summary style="cursor:pointer;color:var(--muted);font-size:12px;">Advanced mapping and raw fields</summary>
+            <div class="compactRow" style="margin-top:8px;">
+              <div>
+                <label for="selAuthoredEncounterRole">Authored encounter role</label>
+                <input id="selAuthoredEncounterRole" type="text" readonly />
+              </div>
+              <div>
+                <label for="selControllerRoleOverride">Controller role override</label>
+                <select id="selControllerRoleOverride">
+                  <option value="">Default / infer</option>
+                  <option value="skirmisher">Skirmisher</option>
+                  <option value="disciplined_blocker">Blocker</option>
+                  <option value="ambusher_bruiser">Ambusher / bruiser</option>
+                  <option value="support_caster">Support caster</option>
+                  <option value="soldier">Soldier</option>
+                </select>
+              </div>
+              <div>
+                <label for="selMappedControllerRole">Mapped controller role</label>
+                <input id="selMappedControllerRole" type="text" readonly />
+              </div>
             </div>
-            <div>
-              <label for="selBehaviorCoordination">Coordination</label>
-              <select id="selBehaviorCoordination">
-                <option value="none">none</option>
-                <option value="pack">pack</option>
-                <option value="squad">squad</option>
-                <option value="commander_led">commander_led</option>
-                <option value="hive">hive</option>
-              </select>
+            <div class="sectionNote" id="tokenCoreRoleStatus" style="margin-top:8px;">Core role is inferred at runtime unless explicitly overridden.</div>
+            <div class="compactRow" style="margin-top:8px;">
+              <div>
+                <label for="selBehaviorCognition">Cognition</label>
+                <select id="selBehaviorCognition">
+                  <option value="">Default / trained</option>
+                  <option value="mindless">Mindless</option>
+                  <option value="animal">Animal</option>
+                  <option value="trained">Trained</option>
+                  <option value="cunning">Cunning</option>
+                </select>
+              </div>
+              <div>
+                <label for="selBehaviorDrive">Drive</label>
+                <select id="selBehaviorDrive">
+                  <option value="">Default / tactical role objective</option>
+                  <option value="nearest_living_prey">Nearest living prey</option>
+                  <option value="isolate_weak_prey">Isolate weak prey</option>
+                  <option value="tactical_role_objective">Tactical role objective</option>
+                  <option value="complete_objective">Complete objective</option>
+                </select>
+              </div>
+              <div>
+                <label for="selBehaviorRiskTolerance">Risk tolerance</label>
+                <select id="selBehaviorRiskTolerance">
+                  <option value="">Default / normal</option>
+                  <option value="fearless">Fearless</option>
+                  <option value="normal">Normal</option>
+                  <option value="self_preserving">Self-preserving</option>
+                  <option value="berserk">Berserk</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label for="selBehaviorRiskTolerance">Risk tolerance</label>
-              <select id="selBehaviorRiskTolerance">
-                <option value="fearless">fearless</option>
-                <option value="normal">normal</option>
-                <option value="self_preserving">self_preserving</option>
-                <option value="cowardly">cowardly</option>
-                <option value="berserk">berserk</option>
-              </select>
+            <div class="compactRow" style="margin-top:8px;">
+              <div>
+                <label for="selBehaviorCoordination">Coordination</label>
+                <select id="selBehaviorCoordination">
+                  <option value="">Default / squad</option>
+                  <option value="none">None</option>
+                  <option value="pack">Pack</option>
+                  <option value="squad">Squad</option>
+                  <option value="commander_led">Commander-led</option>
+                </select>
+              </div>
+              <div>
+                <label for="selBehaviorPlanningHorizon">Planning horizon</label>
+                <select id="selBehaviorPlanningHorizon">
+                  <option value="">Default / short</option>
+                  <option value="immediate">Immediate</option>
+                  <option value="short">Short</option>
+                  <option value="long">Long</option>
+                </select>
+              </div>
+              <div>
+                <label for="selBehaviorTargetStickiness">Target stickiness</label>
+                <select id="selBehaviorTargetStickiness">
+                  <option value="">Default / medium</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
             </div>
-          </div>
-          <div class="compactRow" style="margin-top:8px;">
-            <div>
-              <label for="selBehaviorDrive">Drive</label>
-              <input id="selBehaviorDrive" type="text" placeholder="blank = default (tactical_role_objective)" />
-            </div>
-            <div>
-              <label for="selBehaviorPlanningHorizon">Planning horizon</label>
-              <select id="selBehaviorPlanningHorizon">
-                <option value="immediate">immediate</option>
-                <option value="short">short</option>
-                <option value="medium">medium</option>
-                <option value="long">long</option>
-              </select>
-            </div>
-            <div>
-              <label for="selBehaviorTargetStickiness">Target stickiness</label>
-              <select id="selBehaviorTargetStickiness">
-                <option value="low">low</option>
-                <option value="medium">medium</option>
-                <option value="high">high</option>
-              </select>
-            </div>
-          </div>
-          <div class="sectionNote" style="margin-top:8px;">Behavior dropdowns always show the currently active value. The Drive field can stay blank to inherit its default.</div>
-          <label for="selSpellsJson" style="margin-top:8px;">Structured spells JSON</label>
-          <textarea id="selSpellsJson" spellcheck="false" placeholder='[{"name":"Shield","kind":"defensive","target":"self","rangeFt":0,"expectedValue":5}]'></textarea>
-          <label for="selAttacksJson" style="margin-top:8px;">Structured attacks JSON</label>
-          <textarea id="selAttacksJson" spellcheck="false" placeholder='[{"name":"Dagger","attackKind":"ranged","rangeFt":20,"expectedDamage":5}]'></textarea>
+            <label for="selSpellsJson" style="margin-top:8px;">Structured spells JSON</label>
+            <textarea id="selSpellsJson" spellcheck="false" placeholder='[{"name":"Shield","kind":"defensive","target":"self","rangeFt":0,"expectedValue":5}]'></textarea>
+            <label for="selAttacksJson" style="margin-top:8px;">Structured attacks JSON</label>
+            <textarea id="selAttacksJson" spellcheck="false" placeholder='[{"name":"Dagger","attackKind":"ranged","rangeFt":20,"expectedDamage":5}]'></textarea>
+          </details>
           <div class="sectionNote" id="tokenMetadataStatus">Structured metadata is saved with board exports and sent to the tactical controller.</div>
         </div>
 

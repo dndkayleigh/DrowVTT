@@ -591,6 +591,7 @@ import {
   behaviorProfileForActor,
   createControllerRegistry,
   getController,
+  normalizeTacticalMetadata,
   tacticalOutputToVttPlan,
   validateEncounterState
 } from '/packages/tactical-ai-core/src/index.js';
@@ -3672,11 +3673,16 @@ import {
   const selSpeed = document.getElementById('selSpeed');
   const selNotes = document.getElementById('selNotes');
   const selStatblock = document.getElementById('selStatblock');
-  const selTacticalRole = document.getElementById('selTacticalRole');
-  const selMappedCoreRole = document.getElementById('selMappedCoreRole');
+  const selBattlefieldJob = document.getElementById('selBattlefieldJob');
+  const selBehaviorPreset = document.getElementById('selBehaviorPreset');
+  const selSpecialObjective = document.getElementById('selSpecialObjective');
+  const selSpecialObjectiveCustom = document.getElementById('selSpecialObjectiveCustom');
+  const specialObjectiveCustomWrap = document.getElementById('specialObjectiveCustomWrap');
   const selProtectedAsset = document.getElementById('selProtectedAsset');
-  const selObjectiveRole = document.getElementById('selObjectiveRole');
-  const selRoleNotes = document.getElementById('selRoleNotes');
+  const selTacticsNotes = document.getElementById('selTacticsNotes');
+  const selAuthoredEncounterRole = document.getElementById('selAuthoredEncounterRole');
+  const selControllerRoleOverride = document.getElementById('selControllerRoleOverride');
+  const selMappedControllerRole = document.getElementById('selMappedControllerRole');
   const selBehaviorCognition = document.getElementById('selBehaviorCognition');
   const selBehaviorDrive = document.getElementById('selBehaviorDrive');
   const selBehaviorRiskTolerance = document.getElementById('selBehaviorRiskTolerance');
@@ -3686,17 +3692,21 @@ import {
   const selSpellsJson = document.getElementById('selSpellsJson');
   const selAttacksJson = document.getElementById('selAttacksJson');
   const tokenCoreRoleStatus = document.getElementById('tokenCoreRoleStatus');
+  const tokenAiInterpretationSummary = document.getElementById('tokenAiInterpretationSummary');
   const tokenMetadataStatus = document.getElementById('tokenMetadataStatus');
+  const turnTacticsAdvanced = document.getElementById('turnTacticsAdvanced');
   const turnTabButtons = Array.from(document.querySelectorAll('[data-turn-tab]'));
   const turnTabPanels = Array.from(document.querySelectorAll('[data-turn-panel]'));
   const drawerTabButtons = Array.from(document.querySelectorAll('[data-drawer-tab]'));
   const drawerTabPanels = Array.from(document.querySelectorAll('[data-drawer-panel]'));
   const metadataEditorFields = [
-    selTacticalRole,
-    selMappedCoreRole,
+    selBattlefieldJob,
+    selBehaviorPreset,
+    selSpecialObjective,
+    selSpecialObjectiveCustom,
     selProtectedAsset,
-    selObjectiveRole,
-    selRoleNotes,
+    selTacticsNotes,
+    selControllerRoleOverride,
     selBehaviorCognition,
     selBehaviorDrive,
     selBehaviorRiskTolerance,
@@ -3706,6 +3716,117 @@ import {
     selSpellsJson,
     selAttacksJson
   ];
+
+  const DEFAULT_BEHAVIOR_PROFILE = {
+    cognition: 'trained',
+    drive: 'tactical_role_objective',
+    riskTolerance: 'normal',
+    coordination: 'squad',
+    planningHorizon: 'short',
+    targetStickiness: 'medium'
+  };
+
+  const BEHAVIOR_PRESETS = {
+    default_trained_squad: { label: 'Default trained squad', behavior: null },
+    mindless_pressure: {
+      label: 'Mindless pressure',
+      behavior: {
+        cognition: 'mindless',
+        drive: 'nearest_living_prey',
+        riskTolerance: 'fearless',
+        coordination: 'none',
+        planningHorizon: 'immediate',
+        targetStickiness: 'high'
+      }
+    },
+    animal_pack: {
+      label: 'Animal pack',
+      behavior: {
+        cognition: 'animal',
+        drive: 'isolate_weak_prey',
+        riskTolerance: 'self_preserving',
+        coordination: 'pack',
+        planningHorizon: 'short',
+        targetStickiness: 'medium'
+      }
+    },
+    trained_squad: {
+      label: 'Trained squad',
+      behavior: {
+        cognition: 'trained',
+        drive: 'tactical_role_objective',
+        riskTolerance: 'normal',
+        coordination: 'squad',
+        planningHorizon: 'short',
+        targetStickiness: 'medium'
+      }
+    },
+    cunning_skirmisher: {
+      label: 'Cunning skirmisher',
+      behavior: {
+        cognition: 'cunning',
+        drive: 'tactical_role_objective',
+        riskTolerance: 'self_preserving',
+        coordination: 'squad',
+        planningHorizon: 'long',
+        targetStickiness: 'low'
+      }
+    },
+    cautious_defender: {
+      label: 'Cautious defender',
+      behavior: {
+        cognition: 'trained',
+        drive: 'tactical_role_objective',
+        riskTolerance: 'self_preserving',
+        coordination: 'squad',
+        planningHorizon: 'short',
+        targetStickiness: 'medium'
+      }
+    },
+    fearless_brute: {
+      label: 'Fearless brute',
+      behavior: {
+        cognition: 'trained',
+        drive: 'nearest_living_prey',
+        riskTolerance: 'fearless',
+        coordination: 'squad',
+        planningHorizon: 'immediate',
+        targetStickiness: 'high'
+      }
+    }
+  };
+
+  const CORE_ROLE_OPTIONS = new Set(['', 'skirmisher', 'disciplined_blocker', 'ambusher_bruiser', 'support_caster', 'soldier']);
+  const BATTLEFIELD_JOB_TO_AUTHORED_ROLE = {
+    '': '',
+    skirmisher: 'skirmisher',
+    disciplined_blocker: 'disciplined_blocker',
+    ambusher_bruiser: 'ambusher_bruiser',
+    support_caster: 'support_caster',
+    soldier: 'soldier',
+    boss: 'boss'
+  };
+  const SPECIAL_OBJECTIVE_OPTIONS = new Set(['', 'guard_location', 'protect_ally', 'complete_objective', 'hold_chokepoint', 'flank_reserve', 'harass_from_range']);
+
+  function roleLabel(role = '') {
+    switch (String(role || '').trim()) {
+      case 'skirmisher': return 'skirmisher';
+      case 'disciplined_blocker': return 'blocker';
+      case 'ambusher_bruiser': return 'ambusher/bruiser';
+      case 'support_caster': return 'support caster';
+      case 'soldier': return 'soldier';
+      case 'boss': return 'boss/elite';
+      default: return 'role';
+    }
+  }
+
+  function titleCaseWords(text = '') {
+    return String(text || '')
+      .split(/[_\s]+/)
+      .filter(Boolean)
+      .map((word) => word[0].toUpperCase() + word.slice(1))
+      .join(' ');
+  }
 
   function tokenBehaviorEditorFields(token = null) {
     const behavior = behaviorProfileForActor(token || {});
@@ -3721,15 +3842,38 @@ import {
     };
   }
 
+  function clearDynamicSelectOptions(selectEl) {
+    if (!selectEl) return;
+    for (const option of Array.from(selectEl.querySelectorAll('option[data-dynamic="true"]'))) option.remove();
+  }
+
+  function ensureDynamicSelectOption(selectEl, value, label) {
+    if (!selectEl) return;
+    clearDynamicSelectOptions(selectEl);
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    option.dataset.dynamic = 'true';
+    selectEl.appendChild(option);
+  }
+
   function setBehaviorSelectState(selectEl, explicitValue, defaultValue) {
     if (!selectEl) return;
     const explicit = String(explicitValue ?? '').trim();
     const fallback = String(defaultValue ?? '').trim();
     const optionValues = new Set(Array.from(selectEl.options || []).map((option) => String(option.value || '')));
+    if (explicit && !optionValues.has(explicit)) {
+      ensureDynamicSelectOption(selectEl, explicit, `Imported: ${explicit}`);
+      optionValues.add(explicit);
+    }
+    if (!explicit && fallback && !optionValues.has(fallback)) {
+      ensureDynamicSelectOption(selectEl, fallback, `Inherited default: ${fallback}`);
+      optionValues.add(fallback);
+    }
     const active = explicit && optionValues.has(explicit) ? explicit : fallback;
     selectEl.dataset.defaultValue = fallback;
     selectEl.dataset.inherited = explicit ? 'false' : 'true';
-    if (active) selectEl.value = active;
+    if (active || selectEl.querySelector(`option[value="${active}"]`)) selectEl.value = active;
     selectEl.title = explicit
       ? `Explicit override. Inherited default: ${fallback}`
       : `Inherited default: ${fallback}`;
@@ -3743,13 +3887,165 @@ import {
     return inherited && value === defaultValue ? '' : value;
   }
 
-  function updateTokenMetadataStatus(token = null) {
+  function battlefieldJobValueForToken(token = null) {
     const tactical = token?.tactical || {};
-    const mappedCoreRole = String(tactical.mapped_core_role ?? tactical.mappedCoreRole ?? tactical.coreRole ?? '').trim();
+    const authoredRole = String(tactical.role ?? tactical.authoredRole ?? '').trim();
+    if (authoredRole === 'boss' || authoredRole.startsWith('boss_')) return 'boss';
+    const normalized = normalizeTacticalMetadata(tactical);
+    if (CORE_ROLE_OPTIONS.has(normalized.coreRole)) return normalized.coreRole;
+    return '';
+  }
+
+  function resolveControllerRoleFromBattlefieldJob(job = '') {
+    if (job === 'boss') return 'support_caster';
+    return CORE_ROLE_OPTIONS.has(job) ? job : '';
+  }
+
+  function objectiveEditorState(token = null) {
+    const tactical = token?.tactical || {};
+    const raw = String(tactical.objective_role ?? tactical.objectiveRole ?? '').trim();
+    if (!raw) return { value: '', custom: '' };
+    if (SPECIAL_OBJECTIVE_OPTIONS.has(raw)) return { value: raw, custom: '' };
+    if (raw.startsWith('custom:')) return { value: 'custom', custom: raw.slice('custom:'.length) };
+    return { value: 'custom', custom: raw };
+  }
+
+  function currentRawBehaviorFromEditor() {
+    return {
+      cognition: behaviorSelectOverrideValue(selBehaviorCognition),
+      drive: behaviorSelectOverrideValue(selBehaviorDrive),
+      riskTolerance: behaviorSelectOverrideValue(selBehaviorRiskTolerance),
+      coordination: behaviorSelectOverrideValue(selBehaviorCoordination),
+      planningHorizon: behaviorSelectOverrideValue(selBehaviorPlanningHorizon),
+      targetStickiness: behaviorSelectOverrideValue(selBehaviorTargetStickiness)
+    };
+  }
+
+  function mergedBehaviorFromEditor() {
+    const raw = currentRawBehaviorFromEditor();
+    return {
+      cognition: raw.cognition || DEFAULT_BEHAVIOR_PROFILE.cognition,
+      drive: raw.drive || DEFAULT_BEHAVIOR_PROFILE.drive,
+      riskTolerance: raw.riskTolerance || DEFAULT_BEHAVIOR_PROFILE.riskTolerance,
+      coordination: raw.coordination || DEFAULT_BEHAVIOR_PROFILE.coordination,
+      planningHorizon: raw.planningHorizon || DEFAULT_BEHAVIOR_PROFILE.planningHorizon,
+      targetStickiness: raw.targetStickiness || DEFAULT_BEHAVIOR_PROFILE.targetStickiness
+    };
+  }
+
+  function behaviorPresetFromEditor() {
+    const raw = currentRawBehaviorFromEditor();
+    const hasExplicit = Object.values(raw).some(Boolean);
+    if (!hasExplicit) return 'default_trained_squad';
+    const merged = mergedBehaviorFromEditor();
+    for (const [presetId, preset] of Object.entries(BEHAVIOR_PRESETS)) {
+      if (!preset.behavior) continue;
+      if (JSON.stringify(preset.behavior) === JSON.stringify(merged)) return presetId;
+    }
+    return 'custom_mixed';
+  }
+
+  function applyBehaviorPresetToEditor(presetId = 'default_trained_squad') {
+    const preset = BEHAVIOR_PRESETS[presetId] || null;
+    const defaults = DEFAULT_BEHAVIOR_PROFILE;
+    const next = preset?.behavior || null;
+    setBehaviorSelectState(selBehaviorCognition, next?.cognition || '', defaults.cognition);
+    setBehaviorSelectState(selBehaviorDrive, next?.drive || '', defaults.drive);
+    setBehaviorSelectState(selBehaviorRiskTolerance, next?.riskTolerance || '', defaults.riskTolerance);
+    setBehaviorSelectState(selBehaviorCoordination, next?.coordination || '', defaults.coordination);
+    setBehaviorSelectState(selBehaviorPlanningHorizon, next?.planningHorizon || '', defaults.planningHorizon);
+    setBehaviorSelectState(selBehaviorTargetStickiness, next?.targetStickiness || '', defaults.targetStickiness);
+    selBehaviorPreset.value = presetId;
+  }
+
+  function syncBehaviorPresetSelection() {
+    if (!selBehaviorPreset) return;
+    selBehaviorPreset.value = behaviorPresetFromEditor();
+  }
+
+  function updateSpecialObjectiveUi() {
+    if (!specialObjectiveCustomWrap) return;
+    const showCustom = selSpecialObjective.value === 'custom';
+    specialObjectiveCustomWrap.hidden = !showCustom;
+  }
+
+  function specialObjectiveFromEditor() {
+    if (selSpecialObjective.value === 'custom') {
+      const custom = String(selSpecialObjectiveCustom.value || '').trim();
+      return custom ? `custom:${custom}` : '';
+    }
+    return String(selSpecialObjective.value || '').trim();
+  }
+
+  function interpretationSourceLabel(source = '') {
+    switch (String(source || '').trim()) {
+      case 'tactical.mapped_core_role':
+      case 'tactical.coreRole':
+        return 'controller role override';
+      case 'tactical.role':
+        return 'battlefield job';
+      case 'tactical.role_map':
+        return 'battlefield job mapping';
+      default:
+        return 'inferred mapping';
+    }
+  }
+
+  function buildAiInterpretationSummary(token = null) {
+    const authoredRole = String(selAuthoredEncounterRole?.value || token?.tactical?.role || token?.tactical?.authoredRole || '').trim();
+    const controllerOverride = String(selControllerRoleOverride?.value || '').trim();
+    const summaryTactical = normalizeTacticalMetadata({
+      role: authoredRole,
+      authoredRole,
+      mapped_core_role: controllerOverride,
+      mappedCoreRole: controllerOverride,
+      core_role: controllerOverride,
+      coreRole: controllerOverride,
+      protected_asset: selProtectedAsset?.checked,
+      protectedAsset: selProtectedAsset?.checked,
+      objective_role: specialObjectiveFromEditor(),
+      objectiveRole: specialObjectiveFromEditor(),
+      role_notes: selTacticsNotes?.value || '',
+      roleNotes: selTacticsNotes?.value || ''
+    });
+    const behavior = mergedBehaviorFromEditor();
+    const resolvedRole = summaryTactical.coreRole || 'skirmisher';
+    const behaviorPhrase = [
+      behavior.cognition,
+      behavior.coordination !== 'none' ? behavior.coordination : '',
+      roleLabel(resolvedRole)
+    ].filter(Boolean).join(' ');
+    let detail = 'It will use structured tactical scoring with its current legal options.';
+    if (behavior.cognition === 'mindless') {
+      detail = 'It will pressure the nearest living prey and should not use retreat or skirmisher behavior.';
+    } else if (behavior.coordination === 'pack' && resolvedRole === 'skirmisher') {
+      detail = 'It may converge on isolated or wounded prey without using full squad doctrine.';
+    } else if (resolvedRole === 'skirmisher') {
+      detail = 'It will prefer legal harassment, ranged pressure when available, and coordinated positioning with allies.';
+    } else if (resolvedRole === 'disciplined_blocker') {
+      detail = 'It will try to hold space, protect lanes, and avoid needless overextension.';
+    } else if (resolvedRole === 'support_caster') {
+      detail = 'It will value safer positioning, support options, and allies that can protect it.';
+    } else if (resolvedRole === 'ambusher_bruiser') {
+      detail = 'It will look for pressure openings, isolated prey, and strong immediate attacks.';
+    }
+    const objective = summaryTactical.objectiveRole ? ` Special objective: ${summaryTactical.objectiveRole}.` : '';
+    return {
+      mappedRole: summaryTactical.coreRole || '',
+      source: summaryTactical.coreRoleSource || '',
+      text: `This token will act as a ${behaviorPhrase}. ${detail} Resolved controller role: ${summaryTactical.coreRole || 'infer'} (${interpretationSourceLabel(summaryTactical.coreRoleSource)}).${objective}`
+    };
+  }
+
+  function updateTokenMetadataStatus(token = null) {
+    const interpretation = buildAiInterpretationSummary(token);
     if (tokenCoreRoleStatus) {
-      tokenCoreRoleStatus.textContent = mappedCoreRole
-        ? `Core role override: ${mappedCoreRole}`
-        : 'Core role is inferred at runtime unless explicitly overridden.';
+      tokenCoreRoleStatus.textContent = interpretation.mappedRole
+        ? `Mapped controller role: ${interpretation.mappedRole} (${interpretationSourceLabel(interpretation.source)})`
+        : 'Controller role will be inferred at runtime.';
+    }
+    if (tokenAiInterpretationSummary) {
+      tokenAiInterpretationSummary.textContent = interpretation.text;
     }
     if (tokenMetadataStatus) {
       const behavior = behaviorProfileForActor(token || {});
@@ -3822,18 +4118,24 @@ import {
     const token = getCurrentTurnToken();
     const tactical = token?.tactical || {};
     const behaviorFields = tokenBehaviorEditorFields(token);
-    selTacticalRole.value = tactical.role || tactical.authoredRole || '';
-    selMappedCoreRole.value = tactical.mapped_core_role || tactical.mappedCoreRole || tactical.coreRole || '';
+    const normalizedTactical = normalizeTacticalMetadata(tactical);
+    selBattlefieldJob.value = battlefieldJobValueForToken(token);
+    selAuthoredEncounterRole.value = normalizedTactical.role || '';
+    selControllerRoleOverride.value = String(tactical.mapped_core_role ?? tactical.mappedCoreRole ?? tactical.core_role ?? tactical.coreRole ?? '').trim();
+    selMappedControllerRole.value = normalizedTactical.coreRole || '';
     selProtectedAsset.checked = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
-    selObjectiveRole.value = tactical.objective_role || tactical.objectiveRole || '';
-    selRoleNotes.value = tactical.role_notes || tactical.roleNotes || '';
+    const objectiveState = objectiveEditorState(token);
+    selSpecialObjective.value = objectiveState.value;
+    selSpecialObjectiveCustom.value = objectiveState.custom;
+    selTacticsNotes.value = tactical.role_notes || tactical.roleNotes || '';
     setBehaviorSelectState(selBehaviorCognition, behaviorFields.cognition, behaviorFields.defaults.cognition);
-    selBehaviorDrive.value = behaviorFields.drive;
+    setBehaviorSelectState(selBehaviorDrive, behaviorFields.drive, behaviorFields.defaults.drive);
     setBehaviorSelectState(selBehaviorRiskTolerance, behaviorFields.riskTolerance, behaviorFields.defaults.riskTolerance);
     setBehaviorSelectState(selBehaviorCoordination, behaviorFields.coordination, behaviorFields.defaults.coordination);
     setBehaviorSelectState(selBehaviorPlanningHorizon, behaviorFields.planningHorizon, behaviorFields.defaults.planningHorizon);
     setBehaviorSelectState(selBehaviorTargetStickiness, behaviorFields.targetStickiness, behaviorFields.defaults.targetStickiness);
-    selBehaviorDrive.title = behaviorFields.drive ? '' : `Default: ${behaviorFields.defaults.drive}`;
+    syncBehaviorPresetSelection();
+    updateSpecialObjectiveUi();
     selSpellsJson.value = metadataJson(token?.spells);
     selAttacksJson.value = metadataJson(token?.attacks);
     updateTokenMetadataStatus(token);
@@ -3857,17 +4159,24 @@ import {
       centerFromGridCell
     });
 
-    const role = selTacticalRole.value.trim();
-    const mappedCoreRole = selMappedCoreRole.value.trim();
-    const objectiveRole = selObjectiveRole.value.trim();
-    const roleNotes = selRoleNotes.value.trim();
-    const protectedAsset = selProtectedAsset.checked;
     const previousTactical = t.tactical && typeof t.tactical === 'object' ? t.tactical : {};
-    t.tactical = role || mappedCoreRole || protectedAsset || objectiveRole || roleNotes
+    const previousBattlefieldJob = battlefieldJobValueForToken(t);
+    const previousAuthoredRole = String(previousTactical.role ?? previousTactical.authoredRole ?? '').trim();
+    const selectedBattlefieldJob = String(selBattlefieldJob.value || '').trim();
+    const authoredRole = selectedBattlefieldJob === previousBattlefieldJob
+      ? (previousAuthoredRole || String(BATTLEFIELD_JOB_TO_AUTHORED_ROLE[selectedBattlefieldJob] ?? '').trim())
+      : String(BATTLEFIELD_JOB_TO_AUTHORED_ROLE[selectedBattlefieldJob] ?? '').trim();
+    const mappedCoreRole = selControllerRoleOverride.value.trim();
+    const objectiveRole = specialObjectiveFromEditor();
+    const roleNotes = selTacticsNotes.value.trim();
+    const protectedAsset = selProtectedAsset.checked;
+    t.tactical = authoredRole || mappedCoreRole || protectedAsset || objectiveRole || roleNotes
       ? {
         ...previousTactical,
-        role,
+        role: authoredRole,
+        authoredRole,
         mapped_core_role: mappedCoreRole,
+        core_role: mappedCoreRole,
         coreRole: mappedCoreRole,
         mappedCoreRole,
         protected_asset: protectedAsset,
@@ -3879,7 +4188,7 @@ import {
       }
       : null;
     const cognition = behaviorSelectOverrideValue(selBehaviorCognition);
-    const drive = selBehaviorDrive.value.trim();
+    const drive = behaviorSelectOverrideValue(selBehaviorDrive);
     const riskTolerance = behaviorSelectOverrideValue(selBehaviorRiskTolerance);
     const coordination = behaviorSelectOverrideValue(selBehaviorCoordination);
     const planningHorizon = behaviorSelectOverrideValue(selBehaviorPlanningHorizon);
@@ -3889,9 +4198,12 @@ import {
         cognition,
         drive,
         riskTolerance,
+        risk_tolerance: riskTolerance,
         coordination,
         planningHorizon,
-        targetStickiness
+        planning_horizon: planningHorizon,
+        targetStickiness,
+        target_stickiness: targetStickiness
       }
       : null;
     try {
@@ -3899,6 +4211,9 @@ import {
       t.attacks = parseMetadataJsonArray(selAttacksJson.value, 'Structured attacks');
       selSpellsJson.style.borderColor = '';
       selAttacksJson.style.borderColor = '';
+      selAuthoredEncounterRole.value = authoredRole;
+      selMappedControllerRole.value = normalizeTacticalMetadata(t.tactical).coreRole || '';
+      syncBehaviorPresetSelection();
       updateTokenMetadataStatus(t);
     } catch (err) {
       if (tokenMetadataStatus) tokenMetadataStatus.textContent = err.message || String(err);
@@ -3916,10 +4231,23 @@ import {
     el.addEventListener('input', saveEditorToCurrentTurnToken);
   }
   selProtectedAsset.addEventListener('change', saveEditorToCurrentTurnToken);
-  for (const el of [selBehaviorCognition, selBehaviorRiskTolerance, selBehaviorCoordination, selBehaviorPlanningHorizon, selBehaviorTargetStickiness]) {
+  selBehaviorPreset?.addEventListener('change', () => {
+    if (selBehaviorPreset.value === 'custom_mixed') {
+      syncBehaviorPresetSelection();
+      return;
+    }
+    applyBehaviorPresetToEditor(selBehaviorPreset.value);
+    saveEditorToCurrentTurnToken();
+  });
+  selSpecialObjective?.addEventListener('change', () => {
+    updateSpecialObjectiveUi();
+    saveEditorToCurrentTurnToken();
+  });
+  for (const el of [selBehaviorCognition, selBehaviorDrive, selBehaviorRiskTolerance, selBehaviorCoordination, selBehaviorPlanningHorizon, selBehaviorTargetStickiness]) {
     el.addEventListener('change', () => {
       const defaultValue = String(el.dataset.defaultValue ?? '').trim();
       el.dataset.inherited = String(el.value ?? '').trim() === defaultValue ? 'true' : 'false';
+      syncBehaviorPresetSelection();
       saveEditorToCurrentTurnToken();
     });
   }

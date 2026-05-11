@@ -211,7 +211,7 @@ function resolveCoreRole(tactical = null) {
   return { coreRole: '', source: '' };
 }
 
-function normalizeTacticalMetadata(tactical = null) {
+export function normalizeTacticalMetadata(tactical = null) {
   const empty = {
     role: '',
     authoredRole: '',
