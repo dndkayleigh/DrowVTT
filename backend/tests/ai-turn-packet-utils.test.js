@@ -83,6 +83,32 @@ test('parseSpellProfiles extracts SRD acolyte support and offensive spells', () 
   );
 });
 
+test('parseSpellProfiles extracts a tactical Archmage spell subset from spellcasting text', () => {
+  const profiles = parseSpellProfiles(
+    [
+      'Archmage (SRD 5.1)',
+      '- Traits:',
+      '  - Spellcasting: The archmage is an 18th-level spellcaster. Its spellcasting ability is Intelligence (spell save DC 17, +9 to hit with spell attacks). The archmage can cast disguise self and invisibility at will and has the following wizard spells prepared: - Cantrips (at will): fire bolt, light, mage hand, prestidigitation, shocking grasp - 1st level (4 slots): detect magic, identify, mage armor*, magic missile - 2nd level (3 slots): detect thoughts, mirror image, misty step - 3rd level (3 slots): counterspell, fly, lightning bolt - 5th level (3 slots): cone of cold, scrying, wall of force',
+      '- Actions:',
+      '  - Dagger: Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d4 + 2) piercing damage.'
+    ].join('\n')
+  );
+
+  const byName = Object.fromEntries(profiles.map((profile) => [profile.name, profile]));
+  assert.ok(byName['Fire Bolt']);
+  assert.ok(byName['Magic Missile']);
+  assert.ok(byName['Lightning Bolt']);
+  assert.ok(byName['Cone of Cold']);
+  assert.ok(byName['Misty Step']);
+  assert.ok(byName['Counterspell']);
+  assert.ok(byName['Mage Armor']);
+  assert.ok(byName['Invisibility']);
+  assert.equal(byName['Fire Bolt'].kind, 'damage');
+  assert.equal(byName['Magic Missile'].requiresLineOfSight, false);
+  assert.equal(byName['Misty Step'].target, 'self');
+  assert.equal(byName['Counterspell'].kind, 'defensive');
+});
+
 test('compact move5 packet still includes legal attacks for the seeded goblin demo statblock format', () => {
   const state = {
     gridSize: 64,

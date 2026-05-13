@@ -1746,6 +1746,28 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
   expect(mage?.spells?.map((spell) => spell.name)).toContain('Magic Missile');
 });
 
+test('archmage statblock parsing exports structured spells and avoids missing-spells warnings', async ({ page }) => {
+  await addToken(page, { name: 'Archmage', size: 1, type: 'Monster' });
+
+  const yaml = await page.evaluate(() => window.__VTT_DEBUG__.getTacticalFixtureYaml());
+  const fixture = parseVisibleEncounterFixture(yaml);
+  const archmage = fixture.encounter.actors.find((actor) => actor.name === 'Archmage');
+
+  expect(yaml).toContain('spells:');
+  expect(archmage?.spells?.map((spell) => spell.name)).toEqual(expect.arrayContaining([
+    'Fire Bolt',
+    'Magic Missile',
+    'Lightning Bolt',
+    'Cone of Cold'
+  ]));
+
+  await openDrawerTab(page, 'settings');
+  await page.locator('#autoApplyAI').uncheck();
+  await page.getByRole('button', { name: 'Run Tactics' }).click();
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).not.toContainText('Archmage has Spellcasting text but no structured spells');
+});
+
 test('tactical fixture export preserves mapped core roles from loaded fixtures', async ({ page }) => {
   const fixtureYaml = fs.readFileSync(
     new URL('./fixtures/stony-shore-export-role.fixture.yaml', import.meta.url),
@@ -1769,7 +1791,7 @@ test('tactical fixture export preserves mapped core roles from loaded fixtures',
   expect(actorsById.troll_a?.tactical?.coreRole).toBe('disciplined_blocker');
 });
 
-test('legacy board snapshot omits tactical fixture metadata and warns about missing structure', async ({ page }) => {
+test('legacy board snapshot omits tactical fixture metadata but still parses spellcasting text', async ({ page }) => {
   const snapshot = cloneBoardSnapshot(LEGACY_BOARD_SNAPSHOT_WITHOUT_TACTICAL);
 
   await page.evaluate(async (text) => {
@@ -1781,9 +1803,9 @@ test('legacy board snapshot omits tactical fixture metadata and warns about miss
   const mage = fixture.encounter.actors.find((actor) => actor.name === 'Mage');
 
   expect(yaml).not.toContain('tactical:');
-  expect(yaml).not.toContain('spells:');
+  expect(yaml).toContain('spells:');
   expect(mage?.tactical?.role).toBe('');
-  expect(mage?.spells).toEqual([]);
+  expect(mage?.spells?.map((spell) => spell.name)).toEqual(['Shield']);
 
   await openDrawerTab(page, 'settings');
   await page.locator('#autoApplyAI').uncheck();
@@ -1791,7 +1813,7 @@ test('legacy board snapshot omits tactical fixture metadata and warns about miss
   await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted');
   await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('Tactical metadata warning: Mage lacks tactical metadata.');
-  await expect(page.locator('#logBox')).toContainText('Tactical metadata warning: Mage has Spellcasting text but no structured spells.');
+  await expect(page.locator('#logBox')).not.toContainText('Tactical metadata warning: Mage has Spellcasting text but no structured spells.');
 });
 
 test('autosave history can restore a recent board snapshot', async ({ page }) => {

@@ -2004,7 +2004,7 @@ import {
     const explicit = Array.isArray(token?.spells) ? token.spells : [];
     const parsed = parseSpellProfiles(token?.statblock || '');
     const known = new Map();
-    for (const spell of [...explicit, ...parsed]) {
+    for (const spell of [...parsed, ...explicit]) {
       if (!spell?.name) continue;
       known.set(String(spell.name).toLowerCase(), {
         name: String(spell.name),
@@ -2037,10 +2037,16 @@ import {
       if (token?.type === 'Monster' && !hasTacticalMetadata(token)) {
         warnings.push(`${token.name || token.id || 'Monster'} lacks tactical metadata.`);
       }
-      if (/\bSpellcasting\b/i.test(String(token?.statblock || '')) && !Array.isArray(token?.spells)) {
-        warnings.push(`${token.name || token.id || 'Token'} has Spellcasting text but no structured spells array.`);
-      } else if (/\bSpellcasting\b/i.test(String(token?.statblock || '')) && token.spells.length === 0) {
-        warnings.push(`${token.name || token.id || 'Token'} has Spellcasting text but no structured spells.`);
+      const hasSpellcastingText = /\bSpellcasting\b/i.test(String(token?.statblock || ''));
+      if (hasSpellcastingText) {
+        const explicitSpells = Array.isArray(token?.spells) ? token.spells.filter((spell) => spell?.name) : null;
+        const parsedSpells = parseSpellProfiles(token?.statblock || '');
+        const hasUsableSpells = (explicitSpells?.length || 0) > 0 || parsedSpells.length > 0;
+        if (!Array.isArray(token?.spells) && !hasUsableSpells) {
+          warnings.push(`${token.name || token.id || 'Token'} has Spellcasting text but no structured spells array.`);
+        } else if (Array.isArray(token?.spells) && token.spells.length === 0 && parsedSpells.length === 0) {
+          warnings.push(`${token.name || token.id || 'Token'} has Spellcasting text but no structured spells.`);
+        }
       }
     }
     return warnings;

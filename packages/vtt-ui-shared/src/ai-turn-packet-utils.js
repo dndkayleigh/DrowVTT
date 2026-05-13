@@ -277,52 +277,54 @@ export function parseSpellProfiles(statblockText) {
   const text = (statblockText || '').toString();
   if (!text) return [];
 
-  const normalized = text.toLowerCase();
+  const spellcastingSections = [];
+  let captureSpellcasting = false;
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (/^-?\s*(?:Innate Spellcasting|Spellcasting):/i.test(line)) {
+      captureSpellcasting = true;
+      spellcastingSections.push(line);
+      continue;
+    }
+    if (captureSpellcasting && /^-\s*(?:Actions|Reactions|Bonus Actions|Legendary Actions):/i.test(line)) break;
+    if (captureSpellcasting) spellcastingSections.push(line);
+  }
+  const normalized = spellcastingSections.join('\n').toLowerCase().replace(/\*/g, '');
+  if (!normalized) return [];
+
+  const SPELL_TACTICAL_PROFILES = [
+    { name: 'Bless', kind: 'support', target: 'ally', rangeFt: 30, expectedValue: 5, requiresLineOfSight: false, tags: ['buff'] },
+    { name: 'Sacred Flame', kind: 'damage', target: 'enemy', rangeFt: 60, expectedValue: 4, requiresLineOfSight: true, tags: ['cantrip', 'radiant'] },
+    { name: 'Cure Wounds', kind: 'healing', target: 'ally', rangeFt: 5, expectedValue: 5, requiresLineOfSight: false, tags: ['healing'] },
+    { name: 'Sanctuary', kind: 'defensive', target: 'ally', rangeFt: 30, expectedValue: 4, requiresLineOfSight: false, tags: ['protection'] },
+    { name: 'Fire Bolt', kind: 'damage', target: 'enemy', rangeFt: 120, expectedValue: 11, requiresLineOfSight: true, tags: ['cantrip', 'ranged'] },
+    { name: 'Ray of Frost', kind: 'damage', target: 'enemy', rangeFt: 60, expectedValue: 9, requiresLineOfSight: true, tags: ['cantrip', 'slow'] },
+    { name: 'Magic Missile', kind: 'damage', target: 'enemy', rangeFt: 120, expectedValue: 10, requiresLineOfSight: false, tags: ['force', 'reliable'] },
+    { name: 'Scorching Ray', kind: 'damage', target: 'enemy', rangeFt: 120, expectedValue: 21, requiresLineOfSight: true, tags: ['ranged', 'multi_ray'] },
+    { name: 'Fireball', kind: 'damage', target: 'enemy', rangeFt: 150, expectedValue: 28, requiresLineOfSight: true, tags: ['aoe', 'explosive'] },
+    { name: 'Lightning Bolt', kind: 'damage', target: 'enemy', rangeFt: 100, expectedValue: 28, requiresLineOfSight: true, tags: ['aoe', 'line'] },
+    { name: 'Cone of Cold', kind: 'damage', target: 'enemy', rangeFt: 60, expectedValue: 36, requiresLineOfSight: true, tags: ['aoe', 'cone'] },
+    { name: 'Hold Person', kind: 'control', target: 'enemy', rangeFt: 60, expectedValue: 12, requiresLineOfSight: true, tags: ['control', 'humanoid_only'] },
+    { name: 'Hold Monster', kind: 'control', target: 'enemy', rangeFt: 90, expectedValue: 16, requiresLineOfSight: true, tags: ['control'] },
+    { name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5, requiresLineOfSight: false, tags: ['reaction', 'self'] },
+    { name: 'Mage Armor', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 4, requiresLineOfSight: false, tags: ['self', 'prebuff'] },
+    { name: 'Invisibility', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 6, requiresLineOfSight: false, tags: ['escape', 'stealth'] },
+    { name: 'Fly', kind: 'support', target: 'ally', rangeFt: 60, expectedValue: 7, requiresLineOfSight: true, tags: ['mobility'] },
+    { name: 'Counterspell', kind: 'defensive', target: 'enemy', rangeFt: 60, expectedValue: 6, requiresLineOfSight: true, tags: ['reaction', 'anti_magic'] },
+    { name: 'Misty Step', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 6, requiresLineOfSight: false, tags: ['escape', 'teleport'] },
+    { name: 'Dimension Door', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 8, requiresLineOfSight: false, tags: ['teleport', 'reposition'] }
+  ];
   const spells = [];
   const addSpell = (spell) => {
     if (spells.some((entry) => entry.name.toLowerCase() === spell.name.toLowerCase())) return;
     spells.push(spell);
   };
 
-  if (/\bbless\b/i.test(normalized)) {
-    addSpell({
-      name: 'Bless',
-      kind: 'support',
-      target: 'ally',
-      rangeFt: 30,
-      expectedValue: 5,
-      requiresLineOfSight: false
-    });
-  }
-  if (/\bsacred flame\b/i.test(normalized)) {
-    addSpell({
-      name: 'Sacred Flame',
-      kind: 'damage',
-      target: 'enemy',
-      rangeFt: 60,
-      expectedValue: 4,
-      requiresLineOfSight: true
-    });
-  }
-  if (/\bcure wounds\b/i.test(normalized)) {
-    addSpell({
-      name: 'Cure Wounds',
-      kind: 'healing',
-      target: 'ally',
-      rangeFt: 5,
-      expectedValue: 5,
-      requiresLineOfSight: false
-    });
-  }
-  if (/\bsanctuary\b/i.test(normalized)) {
-    addSpell({
-      name: 'Sanctuary',
-      kind: 'defensive',
-      target: 'ally',
-      rangeFt: 30,
-      expectedValue: 4,
-      requiresLineOfSight: false
-    });
+  for (const spell of SPELL_TACTICAL_PROFILES) {
+    const escaped = spell.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(`\\b${escaped}\\b`, 'i').test(normalized)) {
+      addSpell(spell);
+    }
   }
 
   return spells;

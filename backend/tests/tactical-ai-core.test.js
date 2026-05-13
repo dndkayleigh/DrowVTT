@@ -43,6 +43,7 @@ import {
   evaluateTacticalFixtureExpectations,
   runControllerFixture
 } from '../../packages/tactical-ai-devtools/src/index.js';
+import { parseSpellProfiles } from '../../data/ai-turn-packet-utils.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -783,6 +784,50 @@ test('supervisor role gate keeps support caster from club-charging when spells a
   assert.equal(output.logs[0].data.diagnostics.topByCategory.attack.supervisorBreakdown.roleSupportMeleeFallbackPenalty, -14);
 });
 
+test('archmage-like spellcasting text yields spell candidates and avoids dagger-only tactics', async () => {
+  const statblock = [
+    'Archmage (SRD 5.1)',
+    '- Traits:',
+    '  - Spellcasting: The archmage is an 18th-level spellcaster. Its spellcasting ability is Intelligence (spell save DC 17, +9 to hit with spell attacks). The archmage can cast disguise self and invisibility at will and has the following wizard spells prepared: - Cantrips (at will): fire bolt, light, mage hand, prestidigitation, shocking grasp - 1st level (4 slots): detect magic, identify, mage armor*, magic missile - 2nd level (3 slots): detect thoughts, mirror image, misty step - 3rd level (3 slots): counterspell, fly, lightning bolt - 5th level (3 slots): cone of cold, scrying, wall of force',
+    '- Actions:',
+    '  - Dagger: Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d4 + 2) piercing damage.'
+  ].join('\n');
+  const parsedSpells = parseSpellProfiles(statblock);
+  const encounter = normalizeEncounterState({
+    id: 'archmage-spell-parser',
+    activeActorId: 'archmage',
+    battlefield: { width: 16, height: 10, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'archmage',
+        name: 'Archmage',
+        side: 'monsters',
+        cell: { x: 3, y: 4 },
+        speed: 30,
+        attacks: [{ name: 'Dagger', attackKind: 'ranged', rangeFt: 20, expectedDamage: 4 }],
+        spells: parsedSpells,
+        statblock
+      },
+      { id: 'aria', name: 'Aria', side: 'heroes', cell: { x: 10, y: 4 }, speed: 30, attacks: [] }
+    ]
+  });
+
+  assert.ok(parsedSpells.some((spell) => spell.name === 'Fire Bolt'));
+  assert.ok(parsedSpells.some((spell) => spell.name === 'Lightning Bolt'));
+
+  const candidates = generateCandidateActions(encounter, encounter.actors[0]);
+  assert.ok(candidates.some((candidate) => candidate.family === 'spell_from_current' && candidate.action?.details === 'Fire Bolt'));
+  assert.ok(candidates.some((candidate) => candidate.family === 'spell_from_current' && candidate.action?.details === 'Lightning Bolt'));
+
+  const utility = await new UtilityController().chooseAction({ encounter });
+  assert.equal(utility.plan.actions[0].type, 'spell');
+  assert.notEqual(utility.plan.actions[0].details, 'Dagger');
+
+  const supervised = await new SupervisorScriptedController().chooseAction({ encounter });
+  assert.equal(supervised.plan.actions[0].type, 'spell');
+  assert.notEqual(supervised.plan.actions[0].details, 'Dagger');
+});
+
 test('supervisor role gate keeps ambusher bruiser from defaulting to ranged skirmish', async () => {
   const encounter = normalizeEncounterState({
     id: 'ambusher-role-gate',
@@ -1198,7 +1243,13 @@ test('portable SRD tactical overrides seed representative monster behavior profi
   const goblin = normalizeMonsterProfile({ name: 'Goblin', statblock: '- Scimitar: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 slashing damage.' }, { archetype: 'skirmisher' });
   const mage = normalizeMonsterProfile({ name: 'Mage', statblock: '- Dagger: Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 piercing damage.' }, { archetype: 'controller' });
 
-  assert.deepEqual(zombie.tactical, { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' });
+  assert.deepEqual(
+    {
+      role: zombie.tactical.role,
+      mapped_core_role: zombie.tactical.mapped_core_role
+    },
+    { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' }
+  );
   assert.deepEqual(zombie.behavior, {
     cognition: 'mindless',
     drive: 'nearest_living_prey',
