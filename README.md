@@ -27,6 +27,8 @@ Recent highlights:
 - map setup is cleaner and calibration-first
 - local tactics now support behavior profiles layered above tactical roles
 - the encounter fixture suite now includes mindless, animal/pack, and advanced tactical benchmarks
+- common SRD monsters now seed portable tactical role and behavior metadata when added to the board
+- spellcasting statblocks now extract a practical structured spell subset for local tactics, so caster monsters can generate spell candidates instead of defaulting to weak weapon attacks
 
 If you want a practical walkthrough of loading a board, selecting monsters, and running AI turns, start with [TUTORIAL.md](TUTORIAL.md).
 
@@ -190,6 +192,8 @@ Current coverage includes:
 - movement-rule rejection
 - melee reach validation
 - map control updates
+- behavior-profile fixture regressions
+- structured spell extraction and spell-capable local tactics
 
 Packet-specific checks are also available:
 
@@ -271,6 +275,7 @@ For the current benchmark fixtures and behavior-profile test matrix, see [docs/b
 - Generates bounded legal candidates and scores them with deterministic utility features.
 - Useful for inspecting whether the tactical features are pointing in the right direction.
 - It emits structured logs with the selected candidate and top alternatives, which makes it easier to debug why it attacked, moved, advanced, retreated, or held.
+- When structured spells are present, it can also score spell candidates instead of treating casters like ordinary weapon users.
 - Tradeoff: the scoring model is hand-authored and will only be as good as the current features and weights.
 
 `Supervisor + Scripted (Single)`
@@ -320,9 +325,55 @@ Current supported behavior tiers in the local controller path are:
 - `trained / squad` default
 - advanced trained/squad tactical behavior exercised by the Stony Shore benchmark
 
+Current SRD seeding on the OSS path includes a first-pass portable behavior/tactical batch for:
+
+- `Zombie`
+- `Skeleton`
+- `Wolf`
+- `Dire Wolf`
+- `Goblin`
+- `Hobgoblin`
+- `Bandit`
+- `Guard`
+- `Acolyte`
+- `Mage`
+
 The live VTT authoring surface for these fields is documented in [docs/turn-panel-tactical-metadata.md](docs/turn-panel-tactical-metadata.md).
 
 Behavior profiles are portable. System-specific mechanics such as movement-reaction risk are interpreted inside the tactical rules/adapter layer, then weighted by behavior.
+
+### Structured Spells
+
+The local tactics stack now supports a practical structured-spell path for monsters with spellcasting statblocks.
+
+- Explicit structured spells on the token still take precedence.
+- If a token has `Spellcasting` text but no explicit `spells` array, the VTT attempts to parse a conservative tactical spell subset from the statblock.
+- Parsed spells then flow into the same `actor.spells` field used by the deterministic controller.
+
+Current first-pass recognized spells include:
+
+- `Bless`
+- `Sacred Flame`
+- `Cure Wounds`
+- `Sanctuary`
+- `Fire Bolt`
+- `Ray of Frost`
+- `Magic Missile`
+- `Scorching Ray`
+- `Fireball`
+- `Lightning Bolt`
+- `Cone of Cold`
+- `Hold Person`
+- `Hold Monster`
+- `Shield`
+- `Mage Armor`
+- `Invisibility`
+- `Fly`
+- `Counterspell`
+- `Misty Step`
+- `Dimension Door`
+
+This is intentionally a tactical subset, not a full 5e spell engine. Unrecognized spells still fall back to the existing warning path so the controller does not silently pretend a caster has no spell options.
 
 ### How Tactical Decisions Are Executed
 
@@ -343,6 +394,8 @@ The candidate generator currently emits these main families:
 
 - `attack_from_current`: attack from the actor's current cell when the target is in range and line of sight is legal.
 - `move_and_attack`: move to a reachable legal destination, then attack from that destination.
+- `spell_from_current`: cast a structured spell from the actor's current cell.
+- `move_and_spell`: move to a reachable legal destination, then cast a structured spell from that destination.
 - `advance_to_attack`: dash or advance toward a future attack position when no attack is available this turn.
 - `disengage_retreat`: move away from the nearest enemy and take a disengage-style action.
 - `hold_position`: stay put and take a dodge-style defensive action.
