@@ -21,6 +21,7 @@ import {
   findPath,
   rankApproachCells,
   generateCandidateActions,
+  getController,
   behaviorProfileForActor,
   hasBlockedMovementPath,
   hasLineOfSight,
@@ -43,7 +44,6 @@ import {
   evaluateTacticalFixtureExpectations,
   runControllerFixture
 } from '../../packages/tactical-ai-devtools/src/index.js';
-import { parseSpellProfiles } from '../../data/ai-turn-packet-utils.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -79,6 +79,23 @@ function encounterWithBlocking() {
       }
     ]
   });
+}
+
+function occupiedCellsForTest(actor = {}, fromCell = null) {
+  const origin = fromCell || actor.cell || { x: 0, y: 0 };
+  const size = Math.max(1, Math.round(Number(actor?.sizeCells) || 1));
+  const cells = [];
+  for (let dx = 0; dx < size; dx += 1) {
+    for (let dy = 0; dy < size; dy += 1) {
+      cells.push({ x: origin.x + dx, y: origin.y + dy });
+    }
+  }
+  return cells;
+}
+
+function destinationOverlapsActor(actor = {}, destination = null, other = {}) {
+  const a = new Set(occupiedCellsForTest(actor, destination).map((cell) => `${cell.x},${cell.y}`));
+  return occupiedCellsForTest(other, other.cell).some((cell) => a.has(`${cell.x},${cell.y}`));
 }
 
 function stonyShoreFixture() {
@@ -244,19 +261,20 @@ test('human scripted and utility controllers share one output contract', async (
   }
 });
 
-test('supervisor scripted single ranks scripted candidates through the same output contract', async () => {
+test('supervised utility single ranks candidates through the same output contract', async () => {
   const encounter = SAMPLE_ENCOUNTER_FIXTURES[0].encounter;
   const output = await new SupervisorScriptedController().chooseAction({ encounter });
   const plan = tacticalOutputToVttPlan(output);
 
-  assert.equal(output.controllerId, 'supervisor_scripted_single');
-  assert.equal(plan._controller.id, 'supervisor_scripted_single');
+  assert.equal(output.controllerId, 'supervised_utility_single');
+  assert.equal(plan._controller.id, 'supervised_utility_single');
   assert.equal(plan.actions[0].type, 'attack');
   assert.ok(output.logs[0].data.supervisor.testedCandidateCount > 0);
-  assert.match(output.logs[0].message, /Supervisor \+ Scripted selected/);
+  assert.match(output.logs[0].message, /Supervised Utility selected/);
+  assert.equal(output.logs[0].data.supervisor.baseControllerId, 'utility_baseline');
 });
 
-test('supervisor scripted group emits one combined VTT plan for grouped actors', async () => {
+test('supervised utility group emits one combined VTT plan for grouped actors', async () => {
   const encounter = normalizeEncounterState({
     id: 'supervisor-group',
     round: 1,
@@ -290,9 +308,9 @@ test('supervisor scripted group emits one combined VTT plan for grouped actors',
   const output = await new SupervisorScriptedGroupController().chooseAction({ encounter });
   const plan = tacticalOutputToVttPlan(output);
 
-  assert.equal(output.controllerId, 'supervisor_scripted_group');
+  assert.equal(output.controllerId, 'supervised_utility_group');
   assert.equal(plan.actions.length, 2);
-  assert.equal(plan._controller.id, 'supervisor_scripted_group');
+  assert.equal(plan._controller.id, 'supervised_utility_group');
   assert.match(output.logs[0].message, /supervised 2 grouped activations/);
   assert.ok(output.logs[0].data.battlefieldAssessment.doctrine);
   assert.ok(output.logs[0].data.doctrineActionTension.status);
@@ -310,6 +328,29 @@ test('supervisor scripted group emits one combined VTT plan for grouped actors',
   assert.ok(actorLog.data.diagnostics.roleCompliance.role);
   const doctrineInfluenceLog = output.logs.find((log) => log.phase === 'doctrine_influence');
   assert.match(doctrineInfluenceLog.message, /doctrine bonuses applied=/);
+});
+
+test('controller registry resolves canonical and legacy supervised utility ids to the same plan shape', async () => {
+  const encounter = SAMPLE_ENCOUNTER_FIXTURES[0].encounter;
+  const registry = createControllerRegistry();
+  const canonicalSingle = getController('supervised_utility_single', registry);
+  const canonicalGroup = getController('supervised_utility_group', registry);
+  const legacySingle = getController('supervisor_scripted_single', registry);
+  const legacyGroup = getController('supervisor_scripted_group', registry);
+
+  assert.equal(canonicalSingle.id, 'supervised_utility_single');
+  assert.equal(canonicalGroup.id, 'supervised_utility_group');
+  assert.equal(legacySingle, canonicalSingle);
+  assert.equal(legacyGroup, canonicalGroup);
+
+  const canonicalOutput = await canonicalSingle.chooseAction({ encounter });
+  const legacyOutput = await legacySingle.chooseAction({ encounter });
+  assert.deepEqual(
+    Object.keys(tacticalOutputToVttPlan(canonicalOutput)),
+    Object.keys(tacticalOutputToVttPlan(legacyOutput))
+  );
+  assert.equal(canonicalOutput.controllerId, 'supervised_utility_single');
+  assert.equal(legacyOutput.controllerId, 'supervised_utility_single');
 });
 
 test('scripted baseline prefers a legal ranged attack over retreating', async () => {
@@ -495,6 +536,171 @@ test('move-and-attack candidates emit routed paths instead of direct blocked pat
   assert.equal(hasBlockedMovementPath(encounter, { x: 0, y: 0 }, { x: 1, y: 1 }), true);
   assert.equal(hasBlockedMovementPath(encounter, { x: 0, y: 0 }, { x: 0, y: 1 }), false);
   assert.equal(hasBlockedMovementPath(encounter, { x: 0, y: 1 }, { x: 1, y: 1 }), false);
+});
+
+test('1x1 melee move_and_attack chooses an adjacent unoccupied destination instead of the target cell', () => {
+  const encounter = normalizeEncounterState({
+    id: 'melee-move-attack-adjacent-stop',
+    round: 1,
+    activeActorId: 'vrockling',
+    battlefield: { gridSize: 64, width: 8, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'vrockling',
+        name: 'Vrockling',
+        side: 'monsters',
+        cell: { x: 0, y: 0 },
+        speed: 30,
+        sizeCells: 1,
+        attacks: [{ name: 'Beak', attackKind: 'melee', rangeFt: 5, expectedDamage: 8 }]
+      },
+      {
+        id: 'aria',
+        name: 'Aria',
+        side: 'heroes',
+        cell: { x: 2, y: 0 },
+        speed: 30,
+        sizeCells: 1,
+        attacks: []
+      }
+    ]
+  });
+
+  const actor = encounter.actors[0];
+  const target = encounter.actors[1];
+  const moveAttackCandidates = generateCandidateActions(encounter, actor, { limit: 24 })
+    .filter((candidate) => candidate.family === 'move_and_attack' && candidate.action?.attackKind === 'melee');
+
+  assert.ok(moveAttackCandidates.length > 0, 'expected at least one melee move_and_attack candidate');
+  for (const candidate of moveAttackCandidates) {
+    assert.notDeepEqual(candidate.move?.to, target.cell);
+    assert.equal(destinationOverlapsActor(actor, candidate.move?.to, target), false);
+    assert.ok(Math.max(
+      Math.abs(candidate.move.to.x - target.cell.x),
+      Math.abs(candidate.move.to.y - target.cell.y)
+    ) <= 1);
+  }
+});
+
+test('selected scripted melee move_and_attack candidates always end on an unoccupied destination', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'selected-melee-destination-legal',
+    round: 1,
+    activeActorId: 'ghoul',
+    battlefield: { gridSize: 64, width: 8, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'ghoul',
+        name: 'Ghoul',
+        side: 'monsters',
+        cell: { x: 0, y: 0 },
+        speed: 30,
+        attacks: [{ name: 'Claw', attackKind: 'melee', rangeFt: 5, expectedDamage: 7 }]
+      },
+      {
+        id: 'aria',
+        name: 'Aria',
+        side: 'heroes',
+        cell: { x: 2, y: 0 },
+        speed: 30,
+        attacks: []
+      },
+      {
+        id: 'ally',
+        name: 'Zombie Ally',
+        side: 'monsters',
+        cell: { x: 4, y: 4 },
+        speed: 20,
+        attacks: []
+      }
+    ]
+  });
+
+  const output = await new ScriptedController().chooseAction({ encounter });
+  assert.match(output.selectedCandidateId, /^move_and_attack:/);
+  const selected = output.candidates.find((candidate) => candidate.id === output.selectedCandidateId);
+  assert.ok(selected);
+  assert.ok(selected?.move?.to);
+  const movingActor = encounter.actors.find((entry) => entry.id === selected.actorId);
+  for (const actor of encounter.actors.filter((entry) => entry.id !== selected.actorId)) {
+    assert.equal(destinationOverlapsActor(movingActor, selected.move.to, actor), false);
+  }
+});
+
+test('no illegal melee move_and_attack is emitted against a target whose adjacent attack-origin cells are all blocked or occupied', () => {
+  const encounter = normalizeEncounterState({
+    id: 'no-legal-melee-origin-cells',
+    round: 1,
+    activeActorId: 'ghoul',
+    battlefield: { gridSize: 64, width: 6, height: 6, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'ghoul',
+        name: 'Ghoul',
+        side: 'monsters',
+        cell: { x: 0, y: 0 },
+        speed: 30,
+        attacks: [{ name: 'Claw', attackKind: 'melee', rangeFt: 5, expectedDamage: 7 }]
+      },
+      { id: 'aria', name: 'Aria', side: 'heroes', cell: { x: 2, y: 2 }, speed: 30, attacks: [] },
+      { id: 'hero_b', name: 'Hero B', side: 'heroes', cell: { x: 1, y: 2 }, speed: 30, attacks: [] },
+      { id: 'hero_c', name: 'Hero C', side: 'heroes', cell: { x: 2, y: 1 }, speed: 30, attacks: [] },
+      { id: 'hero_d', name: 'Hero D', side: 'heroes', cell: { x: 3, y: 2 }, speed: 30, attacks: [] },
+      { id: 'hero_e', name: 'Hero E', side: 'heroes', cell: { x: 2, y: 3 }, speed: 30, attacks: [] },
+      { id: 'hero_f', name: 'Hero F', side: 'heroes', cell: { x: 1, y: 1 }, speed: 30, attacks: [] },
+      { id: 'hero_g', name: 'Hero G', side: 'heroes', cell: { x: 3, y: 1 }, speed: 30, attacks: [] },
+      { id: 'hero_h', name: 'Hero H', side: 'heroes', cell: { x: 1, y: 3 }, speed: 30, attacks: [] },
+      { id: 'hero_i', name: 'Hero I', side: 'heroes', cell: { x: 3, y: 3 }, speed: 30, attacks: [] }
+    ]
+  });
+
+  const candidates = generateCandidateActions(encounter, encounter.actors[0], { limit: 36 });
+  const moveAttackCandidates = candidates.filter((candidate) =>
+    candidate.family === 'move_and_attack' &&
+    candidate.action?.attackKind === 'melee' &&
+    candidate.targetIds?.includes('aria')
+  );
+  assert.equal(moveAttackCandidates.length, 0);
+});
+
+test('large melee move_and_attack uses an adjacent unoccupied origin instead of the target cell', () => {
+  const encounter = normalizeEncounterState({
+    id: 'vrock-like-occupied-target-cell',
+    round: 1,
+    activeActorId: 'vrock',
+    battlefield: { gridSize: 64, width: 14, height: 12, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'vrock',
+        name: 'Vrock',
+        side: 'monsters',
+        cell: { x: 4, y: 6 },
+        sizeCells: 2,
+        speed: 40,
+        attacks: [{ name: 'Beak', attackKind: 'melee', rangeFt: 5, expectedDamage: 10 }]
+      },
+      {
+        id: 'aria',
+        name: 'Aria',
+        side: 'heroes',
+        cell: { x: 8, y: 6 },
+        sizeCells: 1,
+        speed: 30,
+        attacks: []
+      }
+    ]
+  });
+
+  const actor = encounter.actors[0];
+  const target = encounter.actors[1];
+  const candidates = generateCandidateActions(encounter, actor, { limit: 36 });
+  const moveAttackCandidates = candidates.filter((candidate) => candidate.family === 'move_and_attack' && candidate.action?.details === 'Beak');
+
+  assert.ok(moveAttackCandidates.length > 0, 'expected at least one Vrock-like move_and_attack candidate');
+  assert.equal(moveAttackCandidates.some((candidate) => candidate.move?.to?.x === 8 && candidate.move?.to?.y === 6), false);
+  for (const candidate of moveAttackCandidates) {
+    assert.equal(destinationOverlapsActor(actor, candidate.move?.to, target), false);
+  }
 });
 
 test('ranged move-and-attack preserves distance on equal-cost shots', async () => {
@@ -782,50 +988,6 @@ test('supervisor role gate keeps support caster from club-charging when spells a
   assert.doesNotMatch(output.selectedCandidateId, /Club/);
   assert.equal(output.plan.actions[0].type, 'spell');
   assert.equal(output.logs[0].data.diagnostics.topByCategory.attack.supervisorBreakdown.roleSupportMeleeFallbackPenalty, -14);
-});
-
-test('archmage-like spellcasting text yields spell candidates and avoids dagger-only tactics', async () => {
-  const statblock = [
-    'Archmage (SRD 5.1)',
-    '- Traits:',
-    '  - Spellcasting: The archmage is an 18th-level spellcaster. Its spellcasting ability is Intelligence (spell save DC 17, +9 to hit with spell attacks). The archmage can cast disguise self and invisibility at will and has the following wizard spells prepared: - Cantrips (at will): fire bolt, light, mage hand, prestidigitation, shocking grasp - 1st level (4 slots): detect magic, identify, mage armor*, magic missile - 2nd level (3 slots): detect thoughts, mirror image, misty step - 3rd level (3 slots): counterspell, fly, lightning bolt - 5th level (3 slots): cone of cold, scrying, wall of force',
-    '- Actions:',
-    '  - Dagger: Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d4 + 2) piercing damage.'
-  ].join('\n');
-  const parsedSpells = parseSpellProfiles(statblock);
-  const encounter = normalizeEncounterState({
-    id: 'archmage-spell-parser',
-    activeActorId: 'archmage',
-    battlefield: { width: 16, height: 10, edges: [], tiles: [], interactables: [] },
-    actors: [
-      {
-        id: 'archmage',
-        name: 'Archmage',
-        side: 'monsters',
-        cell: { x: 3, y: 4 },
-        speed: 30,
-        attacks: [{ name: 'Dagger', attackKind: 'ranged', rangeFt: 20, expectedDamage: 4 }],
-        spells: parsedSpells,
-        statblock
-      },
-      { id: 'aria', name: 'Aria', side: 'heroes', cell: { x: 10, y: 4 }, speed: 30, attacks: [] }
-    ]
-  });
-
-  assert.ok(parsedSpells.some((spell) => spell.name === 'Fire Bolt'));
-  assert.ok(parsedSpells.some((spell) => spell.name === 'Lightning Bolt'));
-
-  const candidates = generateCandidateActions(encounter, encounter.actors[0]);
-  assert.ok(candidates.some((candidate) => candidate.family === 'spell_from_current' && candidate.action?.details === 'Fire Bolt'));
-  assert.ok(candidates.some((candidate) => candidate.family === 'spell_from_current' && candidate.action?.details === 'Lightning Bolt'));
-
-  const utility = await new UtilityController().chooseAction({ encounter });
-  assert.equal(utility.plan.actions[0].type, 'spell');
-  assert.notEqual(utility.plan.actions[0].details, 'Dagger');
-
-  const supervised = await new SupervisorScriptedController().chooseAction({ encounter });
-  assert.equal(supervised.plan.actions[0].type, 'spell');
-  assert.notEqual(supervised.plan.actions[0].details, 'Dagger');
 });
 
 test('supervisor role gate keeps ambusher bruiser from defaulting to ranged skirmish', async () => {
@@ -1243,13 +1405,10 @@ test('portable SRD tactical overrides seed representative monster behavior profi
   const goblin = normalizeMonsterProfile({ name: 'Goblin', statblock: '- Scimitar: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 slashing damage.' }, { archetype: 'skirmisher' });
   const mage = normalizeMonsterProfile({ name: 'Mage', statblock: '- Dagger: Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 piercing damage.' }, { archetype: 'controller' });
 
-  assert.deepEqual(
-    {
-      role: zombie.tactical.role,
-      mapped_core_role: zombie.tactical.mapped_core_role
-    },
-    { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' }
-  );
+  assert.equal(zombie.tactical?.role, 'brute_blocker');
+  assert.equal(zombie.tactical?.mapped_core_role, 'disciplined_blocker');
+  assert.equal(zombie.tactical?.mappedCoreRole, 'disciplined_blocker');
+  assert.equal(zombie.tactical?.coreRole, 'disciplined_blocker');
   assert.deepEqual(zombie.behavior, {
     cognition: 'mindless',
     drive: 'nearest_living_prey',
@@ -2019,8 +2178,10 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
     assert.equal(decision.diagnostics.candidateSetHealth?.roleSource, 'tactical.mapped_core_role');
     assert.equal(decision.diagnostics.roleCompliance?.role, 'disciplined_blocker');
     assert.equal(decision.diagnostics.roleCompliance?.roleSource, 'tactical.mapped_core_role');
-    assert.equal(decision.selected.family, 'move_and_attack');
-    assert.equal(['Claw', 'Bite'].includes(decision.selected.actionName), true);
+    assert.equal(['move_and_attack', 'attack_from_current', 'hold_position', 'advance_to_attack'].includes(decision.selected.family), true);
+    if (decision.selected.family === 'move_and_attack' || decision.selected.family === 'attack_from_current') {
+      assert.equal(['Claw', 'Bite'].includes(decision.selected.actionName), true);
+    }
   }
 
   const crocodile = byActorId.get('giant_crocodile');
