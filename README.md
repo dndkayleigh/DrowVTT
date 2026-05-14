@@ -302,7 +302,7 @@ For the current benchmark fixtures and behavior-profile test matrix, see [docs/b
 
 The local tactics stack now separates tactical role from behavior profile.
 
-- `tactical.coreRole` describes battlefield function such as `skirmisher`, `disciplined_blocker`, `ambusher_bruiser`, or `support_caster`.
+- `tactical.role` describes the broad battlefield job such as `blocker`, `skirmisher`, `caster`, `lurker`, or `solo`; `tactical.function` carries the specialty such as `body_pressure`, `support`, `control`, or `ambusher`.
 - `behavior` describes how the creature pursues that role:
   - `cognition`
   - `drive`
@@ -605,7 +605,7 @@ Benchmark artifacts and summaries are stored in [`backend/benchmark-results/`](b
 ## Roadmap
 
 - Re-implement AI tactics around the newer behavior-aware tactical stack. Consolidate the current local tactics path around deterministic legality, behavior profiles, supervisory coordination, and cleaner user-facing tactical modes so the OSS shell and future SaaS shell are building on the same mental model.
-- Monster role and cognition editing in the Turn panel. Expose authored tactical role, inferred/core role, and behavior-profile cognition/coordination controls directly in the monster-facing turn UI so encounter tuning does not require fixture editing or debug-only metadata inspection.
+- Monster role and cognition editing in the Turn panel. Expose tactical role, tactical function, and behavior-profile cognition/coordination controls directly in the monster-facing turn UI so encounter tuning does not require fixture editing or debug-only metadata inspection.
 - SaaS tactics mode simplification. In hosted mode, expose one standard AI tactical option and one supervisory tactical option, and let the app switch between single-target and grouped execution automatically based on how many monsters are selected instead of exposing separate single/group choices in the product UI.
 - Visible floating combat log. Add a player-visible log overlay on the right side of the map that is semi-transparent, filterable, and vertically resizable with a drag handle so encounter narration and tactical events can stay visible without relying on the heavy debug-oriented log inside the Tactics drawer.
 - Prompt caching for GPT-5 latency reduction. Split the AI turn packet into stable and volatile sections so repeated battlefield context, rules text, and static token data can be cached instead of re-sent every turn. The goal is to cut perceived turn time and reduce token usage when using slower but smarter GPT-5-class models.

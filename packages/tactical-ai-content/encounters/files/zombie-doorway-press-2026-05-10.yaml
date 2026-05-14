@@ -61,10 +61,19 @@ actors:
     hp: "22/22"
     speed: 20
     tactical:
-      role: brute_blocker
-      mapped_core_role: disciplined_blocker
-      objective_role: press_doorway
-      role_notes: "Undead melee pressure body. This role is intentionally gated through mindless behavior rather than trained squad logic."
+      role: blocker
+      function: body_pressure
+      intent:
+        - press_nearest
+        - clog_doorway
+      posture: aggressive
+      tags:
+        - undead
+        - melee
+        - body_pressure
+        - swarm_member
+      objectiveRole: press_doorway
+      roleNotes: "Mindless undead pressure body. Uses simple blocking/body-pressure behavior rather than trained squad doctrine."
     behavior:
       cognition: mindless
       drive: nearest_living_prey
@@ -85,10 +94,19 @@ actors:
     hp: "22/22"
     speed: 20
     tactical:
-      role: brute_blocker
-      mapped_core_role: disciplined_blocker
-      objective_role: press_doorway
-      role_notes: "Undead melee pressure body. This role is intentionally gated through mindless behavior rather than trained squad logic."
+      role: blocker
+      function: body_pressure
+      intent:
+        - press_nearest
+        - clog_doorway
+      posture: aggressive
+      tags:
+        - undead
+        - melee
+        - body_pressure
+        - swarm_member
+      objectiveRole: press_doorway
+      roleNotes: "Mindless undead pressure body. Uses simple blocking/body-pressure behavior rather than trained squad doctrine."
     behavior:
       cognition: mindless
       drive: nearest_living_prey
@@ -109,10 +127,19 @@ actors:
     hp: "22/22"
     speed: 20
     tactical:
-      role: brute_blocker
-      mapped_core_role: disciplined_blocker
-      objective_role: press_doorway
-      role_notes: "Undead melee pressure body. This role is intentionally gated through mindless behavior rather than trained squad logic."
+      role: blocker
+      function: body_pressure
+      intent:
+        - press_nearest
+        - clog_doorway
+      posture: aggressive
+      tags:
+        - undead
+        - melee
+        - body_pressure
+        - swarm_member
+      objectiveRole: press_doorway
+      roleNotes: "Mindless undead pressure body. Uses simple blocking/body-pressure behavior rather than trained squad doctrine."
     behavior:
       cognition: mindless
       drive: nearest_living_prey
@@ -133,10 +160,19 @@ actors:
     hp: "22/22"
     speed: 20
     tactical:
-      role: brute_blocker
-      mapped_core_role: disciplined_blocker
-      objective_role: press_doorway
-      role_notes: "Undead melee pressure body. This role is intentionally gated through mindless behavior rather than trained squad logic."
+      role: blocker
+      function: body_pressure
+      intent:
+        - press_nearest
+        - clog_doorway
+      posture: aggressive
+      tags:
+        - undead
+        - melee
+        - body_pressure
+        - swarm_member
+      objectiveRole: press_doorway
+      roleNotes: "Mindless undead pressure body. Uses simple blocking/body-pressure behavior rather than trained squad doctrine."
     behavior:
       cognition: mindless
       drive: nearest_living_prey

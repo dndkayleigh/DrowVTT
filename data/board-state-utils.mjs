@@ -39,17 +39,23 @@ function normalizeTokenAttackSnapshot(attack = {}) {
 
 function normalizeTokenTacticalSnapshot(tactical = null) {
   if (!tactical || typeof tactical !== 'object') return null;
-  const role = String(tactical.role ?? tactical.authoredRole ?? '').trim();
-  const authoredRole = String(tactical.authoredRole ?? role).trim();
-  const coreRole = String(tactical.coreRole ?? '').trim();
+  const role = String(tactical.role ?? '').trim();
+  const roleFunction = String(tactical.function ?? '').trim();
+  const secondaryRoles = Array.isArray(tactical.secondaryRoles) ? tactical.secondaryRoles.map((value) => String(value).trim()).filter(Boolean) : [];
+  const intent = Array.isArray(tactical.intent) ? tactical.intent.map((value) => String(value).trim()).filter(Boolean) : [];
+  const posture = String(tactical.posture ?? '').trim();
+  const tags = Array.isArray(tactical.tags) ? tactical.tags.map((value) => String(value).trim()).filter(Boolean) : [];
   const objectiveRole = String(tactical.objective_role ?? tactical.objectiveRole ?? '').trim();
   const roleNotes = String(tactical.role_notes ?? tactical.roleNotes ?? '').trim();
   const protectedAsset = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
-  if (!role && !authoredRole && !coreRole && !protectedAsset && !objectiveRole && !roleNotes) return null;
+  if (!role && !roleFunction && !secondaryRoles.length && !intent.length && !posture && !tags.length && !protectedAsset && !objectiveRole && !roleNotes) return null;
   return {
     role,
-    authoredRole,
-    coreRole,
+    function: roleFunction,
+    secondaryRoles,
+    intent,
+    posture,
+    tags,
     protectedAsset,
     objectiveRole,
     roleNotes

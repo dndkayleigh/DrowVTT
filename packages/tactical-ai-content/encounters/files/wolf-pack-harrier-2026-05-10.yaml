@@ -62,9 +62,18 @@ actors:
     speed: 40
     tactical:
       role: skirmisher
-      mapped_core_role: skirmisher
-      objective_role: harry_isolated_prey
-      role_notes: "Fast melee beast. This skirmisher role is intentionally expressed through animal/pack melee harassment instead of soldier-like doctrine."
+      function: melee_harrier
+      intent:
+        - isolate_weak_prey
+        - converge_with_pack
+      posture: opportunistic
+      tags:
+        - animal
+        - melee
+        - pack
+        - fast
+      objectiveRole: harry_isolated_prey
+      roleNotes: "Fast melee animal skirmisher. Should pressure isolated or wounded prey without disciplined squad doctrine."
     behavior:
       cognition: animal
       drive: isolate_weak_prey
@@ -86,9 +95,18 @@ actors:
     speed: 40
     tactical:
       role: skirmisher
-      mapped_core_role: skirmisher
-      objective_role: harry_isolated_prey
-      role_notes: "Fast melee beast. This skirmisher role is intentionally expressed through animal/pack melee harassment instead of soldier-like doctrine."
+      function: melee_harrier
+      intent:
+        - isolate_weak_prey
+        - converge_with_pack
+      posture: opportunistic
+      tags:
+        - animal
+        - melee
+        - pack
+        - fast
+      objectiveRole: harry_isolated_prey
+      roleNotes: "Fast melee animal skirmisher. Should pressure isolated or wounded prey without disciplined squad doctrine."
     behavior:
       cognition: animal
       drive: isolate_weak_prey
@@ -110,9 +128,18 @@ actors:
     speed: 40
     tactical:
       role: skirmisher
-      mapped_core_role: skirmisher
-      objective_role: harry_isolated_prey
-      role_notes: "Fast melee beast. This skirmisher role is intentionally expressed through animal/pack melee harassment instead of soldier-like doctrine."
+      function: melee_harrier
+      intent:
+        - isolate_weak_prey
+        - converge_with_pack
+      posture: opportunistic
+      tags:
+        - animal
+        - melee
+        - pack
+        - fast
+      objectiveRole: harry_isolated_prey
+      roleNotes: "Fast melee animal skirmisher. Should pressure isolated or wounded prey without disciplined squad doctrine."
     behavior:
       cognition: animal
       drive: isolate_weak_prey
@@ -134,9 +161,18 @@ actors:
     speed: 40
     tactical:
       role: skirmisher
-      mapped_core_role: skirmisher
-      objective_role: harry_isolated_prey
-      role_notes: "Fast melee beast. This skirmisher role is intentionally expressed through animal/pack melee harassment instead of soldier-like doctrine."
+      function: melee_harrier
+      intent:
+        - isolate_weak_prey
+        - converge_with_pack
+      posture: opportunistic
+      tags:
+        - animal
+        - melee
+        - pack
+        - fast
+      objectiveRole: harry_isolated_prey
+      roleNotes: "Fast melee animal skirmisher. Should pressure isolated or wounded prey without disciplined squad doctrine."
     behavior:
       cognition: animal
       drive: isolate_weak_prey

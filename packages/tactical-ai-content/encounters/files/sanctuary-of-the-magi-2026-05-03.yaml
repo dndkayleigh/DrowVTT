@@ -13,7 +13,7 @@ description: |
   
   encounter_purpose: >
     This higher-CR mixed-role benchmark tests whether the tactical controller can manage
-    a protected boss caster, a defensive screen of 1x1 bodyguards, disciplined soldiers,
+    a protected ritual caster, a defensive screen of 1x1 bodyguards, disciplined soldiers,
     melee disrupters, held ambushers, and a mobile striker. The encounter should preserve
     the ritual-defense structure instead of flattening into every monster dogpiling the
     same target.
@@ -21,63 +21,69 @@ description: |
   setup: >
     The player characters enter the Sanctuary of the Magi while a Mage attempts to stabilize
     or open an arcane gate at the central or rear ritual area. The Mage is the protected
-    boss caster and ritual actor. The monsters should delay, divide, and punish the party
+    ritual caster and ritual actor. The monsters should delay, divide, and punish the party
     while preventing the player characters from reaching the Mage.
   
   monsters:
     - name: "Mage"
       count: 1
       tactical:
-        role: "boss_caster"
-        mapped_core_role: "support_caster"
-        protected_asset: true
-        objective_role: "ritual_actor"
-        role_notes: >
-          Protected boss caster. Avoid melee, preserve distance, use spells, and retreat
+        role: "caster"
+        function: "ritualist"
+        protectedAsset: true
+        intent: ["complete_ritual", "preserve_self"]
+        objectiveRole: "ritual_actor"
+        roleNotes: >
+          Protected ritual caster. Avoid melee, preserve distance, use spells, and retreat
           toward secondary cover if the defensive screen collapses.
   
     - name: "Wraith"
       count: 1
       tactical:
-        role: "mobile_striker"
-        mapped_core_role: "ambusher_bruiser"
-        role_notes: >
+        role: "lurker"
+        function: "stalker"
+        intent: ["threaten_backline", "isolate_weak_target"]
+        roleNotes: >
           Mobile terror and backline assassin. Threaten vulnerable or isolated characters.
           Do not hold the front line like a soldier.
   
     - name: "Thug"
       count: 2
       tactical:
-        role: "brute_blocker"
-        mapped_core_role: "disciplined_blocker"
-        role_notes: >
+        role: "blocker"
+        function: "bodyguard"
+        intent: ["protect_master", "hold_approach"]
+        roleNotes: >
           1x1 bodyguard replacement for ogres. Hold nearby approaches, protect the Mage,
           and prevent player characters from breaking into the ritual area.
   
     - name: "Veteran"
       count: 2
       tactical:
-        role: "disciplined_soldier"
-        mapped_core_role: "disciplined_blocker"
-        role_notes: >
+        role: "blocker"
+        function: "hold_line"
+        intent: ["hold_line", "focus_fire"]
+        roleNotes: >
           Trained guards. Hold assigned defensive posts, use ranged attacks at distance,
           and switch to melee when the line is breached.
   
     - name: "Ghast"
       count: 2
       tactical:
-        role: "melee_disrupter"
-        mapped_core_role: "ambusher_bruiser"
-        role_notes: >
+        role: "striker"
+        function: "disruptor"
+        intent: ["punish_isolated_target", "disrupt_screen"]
+        roleNotes: >
           Aggressive melee disrupters. Use side lanes, punish isolated or overextended
           characters, and exploit openings near the defensive screen.
   
     - name: "Gargoyle"
       count: 2
       tactical:
-        role: "held_ambusher"
-        mapped_core_role: "ambusher_bruiser"
-        role_notes: >
+        role: "lurker"
+        function: "ambusher"
+        intent: ["hold_ambush", "punish_overextension"]
+        roleNotes: >
           Statue-like ambushers or interceptors. Begin in side alcoves, high-looking
           positions, or defensive perches. Do not immediately abandon ambush posture unless
           a vulnerable or overextended target appears.
@@ -94,7 +100,7 @@ description: |
   doctrines:
     active_supported:
       - name: "protect_asset"
-        protected_asset: "Mage"
+        protectedAsset: "Mage"
         notes: >
           If the current controller only supports protect_caster, treat the Mage as the
           protected caster/asset.
@@ -126,7 +132,7 @@ description: |
           characters rather than acting as generic soldiers.
   
   ideal_behavior: >
-    The Mage should act as the protected boss caster and ritual actor. It should avoid
+    The Mage should act as the protected ritual caster and ritual actor. It should avoid
     melee, preserve distance, use spells to control or punish dangerous player characters,
     and retreat toward secondary cover if the front line collapses. If ritual objective
     mechanics are available, the Mage should prefer preserving the ritual unless a spell
@@ -1167,10 +1173,14 @@ actors:
     position: [11, 9]
     speed: 30
     tactical:
-      role: boss_caster
-      protected_asset: true
-      objective_role: ritual_actor
-      role_notes: Protected boss caster and ritual actor. Avoid melee, preserve distance, use spells, and retreat toward secondary cover if the defensive screen collapses.
+      role: caster
+      function: ritualist
+      intent:
+        - complete_ritual
+        - preserve_self
+      protectedAsset: true
+      objectiveRole: ritual_actor
+      roleNotes: Protected ritual caster and ritual actor. Avoid melee, preserve distance, use spells, and retreat toward secondary cover if the defensive screen collapses.
     attacks:
       - name: Dagger
         kind: melee
@@ -1199,8 +1209,12 @@ actors:
     position: [8, 6]
     speed: 30
     tactical:
-      role: mobile_striker
-      role_notes: Mobile terror and backline assassin. Threaten vulnerable or isolated characters and avoid holding the front line like a soldier.
+      role: lurker
+      function: stalker
+      intent:
+        - threaten_backline
+        - isolate_weak_target
+      roleNotes: Mobile terror and backline assassin. Threaten vulnerable or isolated characters and avoid holding the front line like a soldier.
     attacks:
       - name: Life Drain
         kind: melee
@@ -1212,8 +1226,12 @@ actors:
     position: [13, 14]
     speed: 30
     tactical:
-      role: melee_disrupter
-      role_notes: Aggressive melee disrupter. Use side lanes and punish isolated or overextended characters.
+      role: striker
+      function: disruptor
+      intent:
+        - punish_isolated_target
+        - disrupt_screen
+      roleNotes: Aggressive melee disrupter. Use side lanes and punish isolated or overextended characters.
     attacks:
       - name: Bite
         kind: melee
@@ -1229,8 +1247,12 @@ actors:
     position: [13, 4]
     speed: 30
     tactical:
-      role: melee_disrupter
-      role_notes: Aggressive melee disrupter. Use side lanes and punish isolated or overextended characters.
+      role: striker
+      function: disruptor
+      intent:
+        - punish_isolated_target
+        - disrupt_screen
+      roleNotes: Aggressive melee disrupter. Use side lanes and punish isolated or overextended characters.
     attacks:
       - name: Bite
         kind: melee
@@ -1246,8 +1268,12 @@ actors:
     position: [19, 16]
     speed: 30
     tactical:
-      role: held_ambusher
-      role_notes: Statue-like ambusher and interceptor. Hold defensive posture until a vulnerable or overextended target appears.
+      role: lurker
+      function: ambusher
+      intent:
+        - hold_ambush
+        - punish_overextension
+      roleNotes: Statue-like ambusher and interceptor. Hold defensive posture until a vulnerable or overextended target appears.
     attacks:
       - name: Bite
         kind: melee
@@ -1263,8 +1289,12 @@ actors:
     position: [19, 2]
     speed: 30
     tactical:
-      role: held_ambusher
-      role_notes: Statue-like ambusher and interceptor. Hold defensive posture until a vulnerable or overextended target appears.
+      role: lurker
+      function: ambusher
+      intent:
+        - hold_ambush
+        - punish_overextension
+      roleNotes: Statue-like ambusher and interceptor. Hold defensive posture until a vulnerable or overextended target appears.
     attacks:
       - name: Bite
         kind: melee
@@ -1280,8 +1310,12 @@ actors:
     position: [17, 10]
     speed: 30
     tactical:
-      role: disciplined_soldier
-      role_notes: Trained guard. Hold assigned defensive post, use ranged attacks at distance, and switch to melee when the line is breached.
+      role: blocker
+      function: hold_line
+      intent:
+        - hold_line
+        - focus_fire
+      roleNotes: Trained guard. Hold assigned defensive post, use ranged attacks at distance, and switch to melee when the line is breached.
     attacks:
       - name: Longsword
         kind: melee
@@ -1301,8 +1335,12 @@ actors:
     position: [17, 8]
     speed: 30
     tactical:
-      role: disciplined_soldier
-      role_notes: Trained guard. Hold assigned defensive post, use ranged attacks at distance, and switch to melee when the line is breached.
+      role: blocker
+      function: hold_line
+      intent:
+        - hold_line
+        - focus_fire
+      roleNotes: Trained guard. Hold assigned defensive post, use ranged attacks at distance, and switch to melee when the line is breached.
     attacks:
       - name: Longsword
         kind: melee
@@ -1322,8 +1360,12 @@ actors:
     position: [16, 12]
     speed: 30
     tactical:
-      role: brute_blocker
-      role_notes: One-by-one bodyguard replacement for an ogre. Hold nearby approaches and protect the Mage.
+      role: blocker
+      function: bodyguard
+      intent:
+        - protect_master
+        - hold_approach
+      roleNotes: One-by-one bodyguard replacement for an ogre. Hold nearby approaches and protect the Mage.
     attacks:
       - name: Mace
         kind: melee
@@ -1339,8 +1381,12 @@ actors:
     position: [16, 6]
     speed: 30
     tactical:
-      role: brute_blocker
-      role_notes: One-by-one bodyguard replacement for an ogre. Hold nearby approaches and protect the Mage.
+      role: blocker
+      function: bodyguard
+      intent:
+        - protect_master
+        - hold_approach
+      roleNotes: One-by-one bodyguard replacement for an ogre. Hold nearby approaches and protect the Mage.
     attacks:
       - name: Mace
         kind: melee

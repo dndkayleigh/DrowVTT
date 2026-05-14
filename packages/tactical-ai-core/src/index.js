@@ -44,8 +44,8 @@ export const TACTICAL_STANCES = [
  * @property {object} [provenance] Source metadata for inferred tactical fields.
  *
  * @typedef {string} TacticalRole
- * A deterministic tactical role id such as skirmisher, disciplined_blocker,
- * ambusher_bruiser, support_caster, or soldier.
+ * A broad portable battlefield job: blocker, striker, skirmisher, caster,
+ * leader, lurker, artillery, swarm, solo, or hazard.
  *
  * @typedef {object} TacticalCandidate
  * @property {string} id Stable candidate id.
@@ -110,26 +110,37 @@ function coordToCell(coord = {}) {
   };
 }
 
-const AUTHORED_TACTICAL_ROLE_TO_CORE_ROLE = {
-  boss_caster: 'support_caster',
-  brute_blocker: 'disciplined_blocker',
-  mobile_striker: 'ambusher_bruiser',
-  held_ambusher: 'ambusher_bruiser',
-  disciplined_soldier: 'disciplined_blocker',
-  melee_disrupter: 'ambusher_bruiser'
-};
-
 const CORE_TACTICAL_ROLES = new Set([
+  'blocker',
+  'striker',
   'skirmisher',
-  'disciplined_blocker',
-  'ambusher_bruiser',
-  'support_caster',
-  'soldier'
+  'caster',
+  'leader',
+  'lurker',
+  'artillery',
+  'swarm',
+  'solo',
+  'hazard'
 ]);
 
 const CURRENTLY_UNIMPLEMENTED_CANDIDATE_FAMILIES = new Set([
-  'intercept_flanker'
+  'area_effect',
+  'command',
+  'interactable_effect',
+  'intercept_flanker',
+  'move_and_cast',
+  'support',
+  'trigger_effect'
 ]);
+
+const UNSUPPORTED_TACTICAL_FIELDS = [
+  `mapped_${'core'}_${'role'}`,
+  `mapped${'Core'}${'Role'}`,
+  `authored${'Role'}`,
+  `${'core'}_${'role'}`,
+  `${'core'}${'Role'}`,
+  `${'core'}${'Role'}Source`
+];
 
 const DEFAULT_BEHAVIOR_PROFILE = Object.freeze({
   cognition: 'trained',
@@ -198,39 +209,32 @@ function filterCandidatesByBehaviorProfile(candidates = [], actor = {}) {
   return candidates.filter((candidate) => !suppressCandidateFamilyForBehavior(actor, candidate.family));
 }
 
-function resolveCoreRole(tactical = null) {
-  if (!tactical || typeof tactical !== 'object') return { coreRole: '', source: '' };
-  const mappedCoreRole = String(tactical.mapped_core_role ?? tactical.mappedCoreRole ?? '').trim();
-  if (mappedCoreRole) return { coreRole: mappedCoreRole, source: 'tactical.mapped_core_role' };
-  const directCoreRole = String(tactical.core_role ?? tactical.coreRole ?? '').trim();
-  if (directCoreRole) return { coreRole: directCoreRole, source: 'tactical.coreRole' };
-  const authoredRole = String(tactical.role ?? tactical.authoredRole ?? '').trim();
-  if (CORE_TACTICAL_ROLES.has(authoredRole)) return { coreRole: authoredRole, source: 'tactical.role' };
-  const mappedAuthoredRole = AUTHORED_TACTICAL_ROLE_TO_CORE_ROLE[authoredRole] || '';
-  if (mappedAuthoredRole) return { coreRole: mappedAuthoredRole, source: 'tactical.role_map' };
-  return { coreRole: '', source: '' };
+function normalizeStringArray(value) {
+  if (value == null || value === '') return [];
+  return uniqueStrings(Array.isArray(value) ? value : [value]);
 }
 
 export function normalizeTacticalMetadata(tactical = null) {
   const empty = {
     role: '',
-    authoredRole: '',
-    coreRole: '',
-    coreRoleSource: '',
+    function: '',
+    secondaryRoles: [],
+    intent: [],
+    posture: '',
+    tags: [],
     protectedAsset: false,
     objectiveRole: '',
     roleNotes: ''
   };
   if (!tactical || typeof tactical !== 'object') return empty;
-  const authoredRole = String(tactical.role || tactical.authoredRole || '').trim();
-  const { coreRole, source: coreRoleSource } = resolveCoreRole(tactical);
   return {
     ...empty,
-    ...tactical,
-    role: authoredRole,
-    authoredRole,
-    coreRole,
-    coreRoleSource,
+    role: String(tactical.role ?? '').trim(),
+    function: String(tactical.function ?? '').trim(),
+    secondaryRoles: normalizeStringArray(tactical.secondaryRoles ?? tactical.secondary_roles),
+    intent: normalizeStringArray(tactical.intent),
+    posture: String(tactical.posture ?? '').trim(),
+    tags: normalizeStringArray(tactical.tags),
     protectedAsset: Boolean(tactical.protected_asset ?? tactical.protectedAsset),
     objectiveRole: String(tactical.objective_role ?? tactical.objectiveRole ?? '').trim(),
     roleNotes: String(tactical.role_notes ?? tactical.roleNotes ?? '').trim()
@@ -343,6 +347,46 @@ export function validateEncounterState(encounter) {
   if (!normalized.actors.length) issues.push('EncounterState requires at least one actor.');
   if (normalized.activeActorId && !normalized.actors.some((actor) => actor.id === normalized.activeActorId)) {
     issues.push(`activeActorId does not match an actor: ${normalized.activeActorId}`);
+  }
+  for (const rawActor of Array.isArray(encounter?.actors) ? encounter.actors : []) {
+    const actorId = String(rawActor?.id || rawActor?.name || 'actor');
+    const rawTactical = rawActor?.tactical;
+    if (!rawTactical || typeof rawTactical !== 'object') continue;
+    const hasTacticalMetadata = Object.keys(rawTactical).length > 0 && (
+      String(rawTactical.role ?? '').trim() ||
+      String(rawTactical.function ?? '').trim() ||
+      rawTactical.secondaryRoles != null ||
+      rawTactical.secondary_roles != null ||
+      rawTactical.intent != null ||
+      rawTactical.tags != null ||
+      String(rawTactical.posture ?? '').trim() ||
+      rawTactical.protectedAsset != null ||
+      rawTactical.protected_asset != null ||
+      String(rawTactical.objectiveRole ?? rawTactical.objective_role ?? '').trim() ||
+      String(rawTactical.roleNotes ?? rawTactical.role_notes ?? '').trim() ||
+      UNSUPPORTED_TACTICAL_FIELDS.some((field) => Object.hasOwn(rawTactical, field))
+    );
+    if (!hasTacticalMetadata) continue;
+    for (const field of UNSUPPORTED_TACTICAL_FIELDS) {
+      if (Object.hasOwn(rawTactical, field)) {
+        issues.push(`Actor ${actorId} has unsupported tactical field: ${field}.`);
+      }
+    }
+  }
+  for (const actor of normalized.actors) {
+    const rawActor = Array.isArray(encounter?.actors)
+      ? encounter.actors.find((entry) => String(entry?.id || entry?.name || '') === actor.id)
+      : null;
+    if (!rawActor?.tactical || typeof rawActor.tactical !== 'object') continue;
+    if (!String(rawActor.tactical.role ?? '').trim()) continue;
+    if (!CORE_TACTICAL_ROLES.has(actor.tactical.role)) {
+      issues.push(`Actor ${actor.id} has invalid tactical.role: ${actor.tactical.role}.`);
+    }
+    for (const secondaryRole of actor.tactical.secondaryRoles) {
+      if (!CORE_TACTICAL_ROLES.has(secondaryRole)) {
+        issues.push(`Actor ${actor.id} has invalid tactical.secondaryRoles value: ${secondaryRole}.`);
+      }
+    }
   }
   return { ok: issues.length === 0, issues, encounter: normalized };
 }
@@ -1480,7 +1524,7 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
       const rangeCells = Math.max(1, Math.ceil(attack.rangeFt / 5));
       if (occupiedCellDistance(actor, actor.cell, enemy, enemy.cell) <= rangeCells && resolvedRulesAdapter.lineOfSight(encounter, actor, enemy, actor.cell)) {
         candidates.push(attackAction(actor, enemy, attack, actor.cell, 'attack_from_current', 0));
-        if (role === 'ambusher_bruiser' && isTargetIsolated(encounter, enemy)) {
+        if (role === 'lurker' && isTargetIsolated(encounter, enemy)) {
           candidates.push(attackAction(actor, enemy, attack, actor.cell, 'attack_isolated_target', 0, {
             isolatedTarget: true
           }));
@@ -1527,7 +1571,7 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
         candidates.push(attackAction(actor, enemy, attack, cell, 'move_and_attack', cell.steps, {
           path: cell.path || pathCellsBetween(actor.cell, cell)
         }));
-        if (role === 'ambusher_bruiser' && isTargetIsolated(encounter, enemy)) {
+        if (role === 'lurker' && isTargetIsolated(encounter, enemy)) {
           candidates.push(attackAction(actor, enemy, attack, cell, 'attack_isolated_target', cell.steps, {
             path: cell.path || pathCellsBetween(actor.cell, cell),
             isolatedTarget: true
@@ -1612,7 +1656,7 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
     }
   }
 
-  if (role === 'ambusher_bruiser' && currentNearestEnemyDistance > 1) {
+  if (role === 'lurker' && currentNearestEnemyDistance > 1) {
     candidates.push(holdHiddenAction(actor, {
       engaged: false,
       visibleEnemiesAtCurrent: visibleEnemiesFromCell(encounter, actor, actor.cell).length
@@ -1972,17 +2016,36 @@ function candidateCategory(candidate = {}) {
 }
 
 function inferActorRole(actor = {}) {
-  const explicitCoreRole = normalizeTacticalMetadata(actor.tactical).coreRole;
-  if (explicitCoreRole) return explicitCoreRole;
+  const tactical = normalizeTacticalMetadata(actor.tactical);
+  if (CORE_TACTICAL_ROLES.has(tactical.role)) return tactical.role;
   const name = String(actor.name || '').toLowerCase();
   const attacks = actor.attacks || [];
   const spells = actor.spells || [];
-  if (name.includes('acolyte') || spells.some((spell) => ['support', 'healing', 'defensive'].includes(spell.kind))) return 'support_caster';
+  if (name.includes('acolyte') || spells.some((spell) => ['support', 'healing', 'defensive'].includes(spell.kind))) return 'caster';
   if (name.includes('goblin') && !name.includes('hobgoblin')) return 'skirmisher';
-  if (name.includes('hobgoblin')) return 'disciplined_blocker';
-  if (name.includes('bugbear')) return 'ambusher_bruiser';
-  if (attacks.some((attack) => attack.attackKind === 'ranged' && Number(attack.rangeFt) >= 60)) return 'skirmisher';
-  return 'soldier';
+  if (name.includes('hobgoblin')) return 'blocker';
+  if (name.includes('bugbear')) return 'lurker';
+  if (attacks.some((attack) => attack.attackKind === 'ranged' && Number(attack.rangeFt) >= 60)) return 'artillery';
+  return 'striker';
+}
+
+function inferActorFunction(actor = {}) {
+  const tacticalFunction = normalizeTacticalMetadata(actor.tactical).function;
+  if (tacticalFunction) return tacticalFunction;
+  const spells = actor.spells || [];
+  if (spells.some((spell) => ['support', 'healing', 'defensive'].includes(spell.kind))) return 'support';
+  if (spells.some((spell) => spell.kind === 'control')) return 'control';
+  if (spells.some((spell) => spell.kind === 'damage')) return 'artillery';
+  return '';
+}
+
+function actorHasTacticalTag(actor = {}, tag = '') {
+  const tactical = normalizeTacticalMetadata(actor.tactical);
+  return tactical.tags.includes(tag) || (actor.tags || []).includes(tag);
+}
+
+function actorHasIntentPrefix(actor = {}, prefix = '') {
+  return normalizeTacticalMetadata(actor.tactical).intent.some((intent) => intent.startsWith(prefix));
 }
 
 function actorHasRangedAttack(actor = {}) {
@@ -2005,18 +2068,29 @@ function isAnimalPackMeleeSkirmisher(actor = {}, role = '') {
 }
 
 function expectedCandidateFamiliesForActor(actor, role) {
+  const tacticalFunction = inferActorFunction(actor);
+  if (role === 'blocker') return ['move_and_attack', 'advance_to_attack', 'attack_from_current', 'hold_position'];
+  if (role === 'striker') return ['move_and_attack', 'attack_from_current', 'advance_to_attack'];
   if (role === 'skirmisher' && isAnimalPackMeleeSkirmisher(actor, role)) return ['move_and_attack'];
-  if (role === 'skirmisher') return ['shoot_and_scoot', 'attack_from_current', 'move_and_attack'];
-  if (role === 'disciplined_blocker') return ['hold_position', 'advance_to_attack', 'move_and_attack', 'attack_from_current'];
-  if (role === 'ambusher_bruiser') return ['hold_hidden', 'stalk_to_cover', 'intercept_flanker', 'attack_isolated_target', 'move_and_attack'];
-  if (role === 'support_caster') return ['spell_from_current', 'move_and_spell'];
+  if (role === 'skirmisher' && (
+    ['ranged_harrier', 'kiter'].includes(tacticalFunction) ||
+    actorHasRangedAttack(actor) ||
+    actorHasTacticalTag(actor, 'ranged')
+  )) return ['shoot_and_scoot', 'move_and_attack', 'attack_from_current', 'stalk_to_cover'];
+  if (role === 'skirmisher') return ['move_and_attack', 'attack_from_current', 'advance_to_attack'];
+  if (role === 'caster') return ['spell_from_current', 'move_and_spell', 'hold_position', 'disengage_retreat'];
+  if (role === 'leader') return ['command', 'support', 'hold_position', 'move_and_attack'];
+  if (role === 'lurker') return ['hold_hidden', 'move_and_attack', 'attack_from_current', 'advance_to_attack'];
+  if (role === 'artillery') return ['attack_from_current', 'move_and_attack', 'hold_position'];
+  if (role === 'swarm') return ['move_and_attack', 'advance_to_attack', 'attack_from_current'];
+  if (role === 'solo') return expectedCandidateFamiliesForActor({ ...actor, tactical: { ...actor.tactical, role: actor.tactical?.secondaryRoles?.[0] || 'striker' } }, actor.tactical?.secondaryRoles?.[0] || 'striker');
+  if (role === 'hazard') return ['hold_position', 'trigger_effect', 'area_effect', 'interactable_effect'];
   return ['attack_from_current', 'move_and_attack', 'advance_to_attack'];
 }
 
 function buildCandidateSetHealth(actor, uniqueScored = []) {
-  const normalizedTactical = normalizeTacticalMetadata(actor.tactical);
   const behavior = behaviorProfileForActor(actor);
-  const role = normalizedTactical.coreRole || inferActorRole(actor);
+  const role = inferActorRole(actor);
   const availableFamilies = [...new Set(uniqueScored.map((entry) => entry.candidate.family).filter(Boolean))].sort();
   const expectedFamilies = expectedCandidateFamiliesForActor(actor, role);
   const missingExpectedCandidates = expectedFamilies.filter((family) => !availableFamilies.includes(family));
@@ -2026,7 +2100,7 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
     : missingExpectedCandidates.length ? 'weak_pass' : 'pass';
   return {
     role,
-    roleSource: normalizedTactical.coreRoleSource || 'heuristic',
+    function: inferActorFunction(actor),
     behavior,
     status,
     availableFamilies,
@@ -2057,7 +2131,7 @@ function buildSpellTargetExplanation(encounter, actor, selected, uniqueScored = 
     spell: spellName,
     modeledTargeting: 'single_target',
     modelWarning: simplifiedMultiTargetSpells.has(spellName.toLowerCase())
-      ? `${spellName} modeled as single_target; support-caster behavior may be distorted compared with full multi-target spell behavior`
+      ? `${spellName} modeled as single_target; caster support behavior may be distorted compared with full multi-target spell behavior`
       : null,
     selectedTarget: actorLabelById(encounter, selectedTargetId),
     selectedReason: targetOptions.length > 1
@@ -2068,9 +2142,9 @@ function buildSpellTargetExplanation(encounter, actor, selected, uniqueScored = 
 }
 
 function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null) {
-  const normalizedTactical = normalizeTacticalMetadata(actor.tactical);
   const behavior = behaviorProfileForActor(actor);
-  const role = normalizedTactical.coreRole || inferActorRole(actor);
+  const role = inferActorRole(actor);
+  const tacticalFunction = inferActorFunction(actor);
   const meleeAnimalPackSkirmisher = isAnimalPackMeleeSkirmisher(actor, role);
   const checks = [];
   let status = 'pass';
@@ -2080,7 +2154,16 @@ function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null)
   const spellKind = candidate?.action?.spellKind || '';
   const family = candidate?.family || '';
 
-  if (role === 'skirmisher') {
+  if (role === 'blocker') {
+    checks.push({ label: 'controlsSpace', ok: ['hold_position', 'advance_to_attack', 'attack_from_current', 'move_and_attack'].includes(family) });
+    if (family === 'shoot_and_scoot') {
+      status = 'warning';
+      concern = 'blocker is using skirmish movement and may abandon space-control duties';
+    }
+  } else if (role === 'striker') {
+    checks.push({ label: 'appliesPressure', ok: ['move_and_attack', 'attack_from_current', 'advance_to_attack'].includes(family) });
+    checks.push({ label: 'targetsPriorityOrWeakEnemy', ok: actionType === 'attack' || family === 'advance_to_attack' });
+  } else if (role === 'skirmisher') {
     if (meleeAnimalPackSkirmisher) {
       const meleeHarassmentFamilies = new Set(['move_and_attack', 'advance_to_attack', 'attack_from_current']);
       checks.push({ label: 'usesMobileMeleeHarassment', ok: attackKind === 'melee' && meleeHarassmentFamilies.has(family) });
@@ -2101,33 +2184,41 @@ function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null)
       status = 'warning';
       concern = 'animal/pack skirmisher is holding position instead of harrying with mobile melee pressure';
     }
-  } else if (role === 'disciplined_blocker') {
-    checks.push({ label: 'holdsOrAdvancesLine', ok: ['hold_position', 'advance_to_attack', 'attack_from_current', 'move_and_attack'].includes(family) });
-    if (family === 'shoot_and_scoot') {
+  } else if (role === 'caster') {
+    checks.push({ label: 'usesSpellOrProtectedPosition', ok: actionType === 'spell' || ['hold_position', 'disengage_retreat'].includes(family) });
+    if (actionType !== 'spell' && attackKind === 'melee') {
       status = 'warning';
-      concern = 'blocker is behaving like a skirmisher and may abandon the defensive line';
+      concern = `${tacticalFunction || 'caster'} caster did not use a spell, power, or protected position`;
     }
-  } else if (role === 'ambusher_bruiser') {
+  } else if (role === 'leader') {
+    checks.push({ label: 'commandsSupportsOrStaysCentral', ok: ['command', 'support', 'hold_position', 'move_and_attack'].includes(family) });
+    if (['command', 'support'].includes(family) && CURRENTLY_UNIMPLEMENTED_CANDIDATE_FAMILIES.has(family)) {
+      status = 'weak_pass';
+      concern = 'leader command/support candidate families are not implemented yet';
+    }
+  } else if (role === 'lurker') {
     checks.push({ label: 'pressuresMeleeOrIntercepts', ok: attackKind === 'melee' || ['advance_to_attack', 'hold_position'].includes(family) });
     if (attackKind === 'ranged' || family === 'shoot_and_scoot') {
       status = 'warning';
-      concern = 'ambusher bruiser is taking a ranged/skirmish line instead of preserving melee threat';
+      concern = 'lurker is taking a ranged/skirmish line instead of preserving ambush pressure';
     } else if (candidateSetHealth?.status === 'warning') {
       status = 'warning';
-      concern = 'ambusher bruiser selected a plausible action, but the candidate set lacks ambush-specific options';
+      concern = 'lurker selected a plausible action, but the candidate set lacks ambush-specific options';
     } else if (candidateSetHealth?.status === 'weak_pass') {
       status = 'weak_pass';
-      concern = 'ambusher bruiser selected a plausible action, but candidate coverage is thin';
+      concern = 'lurker selected a plausible action, but candidate coverage is thin';
     }
-  } else if (role === 'support_caster') {
-    checks.push({ label: 'usesSupportOrDefensiveSpell', ok: actionType === 'spell' && ['support', 'healing', 'defensive'].includes(spellKind) });
-    if (actionType !== 'spell' || attackKind === 'melee') {
-      status = 'warning';
-      concern = 'support caster did not use a support, healing, defensive, or offensive spell';
-    }
+  } else if (role === 'artillery') {
+    checks.push({ label: 'projectsRangedPressure', ok: attackKind === 'ranged' || ['attack_from_current', 'hold_position'].includes(family) });
+  } else if (role === 'swarm') {
+    checks.push({ label: 'appliesBodyPressure', ok: ['move_and_attack', 'advance_to_attack', 'attack_from_current'].includes(family) });
+  } else if (role === 'solo') {
+    checks.push({ label: 'usesAvailableThreatMode', ok: true });
+  } else if (role === 'hazard') {
+    checks.push({ label: 'usesStaticOrEffectFamily', ok: ['hold_position', 'trigger_effect', 'area_effect', 'interactable_effect'].includes(family) });
   }
 
-  return { role, roleSource: normalizedTactical.coreRoleSource || 'heuristic', behavior, status, concern, checks };
+  return { role, function: tacticalFunction, behavior, status, concern, checks };
 }
 
 function protectedAssetSafetyDelta(encounter, actor, candidate, doctrineContext = {}) {
@@ -2251,14 +2342,17 @@ function buildSupervisorBattlefieldAssessment(encounter, actorIds = []) {
     return counts;
   }, {});
   const enemies = actors.length ? enemiesFor(encounter, actors[0]) : [];
-  const protectedAsset = actors.find((actor) => inferActorRole(actor) === 'support_caster') || null;
-  const doctrine = roles.support_caster
+  const protectedAsset = actors.find((actor) => {
+    const tactical = normalizeTacticalMetadata(actor.tactical);
+    return inferActorRole(actor) === 'caster' && (tactical.function === 'support' || tactical.protectedAsset);
+  }) || null;
+  const doctrine = roles.caster && protectedAsset
     ? 'protect_caster'
     : roles.skirmisher && roles.skirmisher >= Math.max(2, actors.length / 2)
     ? 'ranged_ambush_focus_fire'
-    : roles.disciplined_blocker
+    : roles.blocker
     ? 'hold_defensive_line'
-    : roles.ambusher_bruiser
+    : roles.lurker
     ? 'opportunistic_melee'
     : 'split_and_punish';
   const primaryFocusTarget = enemies
@@ -2278,9 +2372,9 @@ function buildSupervisorBattlefieldAssessment(encounter, actorIds = []) {
     primaryFocusTarget: primaryFocusTarget ? { id: primaryFocusTarget.id, name: primaryFocusTarget.name } : null,
     protectedAsset: protectedAsset ? { id: protectedAsset.id, name: protectedAsset.name, role: inferActorRole(protectedAsset) } : null,
     posture: doctrine === 'protect_caster' || doctrine === 'hold_defensive_line' ? 'defensive_control' : 'pressure',
-    mainRisk: roles.disciplined_blocker && roles.skirmisher
+    mainRisk: roles.blocker && roles.skirmisher
       ? 'blockers may be pulled into skirmish behavior if ranged shots dominate local scoring'
-      : roles.support_caster
+      : roles.caster && protectedAsset
       ? 'support caster safety depends on allied spacing and reservation choices'
       : 'local candidate ranking may not optimize global group posture'
   };
@@ -2414,15 +2508,15 @@ function candidateWorsensProtectedScreen(candidate, actor, protectedAsset, mainT
     (currentlyScreens && !finallyScreens);
 }
 
-function disciplinedBlockerWorseningShootAndScoot(encounter, actor, candidate, doctrineContext = {}, roleGateContext = null) {
+function blockerWorseningShootAndScoot(encounter, actor, candidate, doctrineContext = {}, roleGateContext = null) {
   const { protectedAsset, mainThreat } = doctrineActors(encounter, doctrineContext);
   if (!protectedAsset || !mainThreat) return false;
-  if (!disciplinedBlockerShootAndScootScreenDuty(actor, candidate, doctrineContext, roleGateContext)) return false;
+  if (!blockerShootAndScootScreenDuty(actor, candidate, doctrineContext, roleGateContext)) return false;
   return candidateWorsensProtectedScreen(candidate, actor, protectedAsset, mainThreat);
 }
 
-function disciplinedBlockerShootAndScootScreenDuty(actor, candidate, doctrineContext = {}, roleGateContext = null) {
-  if (inferActorRole(actor) !== 'disciplined_blocker') return false;
+function blockerShootAndScootScreenDuty(actor, candidate, doctrineContext = {}, roleGateContext = null) {
+  if (inferActorRole(actor) !== 'blocker') return false;
   if (doctrineContext?.doctrine !== 'protect_caster') return false;
   if (candidate?.family !== 'shoot_and_scoot') return false;
   return Boolean(roleGateContext?.hasLinePreservingBlockerAlternative);
@@ -2457,7 +2551,7 @@ function buildRoleGateContext(encounter = {}, actor = {}, candidates = [], doctr
     candidate.actorId === actor.id &&
     (Number.isFinite(currentNearestEnemyDistance) ? currentNearestEnemyDistance > 1 : true)
   );
-  const hasSupportPreferredAlternative = role === 'support_caster' && candidateList.some((candidate) =>
+  const hasSupportPreferredAlternative = role === 'caster' && inferActorFunction(actor) === 'support' && candidateList.some((candidate) =>
     candidate.actorId === actor.id &&
     (
       ['spell_from_current', 'move_and_spell'].includes(candidate.family) ||
@@ -2465,7 +2559,7 @@ function buildRoleGateContext(encounter = {}, actor = {}, candidates = [], doctr
       hasSafeHold
     )
   );
-  const hasAmbusherRoleShapedAlternative = role === 'ambusher_bruiser' && candidateList.some((candidate) =>
+  const hasAmbusherRoleShapedAlternative = role === 'lurker' && candidateList.some((candidate) =>
     candidate.actorId === actor.id &&
     (
       ['hold_hidden', 'stalk_to_cover', 'attack_isolated_target', 'intercept_flanker'].includes(candidate.family) ||
@@ -2476,7 +2570,7 @@ function buildRoleGateContext(encounter = {}, actor = {}, candidates = [], doctr
     role,
     hasSupportPreferredAlternative,
     hasAmbusherRoleShapedAlternative,
-    hasLinePreservingBlockerAlternative: role === 'disciplined_blocker'
+    hasLinePreservingBlockerAlternative: role === 'blocker'
       ? hasLinePreservingBlockerAlternative(candidateList, actor, doctrineContext, encounter)
       : false
   };
@@ -2508,11 +2602,12 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, r
   const currentProtectedDistance = protectedAsset ? gridDistance(actor.cell, protectedAsset.cell) : Infinity;
   const finalProtectedDistance = protectedAsset && finalCell ? gridDistance(finalCell, protectedAsset.cell) : Infinity;
   const screening = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
-  const blockerShootAndScootScreenDuty = disciplinedBlockerShootAndScootScreenDuty(actor, candidate, doctrineContext, roleGateContext);
-  const blockerMaintainsShootAndScootScreen = blockerShootAndScootScreenDuty
+  const tacticalFunction = inferActorFunction(actor);
+  const blockerShootAndScootDuty = blockerShootAndScootScreenDuty(actor, candidate, doctrineContext, roleGateContext);
+  const blockerMaintainsShootAndScootScreen = blockerShootAndScootDuty
     ? candidateMaintainsProtectedScreen(candidate, actor, protectedAsset, mainThreat)
     : true;
-  const blockerWorseningShootAndScoot = disciplinedBlockerWorseningShootAndScoot(encounter, actor, candidate, doctrineContext, roleGateContext);
+  const blockerWorseningScoot = blockerWorseningShootAndScoot(encounter, actor, candidate, doctrineContext, roleGateContext);
   const visibleAfter = normalizeNumber(candidate.metadata?.visibleEnemiesAfterScoot, visibleEnemiesFromCell(encounter, actor, finalCell || actor.cell).length);
   const breakdown = {};
 
@@ -2520,16 +2615,17 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, r
     if (candidate.family === 'shoot_and_scoot') breakdown.roleSkirmisherShootAndScootBonus = 3;
     if (normalizeNumber(candidate.metadata?.visibilityReduction, 0) > 0 || visibleAfter === 0) breakdown.roleSkirmisherBreakLosBonus = 2;
     if (candidate.action?.attackKind === 'melee' || visibleAfter > 0) breakdown.roleSkirmisherExposedPenalty = -5;
-  } else if (role === 'disciplined_blocker') {
+  } else if (role === 'blocker') {
     if (candidate.family === 'hold_position' && finalProtectedDistance <= 4) breakdown.roleBlockerHoldLineBonus = 4;
     if (candidate.family === 'attack_from_current' && currentProtectedDistance <= 4) breakdown.roleBlockerCurrentLineAttackBonus = 3;
     if (screening && blockerMaintainsShootAndScootScreen) breakdown.roleBlockerScreenBonus = 3;
     if (candidate.family === 'shoot_and_scoot' && finalProtectedDistance > currentProtectedDistance) breakdown.roleBlockerSkirmishAwayPenalty = -4;
     if (protectedAsset && currentProtectedDistance <= 4 && finalProtectedDistance > currentProtectedDistance + 1) breakdown.roleBlockerAbandonScreenPenalty = -3;
-    if (blockerWorseningShootAndScoot) {
+    if (['door_plug', 'hold_line', 'zone_anchor', 'body_pressure'].includes(tacticalFunction) && candidate.family === 'hold_position') breakdown.roleBlockerSpaceControlBonus = 2;
+    if (blockerWorseningScoot) {
       breakdown.roleBlockerAbandonsLinePenalty = -14;
     }
-  } else if (role === 'ambusher_bruiser') {
+  } else if (role === 'lurker') {
     if (candidate.family === 'hold_hidden') breakdown.roleAmbusherHoldHiddenBonus = 4;
     if (candidate.family === 'stalk_to_cover') breakdown.roleAmbusherStalkToCoverBonus = 3;
     if (candidate.family === 'attack_isolated_target' || candidate.metadata?.isolatedTarget) breakdown.roleAmbusherAttackIsolatedBonus = 5;
@@ -2541,7 +2637,7 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, r
     ) {
       breakdown.roleAmbusherRangedSkirmishPenalty = -18;
     }
-  } else if (role === 'support_caster') {
+  } else if (role === 'caster') {
     if (protectedAsset?.id === actor.id || finalProtectedDistance <= currentProtectedDistance) breakdown.roleSupportStaysProtectedBonus = 4;
     if (candidate.action?.type === 'spell' && ['support', 'healing', 'defensive'].includes(candidate.action?.spellKind)) breakdown.roleSupportBuffBonus = 3;
     const currentThreatDistance = mainThreat ? gridDistance(actor.cell, mainThreat.cell) : Infinity;
@@ -2549,12 +2645,23 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, r
     if (finalThreatDistance > currentThreatDistance) breakdown.roleSupportMovesAwayFromThreatBonus = 3;
     if (finalThreatDistance <= 1 || visibleAfter > 0) breakdown.roleSupportExposedPenalty = -5;
     if (
+      tacticalFunction === 'support' &&
       roleGateContext?.hasSupportPreferredAlternative &&
       candidate.action?.type === 'attack' &&
       candidate.action?.attackKind === 'melee'
     ) {
       breakdown.roleSupportMeleeFallbackPenalty = -14;
     }
+    if (tacticalFunction === 'control' && ['spell_from_current', 'move_and_spell'].includes(candidate.family)) breakdown.roleControlCasterSpellBonus = 2;
+    if (tacticalFunction === 'artillery' && finalCell && mainThreat) breakdown.roleArtilleryCasterDistanceBonus = Math.min(3, gridDistance(finalCell, mainThreat.cell) / 4);
+  } else if (role === 'striker') {
+    if (candidate.action?.type === 'attack') breakdown.roleStrikerPressureBonus = 2;
+    if (['assassin', 'finisher'].includes(tacticalFunction) && candidate.metadata?.isolatedTarget) breakdown.roleStrikerIsolatedBonus = 3;
+  } else if (role === 'artillery') {
+    if (candidate.action?.attackKind === 'ranged') breakdown.roleArtilleryRangedBonus = 3;
+    if (candidate.family === 'hold_position') breakdown.roleArtilleryKeepsLaneBonus = 1;
+  } else if (role === 'swarm') {
+    if (['move_and_attack', 'advance_to_attack', 'attack_from_current'].includes(candidate.family)) breakdown.roleSwarmBodyPressureBonus = 2;
   }
 
   return breakdown;
@@ -2590,7 +2697,7 @@ function doctrineScoreModifiers(encounter, actor, candidate, doctrineContext = {
   const finalProtectedDistance = finalCell ? gridDistance(finalCell, protectedAsset.cell) : currentProtectedDistance;
   const screening = isScreeningProtectedAsset(candidate, actor, protectedAsset, mainThreat);
   const role = inferActorRole(actor);
-  const blockerShootAndScoot = role === 'disciplined_blocker' &&
+  const blockerShootAndScoot = role === 'blocker' &&
     doctrineContext?.doctrine === 'protect_caster' &&
     candidate.family === 'shoot_and_scoot';
   const blockerMaintainsShootAndScootScreen = blockerShootAndScoot
@@ -2604,8 +2711,8 @@ function doctrineScoreModifiers(encounter, actor, candidate, doctrineContext = {
   if (candidate.action?.type === 'attack' && targetId === mainThreat.id) breakdown.doctrineProtectCasterThreatBonus = 3;
   if (screening && blockerMaintainsShootAndScootScreen) breakdown.doctrineProtectCasterInterceptBonus = 3;
   if (finalProtectedDistance <= currentProtectedDistance && finalProtectedDistance <= 4 && blockerMaintainsShootAndScootScreen) breakdown.doctrineProtectCasterScreenBonus = 2;
-  if (role === 'disciplined_blocker' && screening && blockerMaintainsShootAndScootScreen) breakdown.doctrineBlockerLaneBonus = 2;
-  if (role === 'disciplined_blocker' && finalProtectedDistance > currentProtectedDistance + 1) breakdown.doctrineBlockerAwayPenalty = -3;
+  if (role === 'blocker' && screening && blockerMaintainsShootAndScootScreen) breakdown.doctrineBlockerLaneBonus = 2;
+  if (role === 'blocker' && finalProtectedDistance > currentProtectedDistance + 1) breakdown.doctrineBlockerAwayPenalty = -3;
   if (targetId && targetId !== mainThreat.id && gridDistance(mainThreat.cell, protectedAsset.cell) <= 8) breakdown.doctrineIgnoreMainThreatPenalty = -2;
   return breakdown;
 }
@@ -2658,7 +2765,7 @@ function supervisedCandidateScore(encounter, actor, candidate, { stance = 'oppor
   const roleModifiers = roleScoreModifiers(encounter, actor, candidate, doctrineContext || {}, roleGateContext);
   const targetPriorityModifiersForCandidate = targetPriorityModifiers(encounter, actor, candidate, doctrineContext || {});
   const doctrineModifiers = doctrineScoreModifiers(encounter, actor, candidate, doctrineContext || {});
-  const roleBlockerShootAndScootBonusOffset = disciplinedBlockerShootAndScootScreenDuty(actor, candidate, doctrineContext || {}, roleGateContext)
+  const roleBlockerShootAndScootBonusOffset = blockerShootAndScootScreenDuty(actor, candidate, doctrineContext || {}, roleGateContext)
     ? -shootAndScootBonus
     : 0;
   return {
@@ -2826,7 +2933,7 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       actorId: actor.id,
       phase: 'role_compliance',
       level: role.status === 'pass' ? 'info' : 'warning',
-      message: `${actor.name} role compliance ${role.status.toUpperCase()}: role=${role.role}${role.roleSource ? `; source=${role.roleSource}` : ''}${role.behavior ? `; behavior=${compactBehaviorDiagnostic(role.behavior)}` : ''}${role.concern ? `; concern=${role.concern}` : ''}.`,
+      message: `${actor.name} role compliance ${role.status.toUpperCase()}: role=${role.role}${role.function ? `; function=${role.function}` : ''}${role.behavior ? `; behavior=${compactBehaviorDiagnostic(role.behavior)}` : ''}${role.concern ? `; concern=${role.concern}` : ''}.`,
       data: { roleCompliance: role }
     }));
   }
@@ -2837,7 +2944,7 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       actorId: actor.id,
       phase: 'candidate_health',
       level: health.status === 'pass' ? 'info' : 'warning',
-      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}${health.roleSource ? `; source=${health.roleSource}` : ''}${health.behavior ? `; behavior=${compactBehaviorDiagnostic(health.behavior)}` : ''}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}${health.unsupportedExpectedCandidates?.length ? `; unsupported=${health.unsupportedExpectedCandidates.join(', ')}` : ''}.`,
+      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}${health.function ? `; function=${health.function}` : ''}${health.behavior ? `; behavior=${compactBehaviorDiagnostic(health.behavior)}` : ''}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}${health.unsupportedExpectedCandidates?.length ? `; unsupported=${health.unsupportedExpectedCandidates.join(', ')}` : ''}.`,
       data: { candidateSetHealth: health }
     }));
   }

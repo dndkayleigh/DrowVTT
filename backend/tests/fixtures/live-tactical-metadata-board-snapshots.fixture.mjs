@@ -37,10 +37,12 @@ export const LIVE_TACTICAL_METADATA_SNAPSHOT = {
           requiresLineOfSight: false
         }],
         tactical: {
-          role: 'boss_caster',
-          protected_asset: true,
-          objective_role: 'ritual_actor',
-          role_notes: 'Protected ritual caster'
+          role: 'caster',
+          function: 'ritualist',
+          intent: ['complete_ritual', 'preserve_self'],
+          protectedAsset: true,
+          objectiveRole: 'ritual_actor',
+          roleNotes: 'Protected ritual caster'
         },
         behavior: {
           cognition: 'cunning',

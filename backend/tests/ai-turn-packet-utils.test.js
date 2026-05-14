@@ -189,7 +189,7 @@ test('AI turn packet preserves explicit tactical, spell, and attack metadata', (
         speed: 30,
         notes: '',
         statblock: '',
-        tactical: { role: 'boss_caster', protectedAsset: true, objectiveRole: 'ritual_actor' },
+        tactical: { role: 'caster', protectedAsset: true, objectiveRole: 'ritual_actor' },
         spells: [{ name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 }],
         attacks: [{ name: 'Dagger', attackKind: 'ranged', rangeFt: 20, expectedDamage: 4 }],
         art: null
@@ -214,7 +214,7 @@ test('AI turn packet preserves explicit tactical, spell, and attack metadata', (
 
   const packet = buildAiTurnPacketCompactFromState(state, { moveCandidateLimit: 5, attackOpportunityLimit: 6 });
 
-  assert.match(packet, /tactical\(role=boss_caster protected_asset=true objective_role=ritual_actor\)/);
+  assert.match(packet, /tactical\(role=caster protected_asset=true objective_role=ritual_actor\)/);
   assert.match(packet, /spells=Shield\/defensive/);
   assert.match(packet, /attacks=Dagger\/ranged\/20/);
   assert.match(packet, /attack="Dagger" kind=ranged target="Aria"/);

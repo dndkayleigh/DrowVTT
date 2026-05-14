@@ -148,6 +148,101 @@ test('tactical core validates and normalizes encounter state', () => {
   assert.equal(result.encounter.battlefield.edges[0].blocksLineOfSight, true);
 });
 
+test('broad tactical roles normalize directly', () => {
+  for (const role of ['blocker', 'striker', 'skirmisher', 'caster', 'leader', 'lurker', 'artillery', 'swarm', 'solo', 'hazard']) {
+    const encounter = normalizeEncounterState({
+      id: `role-${role}`,
+      battlefield: { width: 4, height: 4, edges: [], tiles: [], interactables: [] },
+      actors: [{ id: 'actor', name: 'Actor', side: 'monsters', cell: { x: 1, y: 1 }, tactical: { role }, attacks: [] }]
+    });
+    assert.equal(encounter.actors[0].tactical.role, role);
+  }
+});
+
+test('tactical function, intent, and tags normalize without closed-list validation', () => {
+  const encounter = {
+    id: 'function-normalization',
+    battlefield: { width: 4, height: 4, edges: [], tiles: [], interactables: [] },
+    actors: [{
+      id: 'mage',
+      name: 'Mage',
+      side: 'monsters',
+      cell: { x: 1, y: 1 },
+      tactical: {
+        role: 'caster',
+        function: 'weird_future_function',
+        intent: ['control_battlefield', 'preserve_self'],
+        tags: ['fragile', 'area_effects']
+      },
+      attacks: []
+    }]
+  };
+  const validation = validateEncounterState(encounter);
+  assert.equal(validation.ok, true);
+  assert.equal(validation.encounter.actors[0].tactical.function, 'weird_future_function');
+  assert.deepEqual(validation.encounter.actors[0].tactical.intent, ['control_battlefield', 'preserve_self']);
+  assert.deepEqual(validation.encounter.actors[0].tactical.tags, ['fragile', 'area_effects']);
+});
+
+test('single string tactical intent normalizes to an array', () => {
+  const encounter = normalizeEncounterState({
+    id: 'single-intent',
+    battlefield: { width: 4, height: 4, edges: [], tiles: [], interactables: [] },
+    actors: [{
+      id: 'guard',
+      name: 'Guard',
+      side: 'monsters',
+      cell: { x: 1, y: 1 },
+      tactical: { role: 'blocker', function: 'hold_line', intent: 'hold_line' },
+      attacks: []
+    }]
+  });
+  assert.deepEqual(encounter.actors[0].tactical.intent, ['hold_line']);
+});
+
+test('invalid tactical role and secondary roles fail validation', () => {
+  const invalidRole = validateEncounterState({
+    id: 'invalid-role',
+    battlefield: { width: 4, height: 4, edges: [], tiles: [], interactables: [] },
+    actors: [{ id: 'actor', name: 'Actor', side: 'monsters', cell: { x: 1, y: 1 }, tactical: { role: 'invalid_legacy_role' }, attacks: [] }]
+  });
+  assert.equal(invalidRole.ok, false);
+  assert.match(invalidRole.issues.join('\n'), /invalid tactical\.role/);
+
+  const invalidSecondary = validateEncounterState({
+    id: 'invalid-secondary',
+    battlefield: { width: 4, height: 4, edges: [], tiles: [], interactables: [] },
+    actors: [{
+      id: 'dragon',
+      name: 'Dragon',
+      side: 'monsters',
+      cell: { x: 1, y: 1 },
+      tactical: { role: 'solo', secondaryRoles: ['caster', 'invalid_legacy_role'] },
+      attacks: []
+    }]
+  });
+  assert.equal(invalidSecondary.ok, false);
+  assert.match(invalidSecondary.issues.join('\n'), /invalid tactical\.secondaryRoles/);
+});
+
+test('unsupported tactical provenance fields fail validation', () => {
+  const unsupportedField = `mapped_${'core'}_role`;
+  const result = validateEncounterState({
+    id: 'unsupported-field',
+    battlefield: { width: 4, height: 4, edges: [], tiles: [], interactables: [] },
+    actors: [{
+      id: 'actor',
+      name: 'Actor',
+      side: 'monsters',
+      cell: { x: 1, y: 1 },
+      tactical: { role: 'blocker', [unsupportedField]: 'blocker' },
+      attacks: []
+    }]
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.issues.join('\n'), new RegExp(`unsupported tactical field: ${unsupportedField}`));
+});
+
 test('simple grid rules enforce blocking edges for movement and line of sight', () => {
   const encounter = encounterWithBlocking();
   const goblin = encounter.actors[0];
@@ -1037,7 +1132,7 @@ test('candidate truncation preserves hold position under ranged candidate pressu
         side: 'monsters',
         cell: { x: 3, y: 3 },
         speed: 30,
-        tactical: { role: 'disciplined_soldier' },
+        tactical: { role: 'blocker' },
         attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }]
       },
       { id: 'hero-a', name: 'Hero A', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] },
@@ -1071,7 +1166,7 @@ test('candidate truncation preserves current ranged attacks under ranged candida
         side: 'monsters',
         cell: { x: 3, y: 3 },
         speed: 30,
-        tactical: { role: 'disciplined_soldier' },
+        tactical: { role: 'blocker' },
         attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }]
       },
       { id: 'hero-a', name: 'Hero A', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] },
@@ -1105,7 +1200,7 @@ test('candidate truncation preserves advance-to-attack when late generated', () 
         side: 'monsters',
         cell: { x: 2, y: 2 },
         speed: 30,
-        tactical: { role: 'disciplined_soldier' },
+        tactical: { role: 'blocker' },
         attacks: [
           { name: 'Longsword', attackKind: 'melee', rangeFt: 5, expectedDamage: 7 },
           { name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }
@@ -1140,7 +1235,7 @@ test('disciplined blocker avoids shoot-and-scoot that abandons a protected caste
         side: 'monsters',
         cell: { x: 2, y: 3 },
         speed: 30,
-        tactical: { role: 'boss_caster', protectedAsset: true },
+        tactical: { role: 'caster', protectedAsset: true },
         spells: [{ name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 }]
       },
       {
@@ -1149,7 +1244,7 @@ test('disciplined blocker avoids shoot-and-scoot that abandons a protected caste
         side: 'monsters',
         cell: { x: 3, y: 3 },
         speed: 30,
-        tactical: { role: 'disciplined_soldier' },
+        tactical: { role: 'blocker' },
         attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }]
       },
       { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] }
@@ -1170,7 +1265,7 @@ test('disciplined blocker avoids shoot-and-scoot that abandons a protected caste
   const veteranDecision = output.logs.find((log) => log.actorId === 'veteran' && log.phase === 'decision');
 
   assert.doesNotMatch(output.selectedCandidateId, /shoot_and_scoot:/);
-  assert.equal(veteranDecision.data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
+  assert.equal(veteranDecision.data.diagnostics.candidateSetHealth.role, 'blocker');
   assert.equal(veteranDecision.data.familyCounts.hold_position, 1);
   assert.equal(veteranDecision.data.familyCounts.attack_from_current, 1);
 });
@@ -1222,7 +1317,7 @@ test('disciplined blocker may fire from current screening position', async () =>
         side: 'monsters',
         cell: { x: 2, y: 3 },
         speed: 30,
-        tactical: { role: 'boss_caster', protectedAsset: true },
+        tactical: { role: 'caster', protectedAsset: true },
         spells: [{ name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 }]
       },
       {
@@ -1231,7 +1326,7 @@ test('disciplined blocker may fire from current screening position', async () =>
         side: 'monsters',
         cell: { x: 3, y: 3 },
         speed: 30,
-        tactical: { role: 'disciplined_soldier' },
+        tactical: { role: 'blocker' },
         attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 6 }]
       },
       { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] }
@@ -1252,7 +1347,7 @@ test('disciplined blocker may fire from current screening position', async () =>
   });
 
   assert.match(output.selectedCandidateId, /^attack_from_current:/);
-  assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
+  assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'blocker');
   assert.equal(output.logs[0].data.selected.protectedAssetSafetyDelta.assessment, 'preserves');
   assert.equal(output.logs[0].data.selected.protectedAssetSafetyDelta.protectedAsset.name, 'Mage');
   assert.equal(output.logs[0].data.diagnostics.selectedProtectedAssetSafetyDelta.finalScreens, true);
@@ -1276,7 +1371,7 @@ test('disciplined blocker may shoot-and-scoot when the hide cell preserves the p
         side: 'monsters',
         cell: { x: 2, y: 3 },
         speed: 30,
-        tactical: { role: 'boss_caster', protectedAsset: true },
+        tactical: { role: 'caster', protectedAsset: true },
         spells: [{ name: 'Shield', kind: 'defensive', target: 'self', rangeFt: 0, expectedValue: 5 }]
       },
       {
@@ -1285,7 +1380,7 @@ test('disciplined blocker may shoot-and-scoot when the hide cell preserves the p
         side: 'monsters',
         cell: { x: 3, y: 2 },
         speed: 30,
-        tactical: { role: 'disciplined_soldier' },
+        tactical: { role: 'blocker' },
         attacks: [{ name: 'Heavy Crossbow', attackKind: 'ranged', rangeFt: 100, expectedDamage: 3 }]
       },
       { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] }
@@ -1306,7 +1401,7 @@ test('disciplined blocker may shoot-and-scoot when the hide cell preserves the p
   });
 
   assert.match(output.selectedCandidateId, /^shoot_and_scoot:/);
-  assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
+  assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'blocker');
   assert.equal(output.logs[0].data.selected.supervisorBreakdown.roleBlockerShootAndScootBonusOffset, -4);
   assert.equal(output.logs[0].data.selected.supervisorBreakdown.roleBlockerAbandonsLinePenalty, undefined);
   assert.equal(output.logs[0].data.selected.supervisorBreakdown.roleBlockerScreenBonus, 3);
@@ -1352,7 +1447,7 @@ test('large ambusher bruiser generates move_and_attack and attack_isolated_targe
         cell: { x: 1, y: 3 },
         sizeCells: 3,
         speed: 30,
-        tactical: { role: 'grappler_ambusher', coreRole: 'ambusher_bruiser' },
+        tactical: { role: 'lurker', function: 'lurker' },
         attacks: [{ name: 'Bite', attackKind: 'melee', rangeFt: 5, expectedDamage: 12 }]
       },
       {
@@ -1405,10 +1500,10 @@ test('portable SRD tactical overrides seed representative monster behavior profi
   const goblin = normalizeMonsterProfile({ name: 'Goblin', statblock: '- Scimitar: Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 slashing damage.' }, { archetype: 'skirmisher' });
   const mage = normalizeMonsterProfile({ name: 'Mage', statblock: '- Dagger: Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 piercing damage.' }, { archetype: 'controller' });
 
-  assert.equal(zombie.tactical?.role, 'brute_blocker');
-  assert.equal(zombie.tactical?.mapped_core_role, 'disciplined_blocker');
-  assert.equal(zombie.tactical?.mappedCoreRole, 'disciplined_blocker');
-  assert.equal(zombie.tactical?.coreRole, 'disciplined_blocker');
+  assert.equal(zombie.tactical?.role, 'blocker');
+  assert.equal(zombie.tactical?.function, 'body_pressure');
+  assert.equal(zombie.tactical?.tags.includes('body_pressure'), true);
+  assert.equal(zombie.tactical?.tags.includes('swarm_member'), true);
   assert.deepEqual(zombie.behavior, {
     cognition: 'mindless',
     drive: 'nearest_living_prey',
@@ -1417,11 +1512,13 @@ test('portable SRD tactical overrides seed representative monster behavior profi
     planningHorizon: 'immediate',
     targetStickiness: 'high'
   });
-  assert.equal(wolf.tactical?.mapped_core_role, 'skirmisher');
+  assert.equal(wolf.tactical?.role, 'skirmisher');
+  assert.equal(wolf.tactical?.function, 'melee_harrier');
   assert.equal(wolf.behavior?.coordination, 'pack');
   assert.equal(goblin.behavior?.coordination, 'squad');
   assert.equal(goblin.behavior?.cognition, 'trained');
-  assert.equal(mage.tactical?.mapped_core_role, 'support_caster');
+  assert.equal(mage.tactical?.role, 'caster');
+  assert.equal(mage.tactical?.function, 'control');
   assert.equal(mage.behavior?.cognition, 'cunning');
   assert.equal(mage.behavior?.coordination, 'commander_led');
 });
@@ -1447,7 +1544,7 @@ test('explicit actor behavior normalizes correctly without changing tactical rol
       side: 'monsters',
       cell: { x: 1, y: 1 },
       speed: 20,
-      tactical: { role: 'melee_disrupter', mapped_core_role: 'ambusher_bruiser' },
+      tactical: { role: 'striker', function: 'lurker' },
       behavior: {
         cognition: 'mindless',
         drive: 'nearest_living_prey',
@@ -1468,7 +1565,7 @@ test('explicit actor behavior normalizes correctly without changing tactical rol
     planningHorizon: 'immediate',
     targetStickiness: 'high'
   });
-  assert.equal(actor.tactical.coreRole, 'ambusher_bruiser');
+  assert.equal(actor.tactical.function, 'lurker');
 });
 
 test('actors without behavior receive the default trained squad behavior profile', () => {
@@ -1483,7 +1580,7 @@ test('actors without behavior receive the default trained squad behavior profile
       side: 'monsters',
       cell: { x: 1, y: 1 },
       speed: 30,
-      tactical: { role: 'disciplined_soldier' },
+      tactical: { role: 'blocker' },
       attacks: [{ name: 'Spear', attackKind: 'melee', rangeFt: 5, expectedDamage: 5 }]
     }]
   }).actors[0];
@@ -1499,7 +1596,8 @@ test('actors without behavior receive the default trained squad behavior profile
   assert.deepEqual(normalizeBehaviorProfile(null, actor), inferDefaultBehaviorProfile(actor));
   assert.deepEqual(behaviorProfileForActor(actor), inferDefaultBehaviorProfile(actor));
   assert.deepEqual(actor.behavior, inferDefaultBehaviorProfile(actor));
-  assert.equal(actor.tactical.coreRole, 'disciplined_blocker');
+  assert.equal(actor.tactical.role, 'blocker');
+  assert.equal(actor.tactical.function, '');
 });
 
 test('visible YAML encounter fixtures assert tactical behavior', async () => {
@@ -1555,17 +1653,17 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
   assert.equal(monsterCounts.Goblin || 0, 0);
   assert.ok(mage);
   assert.equal(mage.spells.some((spell) => ['support', 'defensive'].includes(spell.kind)), true);
-  assert.equal(mage.tactical.role, 'boss_caster');
-  assert.equal(mage.tactical.authoredRole, 'boss_caster');
-  assert.equal(mage.tactical.coreRole, 'support_caster');
+  assert.equal(mage.tactical.role, 'caster');
+  assert.equal(mage.tactical.role, 'caster');
+  assert.equal(mage.tactical.function, 'ritualist');
   assert.equal(mage.tactical.protectedAsset, true);
   assert.equal(mage.tactical.objectiveRole, 'ritual_actor');
-  assert.equal(thug.tactical.role, 'brute_blocker');
-  assert.equal(thug.tactical.coreRole, 'disciplined_blocker');
-  assert.equal(wraith.tactical.role, 'mobile_striker');
-  assert.equal(wraith.tactical.coreRole, 'ambusher_bruiser');
-  assert.equal(gargoyle.tactical.role, 'held_ambusher');
-  assert.equal(gargoyle.tactical.coreRole, 'ambusher_bruiser');
+  assert.equal(thug.tactical.role, 'blocker');
+  assert.equal(thug.tactical.function, 'bodyguard');
+  assert.equal(wraith.tactical.role, 'lurker');
+  assert.equal(wraith.tactical.function, 'stalker');
+  assert.equal(gargoyle.tactical.role, 'lurker');
+  assert.equal(gargoyle.tactical.function, 'ambusher');
   assert.equal(fixture.encounter.activeActorId, mage.id);
   assert.equal(fixture.encounter.activationGroups[0]?.id, 'ossuary_gate_defenders');
   assert.equal(fixture.encounter.activationGroups[0]?.actorIds.length, 10);
@@ -1573,7 +1671,7 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
   assert.equal(description.includes('https://dysonlogos.blog/maps/commercial-maps/'), true);
   assert.equal(description.includes('https://dysonlogos.blog/wp-content/uploads/2020/11/sanctuary-of-the-magi.png'), true);
   assert.equal(description.includes('ideal_behavior'), true);
-  assert.equal(description.includes('protected_asset'), true);
+  assert.equal(description.includes('protectedasset'), true);
   assert.equal(description.includes('unsupported doctrines'), true);
 
   const mageOutput = await new SupervisorScriptedController().chooseAction({
@@ -1581,14 +1679,14 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
     actorId: mage.id,
     candidateLimit: 36
   });
-  assert.equal(mageOutput.logs[0].data.diagnostics.candidateSetHealth.role, 'support_caster');
+  assert.equal(mageOutput.logs[0].data.diagnostics.candidateSetHealth.role, 'caster');
 
   const thugOutput = await new SupervisorScriptedController().chooseAction({
     encounter: fixture.encounter,
     actorId: thug.id,
     candidateLimit: 36
   });
-  assert.equal(thugOutput.logs[0].data.diagnostics.candidateSetHealth.role, 'disciplined_blocker');
+  assert.equal(thugOutput.logs[0].data.diagnostics.candidateSetHealth.role, 'blocker');
 
   const wraithCandidates = generateCandidateActions(fixture.encounter, wraith, { limit: 36 });
   assert.equal(wraithCandidates.some((candidate) => candidate.family === 'hold_hidden'), true);
@@ -1601,7 +1699,7 @@ test('Ossuary Gate Rite sanctuary fixture loads benchmark metadata', async () =>
   });
   const blockerDecisions = groupOutput.logs.filter((log) => {
     const actor = fixture.encounter.actors.find((entry) => entry.id === log.actorId);
-    return log.phase === 'decision' && actor?.tactical?.coreRole === 'disciplined_blocker';
+    return log.phase === 'decision' && actor?.tactical?.role === 'blocker';
   });
 
   assert.equal(blockerDecisions.length, 4);
@@ -1644,29 +1742,31 @@ test('Stony Shore Ambush fixture loads benchmark metadata', () => {
   assert.equal(monsterCounts.Troll, 2);
   assert.equal(monsterCounts.Lizardfolk, 4);
   assert.equal(monsterCounts['Giant Crocodile'], 1);
-  assert.equal(rawDragon?.tactical?.mapped_core_role, 'ambusher_bruiser');
-  assert.equal(rawCrocodile?.tactical?.mapped_core_role, 'ambusher_bruiser');
-  assert.equal(rawLizardfolk?.tactical?.mapped_core_role, 'skirmisher');
-  assert.equal(rawTroll?.tactical?.mapped_core_role, 'disciplined_blocker');
+  assert.equal(rawDragon?.tactical?.role, 'solo');
+  assert.equal(rawDragon?.tactical?.function, 'boss_controller');
+  assert.equal(rawCrocodile?.tactical?.role, 'lurker');
+  assert.equal(rawCrocodile?.tactical?.function, 'grappler');
+  assert.equal(rawLizardfolk?.tactical?.role, 'skirmisher');
+  assert.equal(rawLizardfolk?.tactical?.function, 'ranged_harrier');
+  assert.equal(rawTroll?.tactical?.role, 'blocker');
+  assert.equal(rawTroll?.tactical?.function, 'zone_anchor');
   assert.ok(dragon);
   assert.equal(dragon.sizeCells, 2);
-  assert.equal(dragon.tactical.role, 'mobile_boss_controller');
-  assert.equal(dragon.tactical.coreRole, 'ambusher_bruiser');
+  assert.equal(dragon.tactical.role, 'solo');
+  assert.equal(dragon.tactical.function, 'boss_controller');
+  assert.equal(dragon.tactical.secondaryRoles.includes('caster'), true);
+  assert.equal(dragon.tactical.secondaryRoles.includes('striker'), true);
   assert.deepEqual(dragon.behavior, inferDefaultBehaviorProfile(dragon));
-  assert.equal(dragon.tactical.objectiveRole, 'break_formation');
-  assert.equal(troll.tactical.role, 'brute_blocker');
-  assert.equal(troll.tactical.coreRole, 'disciplined_blocker');
+  assert.equal(troll.tactical.role, 'blocker');
+  assert.equal(troll.tactical.function, 'zone_anchor');
   assert.deepEqual(troll.behavior, inferDefaultBehaviorProfile(troll));
-  assert.equal(troll.tactical.objectiveRole, 'hold_cavern_choke');
   assert.equal(lizardfolk.tactical.role, 'skirmisher');
-  assert.equal(lizardfolk.tactical.coreRole, 'skirmisher');
+  assert.equal(lizardfolk.tactical.function, 'ranged_harrier');
   assert.deepEqual(lizardfolk.behavior, inferDefaultBehaviorProfile(lizardfolk));
-  assert.equal(lizardfolk.tactical.objectiveRole, 'harass_and_flank');
   assert.equal(crocodile.sizeCells, 3);
-  assert.equal(crocodile.tactical.role, 'grappler_ambusher');
-  assert.equal(crocodile.tactical.coreRole, 'ambusher_bruiser');
+  assert.equal(crocodile.tactical.role, 'lurker');
+  assert.equal(crocodile.tactical.function, 'grappler');
   assert.deepEqual(crocodile.behavior, inferDefaultBehaviorProfile(crocodile));
-  assert.equal(crocodile.tactical.objectiveRole, 'punish_edge_movement');
   assert.equal(fixture.raw.ideal_behavior.includes('mobile boss controller'), true);
   assert.equal(unsupportedFeatures.includes('breath weapon area targeting'), true);
   assert.equal(unsupportedFeatures.includes('flight or swim movement'), true);
@@ -1709,8 +1809,10 @@ test('Zombie Doorway Press preserves explicit mindless zombie behavior while oth
 
   assert.ok(zombie);
   assert.equal(rawZombie?.behavior?.cognition, 'mindless');
-  assert.equal(zombie.tactical.role, 'brute_blocker');
-  assert.equal(zombie.tactical.coreRole, 'disciplined_blocker');
+  assert.equal(zombie.tactical.role, 'blocker');
+  assert.equal(zombie.tactical.function, 'body_pressure');
+  assert.equal(zombie.tactical.tags.includes('body_pressure'), true);
+  assert.equal(zombie.tactical.tags.includes('swarm_member'), true);
   assert.deepEqual(zombie.behavior, {
     cognition: 'mindless',
     drive: 'nearest_living_prey',
@@ -1753,7 +1855,8 @@ test('Wolf Pack Harrier preserves explicit animal/pack behavior while default be
 
   assert.ok(wolf);
   assert.equal(rawWolf?.behavior?.cognition, 'animal');
-  assert.equal(wolf.tactical.coreRole, 'skirmisher');
+  assert.equal(wolf.tactical.role, 'skirmisher');
+  assert.equal(wolf.tactical.function, 'melee_harrier');
   assert.deepEqual(wolf.behavior, {
     cognition: 'animal',
     drive: 'isolate_weak_prey',
@@ -1805,7 +1908,7 @@ test('animal pack prefers isolated or wounded reachable prey over protected prey
         side: 'monsters',
         cell: { x: 2, y: 3 },
         speed: 40,
-        tactical: { role: 'skirmisher', mapped_core_role: 'skirmisher' },
+        tactical: { role: 'skirmisher', function: 'skirmisher' },
         behavior: {
           cognition: 'animal',
           drive: 'isolate_weak_prey',
@@ -1905,7 +2008,7 @@ test('movement reaction risk penalizes self-preserving animals more than mindles
         side: 'monsters',
         cell: { x: 3, y: 3 },
         speed: 30,
-        tactical: { role: 'skirmisher', mapped_core_role: 'skirmisher' },
+        tactical: { role: 'skirmisher', function: 'skirmisher' },
         behavior,
         attacks: [{ name: 'Bite', attackKind: 'melee', rangeFt: 5, expectedDamage: 7 }]
       },
@@ -1996,7 +2099,7 @@ test('mindless behavior suppresses retreat and skirmish candidate families', () 
         side: 'monsters',
         cell: { x: 2, y: 3 },
         speed: 30,
-        tactical: { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' },
+        tactical: { role: 'blocker', function: 'blocker' },
         behavior: {
           cognition: 'mindless',
           drive: 'nearest_living_prey',
@@ -2034,7 +2137,7 @@ test('mindless nearest-prey drive and high target stickiness prefer the adjacent
         side: 'monsters',
         cell: { x: 3, y: 3 },
         speed: 20,
-        tactical: { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' },
+        tactical: { role: 'blocker', function: 'blocker' },
         behavior: {
           cognition: 'mindless',
           drive: 'nearest_living_prey',
@@ -2150,10 +2253,10 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
 
   const dragon = byActorId.get('young_black_dragon');
   assert.ok(dragon, 'expected group decision for Young Black Dragon');
-  assert.equal(dragon.diagnostics.candidateSetHealth?.role, 'ambusher_bruiser');
-  assert.equal(dragon.diagnostics.candidateSetHealth?.roleSource, 'tactical.mapped_core_role');
-  assert.equal(dragon.diagnostics.roleCompliance?.role, 'ambusher_bruiser');
-  assert.equal(dragon.diagnostics.roleCompliance?.roleSource, 'tactical.mapped_core_role');
+  assert.equal(dragon.diagnostics.candidateSetHealth?.role, 'solo');
+  assert.equal(dragon.diagnostics.candidateSetHealth?.function, 'boss_controller');
+  assert.equal(dragon.diagnostics.roleCompliance?.role, 'solo');
+  assert.equal(dragon.diagnostics.roleCompliance?.function, 'boss_controller');
   assert.equal(dragon.selected.family, 'shoot_and_scoot');
   assert.equal(dragon.selected.actionName, 'Acid Breath');
 
@@ -2164,9 +2267,9 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
   );
   for (const decision of lizardfolkDecisions) {
     assert.equal(decision.diagnostics.candidateSetHealth?.role, 'skirmisher');
-    assert.equal(decision.diagnostics.candidateSetHealth?.roleSource, 'tactical.mapped_core_role');
+    assert.equal(decision.diagnostics.candidateSetHealth?.function, 'ranged_harrier');
     assert.equal(decision.diagnostics.roleCompliance?.role, 'skirmisher');
-    assert.equal(decision.diagnostics.roleCompliance?.roleSource, 'tactical.mapped_core_role');
+    assert.equal(decision.diagnostics.roleCompliance?.function, 'ranged_harrier');
     assert.equal(decision.diagnostics.candidateSetHealth?.expectedFamilies.includes('shoot_and_scoot'), true);
     assert.equal(harassmentFamilies.has(decision.selected.family), true, `${decision.actor.name} should use harassment-compatible family`);
     assert.equal(decision.selected.actionName, 'Javelin');
@@ -2174,10 +2277,10 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
 
   assert.equal(trollDecisions.length, 2);
   for (const decision of trollDecisions) {
-    assert.equal(decision.diagnostics.candidateSetHealth?.role, 'disciplined_blocker');
-    assert.equal(decision.diagnostics.candidateSetHealth?.roleSource, 'tactical.mapped_core_role');
-    assert.equal(decision.diagnostics.roleCompliance?.role, 'disciplined_blocker');
-    assert.equal(decision.diagnostics.roleCompliance?.roleSource, 'tactical.mapped_core_role');
+    assert.equal(decision.diagnostics.candidateSetHealth?.role, 'blocker');
+    assert.equal(decision.diagnostics.candidateSetHealth?.function, 'zone_anchor');
+    assert.equal(decision.diagnostics.roleCompliance?.role, 'blocker');
+    assert.equal(decision.diagnostics.roleCompliance?.function, 'zone_anchor');
     assert.equal(['move_and_attack', 'attack_from_current', 'hold_position', 'advance_to_attack'].includes(decision.selected.family), true);
     if (decision.selected.family === 'move_and_attack' || decision.selected.family === 'attack_from_current') {
       assert.equal(['Claw', 'Bite'].includes(decision.selected.actionName), true);
@@ -2186,21 +2289,21 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
 
   const crocodile = byActorId.get('giant_crocodile');
   assert.ok(crocodile, 'expected group decision for Giant Crocodile');
-  assert.equal(crocodile.diagnostics.candidateSetHealth?.role, 'ambusher_bruiser');
-  assert.equal(crocodile.diagnostics.candidateSetHealth?.roleSource, 'tactical.mapped_core_role');
-  assert.equal(crocodile.diagnostics.roleCompliance?.role, 'ambusher_bruiser');
-  assert.equal(crocodile.diagnostics.roleCompliance?.roleSource, 'tactical.mapped_core_role');
+  assert.equal(crocodile.diagnostics.candidateSetHealth?.role, 'lurker');
+  assert.equal(crocodile.diagnostics.candidateSetHealth?.function, 'grappler');
+  assert.equal(crocodile.diagnostics.roleCompliance?.role, 'lurker');
+  assert.equal(crocodile.diagnostics.roleCompliance?.function, 'grappler');
   assert.equal(crocodile.selected.family, 'hold_hidden');
   assert.equal(crocodile.selected.actionName, 'hold_hidden');
   assert.equal(crocodile.diagnostics.candidateSetHealth?.status, 'warning');
   assert.equal(crocodile.diagnostics.roleCompliance?.status, 'warning');
   assert.deepEqual(
     crocodile.diagnostics.candidateSetHealth?.missingExpectedCandidates,
-    ['intercept_flanker', 'attack_isolated_target', 'move_and_attack']
+    ['move_and_attack', 'attack_from_current']
   );
   assert.deepEqual(
     crocodile.diagnostics.candidateSetHealth?.unsupportedExpectedCandidates,
-    ['intercept_flanker']
+    []
   );
 });
 
@@ -2229,7 +2332,7 @@ test('Stony Shore crocodile warning reflects scenario limits rather than a broke
   );
 });
 
-test('group controller preserves direct tactical coreRole on live-token-shaped actors', async () => {
+test('group controller preserves direct tactical function on live-token-shaped actors', async () => {
   const encounter = normalizeEncounterState({
     activeActorId: 'dragon',
     activationGroups: [{
@@ -2252,7 +2355,7 @@ test('group controller preserves direct tactical coreRole on live-token-shaped a
         side: 'monsters',
         cell: { x: 1, y: 1 },
         speed: 40,
-        tactical: { role: 'mobile_boss_controller', coreRole: 'ambusher_bruiser' },
+        tactical: { role: 'solo', function: 'boss_controller', secondaryRoles: ['caster', 'striker'] },
         attacks: [{ name: 'Acid Breath', attackKind: 'ranged', rangeFt: 60, expectedDamage: 20 }]
       },
       {
@@ -2261,7 +2364,7 @@ test('group controller preserves direct tactical coreRole on live-token-shaped a
         side: 'monsters',
         cell: { x: 1, y: 3 },
         speed: 30,
-        tactical: { role: 'grappler_ambusher', coreRole: 'ambusher_bruiser' },
+        tactical: { role: 'lurker', function: 'grappler', secondaryRoles: ['striker'] },
         attacks: [{ name: 'Bite', attackKind: 'melee', rangeFt: 5, expectedDamage: 12 }]
       },
       {
@@ -2270,7 +2373,7 @@ test('group controller preserves direct tactical coreRole on live-token-shaped a
         side: 'monsters',
         cell: { x: 1, y: 5 },
         speed: 30,
-        tactical: { role: 'mobile_harasser', coreRole: 'skirmisher' },
+        tactical: { role: 'skirmisher', function: 'ranged_harrier', secondaryRoles: ['artillery'] },
         attacks: [{ name: 'Javelin', attackKind: 'ranged', rangeFt: 30, expectedDamage: 5 }]
       },
       {
@@ -2279,7 +2382,7 @@ test('group controller preserves direct tactical coreRole on live-token-shaped a
         side: 'monsters',
         cell: { x: 1, y: 6 },
         speed: 30,
-        tactical: { role: 'brute_blocker', coreRole: 'disciplined_blocker' },
+        tactical: { role: 'blocker', function: 'zone_anchor', secondaryRoles: ['striker'] },
         attacks: [{ name: 'Claw', attackKind: 'melee', rangeFt: 5, expectedDamage: 8 }]
       },
       {
@@ -2311,14 +2414,14 @@ test('group controller preserves direct tactical coreRole on live-token-shaped a
       .map((log) => [log.actorId, log])
   );
 
-  assert.equal(decisionLogs.get('dragon')?.data?.diagnostics?.candidateSetHealth?.role, 'ambusher_bruiser');
-  assert.equal(decisionLogs.get('dragon')?.data?.diagnostics?.candidateSetHealth?.roleSource, 'tactical.coreRole');
-  assert.equal(decisionLogs.get('crocodile')?.data?.diagnostics?.candidateSetHealth?.role, 'ambusher_bruiser');
-  assert.equal(decisionLogs.get('crocodile')?.data?.diagnostics?.candidateSetHealth?.roleSource, 'tactical.coreRole');
+  assert.equal(decisionLogs.get('dragon')?.data?.diagnostics?.candidateSetHealth?.role, 'solo');
+  assert.equal(decisionLogs.get('dragon')?.data?.diagnostics?.candidateSetHealth?.function, 'boss_controller');
+  assert.equal(decisionLogs.get('crocodile')?.data?.diagnostics?.candidateSetHealth?.role, 'lurker');
+  assert.equal(decisionLogs.get('crocodile')?.data?.diagnostics?.candidateSetHealth?.function, 'grappler');
   assert.equal(decisionLogs.get('lizardfolk')?.data?.diagnostics?.candidateSetHealth?.role, 'skirmisher');
-  assert.equal(decisionLogs.get('lizardfolk')?.data?.diagnostics?.candidateSetHealth?.roleSource, 'tactical.coreRole');
-  assert.equal(decisionLogs.get('troll')?.data?.diagnostics?.candidateSetHealth?.role, 'disciplined_blocker');
-  assert.equal(decisionLogs.get('troll')?.data?.diagnostics?.candidateSetHealth?.roleSource, 'tactical.coreRole');
+  assert.equal(decisionLogs.get('lizardfolk')?.data?.diagnostics?.candidateSetHealth?.function, 'ranged_harrier');
+  assert.equal(decisionLogs.get('troll')?.data?.diagnostics?.candidateSetHealth?.role, 'blocker');
+  assert.equal(decisionLogs.get('troll')?.data?.diagnostics?.candidateSetHealth?.function, 'zone_anchor');
 });
 
 test('visible fixture actors without tactical metadata keep inferred roles', async () => {
@@ -2330,14 +2433,14 @@ test('visible fixture actors without tactical metadata keep inferred roles', asy
   const actor = fixture.encounter.actors.find((entry) => entry.id === fixture.encounter.activeActorId);
 
   assert.equal(actor.tactical.role, '');
-  assert.equal(actor.tactical.coreRole, '');
+  assert.equal(actor.tactical.function, '');
 
   const output = await new SupervisorScriptedController().chooseAction({
     encounter: fixture.encounter,
     actorId: actor.id,
     candidateLimit: 36
   });
-  assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'skirmisher');
+  assert.equal(output.logs[0].data.diagnostics.candidateSetHealth.role, 'artillery');
 });
 
 test('shrine of the broken columns fixture targets deterministic controller iteration', async () => {
