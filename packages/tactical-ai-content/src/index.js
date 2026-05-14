@@ -106,7 +106,13 @@ function normalizeMonsterBehaviorKey(name = '') {
 export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
   zombie: {
     archetype: 'brute',
-    tactical: { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' },
+    tactical: {
+      role: 'blocker',
+      function: 'body_pressure',
+      intent: ['press_nearest'],
+      posture: 'aggressive',
+      tags: ['undead', 'melee', 'body_pressure', 'swarm_member']
+    },
     behavior: {
       cognition: 'mindless',
       drive: 'nearest_living_prey',
@@ -118,7 +124,13 @@ export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
   },
   skeleton: {
     archetype: 'archer',
-    tactical: { role: 'mobile_striker', mapped_core_role: 'skirmisher' },
+    tactical: {
+      role: 'artillery',
+      function: 'sniper',
+      intent: ['harass_from_range'],
+      posture: 'cautious',
+      tags: ['undead', 'ranged']
+    },
     behavior: {
       cognition: 'mindless',
       drive: 'nearest_living_prey',
@@ -130,7 +142,13 @@ export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
   },
   wolf: {
     archetype: 'skirmisher',
-    tactical: { role: 'mobile_striker', mapped_core_role: 'skirmisher' },
+    tactical: {
+      role: 'skirmisher',
+      function: 'melee_harrier',
+      intent: ['isolate_weak_prey'],
+      posture: 'opportunistic',
+      tags: ['animal', 'melee', 'pack', 'fast']
+    },
     behavior: {
       cognition: 'animal',
       drive: 'isolate_weak_prey',
@@ -142,7 +160,14 @@ export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
   },
   'dire wolf': {
     archetype: 'brute',
-    tactical: { role: 'mobile_striker', mapped_core_role: 'skirmisher' },
+    tactical: {
+      role: 'striker',
+      function: 'brute',
+      secondaryRoles: ['skirmisher'],
+      intent: ['isolate_weak_prey', 'knock_down_target'],
+      posture: 'aggressive',
+      tags: ['animal', 'melee', 'pack', 'fast']
+    },
     behavior: {
       cognition: 'animal',
       drive: 'isolate_weak_prey',
@@ -154,7 +179,13 @@ export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
   },
   goblin: {
     archetype: 'skirmisher',
-    tactical: { role: 'mobile_striker', mapped_core_role: 'skirmisher' },
+    tactical: {
+      role: 'skirmisher',
+      function: 'ranged_harrier',
+      intent: ['harass_from_range', 'avoid_melee'],
+      posture: 'opportunistic',
+      tags: ['humanoid', 'ranged', 'mobile', 'cowardly']
+    },
     behavior: {
       cognition: 'trained',
       drive: 'tactical_role_objective',
@@ -166,7 +197,13 @@ export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
   },
   hobgoblin: {
     archetype: 'brute',
-    tactical: { role: 'disciplined_soldier', mapped_core_role: 'disciplined_blocker' },
+    tactical: {
+      role: 'blocker',
+      function: 'hold_line',
+      intent: ['hold_line', 'focus_fire'],
+      posture: 'protective',
+      tags: ['humanoid', 'soldier', 'formation', 'trained']
+    },
     behavior: {
       cognition: 'trained',
       drive: 'hold_line',
@@ -178,7 +215,13 @@ export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
   },
   bandit: {
     archetype: 'skirmisher',
-    tactical: { role: 'mobile_striker', mapped_core_role: 'skirmisher' },
+    tactical: {
+      role: 'skirmisher',
+      function: 'ranged_harrier',
+      intent: ['survive_and_harass'],
+      posture: 'opportunistic',
+      tags: ['humanoid', 'self_preserving']
+    },
     behavior: {
       cognition: 'trained',
       drive: 'tactical_role_objective',
@@ -190,7 +233,13 @@ export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
   },
   guard: {
     archetype: 'brute',
-    tactical: { role: 'brute_blocker', mapped_core_role: 'disciplined_blocker' },
+    tactical: {
+      role: 'blocker',
+      function: 'hold_line',
+      intent: ['hold_line', 'protect_area'],
+      posture: 'protective',
+      tags: ['humanoid', 'soldier', 'trained', 'defensive']
+    },
     behavior: {
       cognition: 'trained',
       drive: 'hold_line',
@@ -202,7 +251,13 @@ export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
   },
   acolyte: {
     archetype: 'controller',
-    tactical: { role: 'boss_caster', mapped_core_role: 'support_caster' },
+    tactical: {
+      role: 'caster',
+      function: 'support',
+      intent: ['support_allies', 'protect_master'],
+      posture: 'cautious',
+      tags: ['humanoid', 'divine', 'fragile']
+    },
     behavior: {
       cognition: 'trained',
       drive: 'protect_master',
@@ -214,7 +269,14 @@ export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
   },
   mage: {
     archetype: 'controller',
-    tactical: { role: 'boss_caster', mapped_core_role: 'support_caster' },
+    tactical: {
+      role: 'caster',
+      function: 'control',
+      secondaryRoles: ['artillery'],
+      intent: ['control_battlefield', 'preserve_self'],
+      posture: 'cautious',
+      tags: ['humanoid', 'arcane', 'fragile', 'area_effects']
+    },
     behavior: {
       cognition: 'cunning',
       drive: 'complete_objective',
@@ -284,9 +346,14 @@ export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher'
   const tactical = srdOverride?.tactical
     ? {
       role: String(srdOverride.tactical.role ?? '').trim(),
-      mapped_core_role: String(srdOverride.tactical.mapped_core_role ?? srdOverride.tactical.mappedCoreRole ?? '').trim(),
-      mappedCoreRole: String(srdOverride.tactical.mappedCoreRole ?? srdOverride.tactical.mapped_core_role ?? '').trim(),
-      coreRole: String(srdOverride.tactical.mappedCoreRole ?? srdOverride.tactical.mapped_core_role ?? srdOverride.tactical.coreRole ?? '').trim()
+      function: String(srdOverride.tactical.function ?? '').trim(),
+      secondaryRoles: Array.isArray(srdOverride.tactical.secondaryRoles) ? [...srdOverride.tactical.secondaryRoles] : [],
+      intent: Array.isArray(srdOverride.tactical.intent) ? [...srdOverride.tactical.intent] : [],
+      posture: String(srdOverride.tactical.posture ?? '').trim(),
+      tags: Array.isArray(srdOverride.tactical.tags) ? [...srdOverride.tactical.tags] : [],
+      protectedAsset: Boolean(srdOverride.tactical.protectedAsset),
+      objectiveRole: String(srdOverride.tactical.objectiveRole ?? '').trim(),
+      roleNotes: String(srdOverride.tactical.roleNotes ?? '').trim()
     }
     : null;
 

@@ -325,18 +325,18 @@ const OSS_VTT_SHELL_HTML = String.raw`<div class="app">
           <div class="compactRow">
             <div>
               <label for="selTacticalRole">Tactical role</label>
-              <input id="selTacticalRole" type="text" placeholder="boss_caster" />
+              <input id="selTacticalRole" type="text" placeholder="caster" />
             </div>
             <div>
-              <label for="selMappedCoreRole">Core role override</label>
-              <input id="selMappedCoreRole" type="text" placeholder="support_caster" />
+              <label for="selTacticalFunction">Tactical function</label>
+              <input id="selTacticalFunction" type="text" placeholder="support" />
             </div>
             <div>
               <label for="selObjectiveRole">Objective role</label>
               <input id="selObjectiveRole" type="text" placeholder="ritual_actor" />
             </div>
           </div>
-          <div class="sectionNote" id="tokenCoreRoleStatus" style="margin-top:8px;">Core role is inferred at runtime unless explicitly overridden.</div>
+          <div class="sectionNote" id="tokenTacticalStatus" style="margin-top:8px;">Tactical role is inferred at runtime unless explicitly overridden.</div>
           <div class="checkRow" style="margin-top:8px">
             <input id="selProtectedAsset" type="checkbox" />
             <label for="selProtectedAsset" style="margin:0;color:var(--muted)">Protected asset</label>

@@ -2,7 +2,7 @@ id: stony_shore_export_role_fixture
 title: Stony Shore Export Role Fixture
 category: custom
 description: |
-  Minimal fixture used to verify tactical fixture export preserves mapped core roles.
+  Minimal fixture used to verify tactical fixture export preserves portable tactical roles and functions.
 controllers:
   - supervisor_scripted_group
 battlefield:
@@ -22,8 +22,9 @@ actors:
     position: [2, 2]
     speed: 40
     tactical:
-      role: mobile_boss_controller
-      mapped_core_role: ambusher_bruiser
+      role: solo
+      function: boss_controller
+      secondaryRoles: [caster, striker]
     attacks: []
   - id: giant_crocodile
     name: Giant Crocodile
@@ -31,8 +32,9 @@ actors:
     position: [2, 4]
     speed: 30
     tactical:
-      role: grappler_ambusher
-      mapped_core_role: ambusher_bruiser
+      role: lurker
+      function: grappler
+      secondaryRoles: [striker]
     attacks: []
   - id: lizardfolk_a
     name: Lizardfolk A
@@ -40,8 +42,9 @@ actors:
     position: [4, 2]
     speed: 30
     tactical:
-      role: ranged_harasser
-      mapped_core_role: skirmisher
+      role: skirmisher
+      function: ranged_harrier
+      secondaryRoles: [artillery]
     attacks: []
   - id: troll_a
     name: Troll A
@@ -49,8 +52,9 @@ actors:
     position: [4, 4]
     speed: 30
     tactical:
-      role: disciplined_frontliner
-      mapped_core_role: disciplined_blocker
+      role: blocker
+      function: zone_anchor
+      secondaryRoles: [striker]
     attacks: []
 expected:
   must: []

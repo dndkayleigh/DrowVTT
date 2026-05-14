@@ -10,7 +10,7 @@ The `Tactics` tab currently exposes three kinds of metadata:
 
 1. Tactical role metadata
 - `Tactical role`
-- `Core role override`
+- `Tactical function`
 - `Objective role`
 - `Protected asset`
 - `Role notes`
@@ -34,13 +34,14 @@ These fields are saved onto the live token, included in board snapshots, and pre
 These are related but different:
 
 - `tactical role` answers: what battlefield job is this monster trying to perform?
+- `tactical function` answers: what specialty within that job is it using?
 - `behavior profile` answers: how intelligently and in what style does it perform that job?
 
 Examples:
 
-- A `skirmisher` with `animal / pack` behavior should feel like a mobile melee harrier, not a ranged soldier.
-- A `disciplined_blocker` with default `trained / squad` behavior should preserve formation and cooperate more like a battle line.
-- A `brute_blocker` or similar role with `mindless / none` behavior should pressure nearby prey without acting like a coordinated squad.
+- A `skirmisher` with function `melee_harrier` and `animal / pack` behavior should feel like a mobile melee harrier, not a ranged soldier.
+- A `blocker` with function `hold_line` and default `trained / squad` behavior should preserve formation and cooperate more like a battle line.
+- A `blocker` with function `body_pressure` and `mindless / none` behavior should pressure nearby prey without acting like a coordinated squad.
 
 ## Field Meanings
 
@@ -49,25 +50,26 @@ Examples:
 Authored battlefield intent for the token.
 
 Examples:
-- `boss_caster`
-- `mobile_striker`
-- `brute_blocker`
+- `blocker`
+- `skirmisher`
+- `caster`
+- `lurker`
+- `solo`
 
-This is the higher-level encounter-authoring role label. It may map to a normalized controller-facing core role.
+This must be one of the canonical broad battlefield jobs.
 
-### Core role override
+### Tactical function
 
-Explicit normalized role for the deterministic controller.
+Optional specialty inside the broad role.
 
 Examples:
-- `support_caster`
-- `skirmisher`
-- `disciplined_blocker`
-- `ambusher_bruiser`
+- `support`
+- `control`
+- `body_pressure`
+- `hold_line`
+- `ambusher`
 
-If present, this overrides inferred role mapping and is the clearest way to force a token into a specific tactical core role.
-
-If absent, the system infers or maps the core role from authored tactical metadata.
+Functions are normalized as strings but are not globally hard-validated.
 
 ### Objective role
 

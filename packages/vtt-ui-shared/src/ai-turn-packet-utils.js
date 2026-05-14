@@ -358,11 +358,13 @@ function attackProfilesForToken(token) {
 function tacticalSummaryForToken(token) {
   const tactical = token?.tactical;
   if (!tactical || typeof tactical !== 'object') return '';
-  const role = String(tactical.role || tactical.authoredRole || '').trim();
+  const role = String(tactical.role || '').trim();
+  const tacticalFunction = String(tactical.function || '').trim();
   const protectedAsset = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
   const objectiveRole = String(tactical.objective_role || tactical.objectiveRole || '').trim();
   const parts = [];
   if (role) parts.push(`role=${role}`);
+  if (tacticalFunction) parts.push(`function=${tacticalFunction}`);
   if (protectedAsset) parts.push('protected_asset=true');
   if (objectiveRole) parts.push(`objective_role=${objectiveRole}`);
   return parts.length ? `, tactical(${parts.join(' ')})` : '';

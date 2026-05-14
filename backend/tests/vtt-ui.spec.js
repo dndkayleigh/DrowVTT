@@ -883,10 +883,10 @@ test('local tactical controllers hot-swap through the same VTT apply contract', 
   await page.locator('#aiActivationScope').selectOption('single');
   await expect(page.locator('#aiStrategyHint')).toContainText('supervisor ranks candidate actions');
   await page.getByRole('button', { name: 'Run Tactics' }).click();
-  await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted');
+  await expect(page.locator('#sendStatus')).toContainText('Supervised Utility');
   await openDrawerTab(page, 'apply');
   const supervisedPlan = await page.evaluate(() => JSON.parse(document.querySelector('#applyJson')?.value || '{}'));
-  expect(supervisedPlan._controller.id).toBe('supervisor_scripted_single');
+  expect(supervisedPlan._controller.id).toBe('supervised_utility_single');
 });
 
 test('AI rail item opens the unified drawer instead of a floating draggable panel', async ({ page }) => {
@@ -954,16 +954,16 @@ test('adding a tagged SRD monster seeds portable tactical role and behavior meta
 
   await openDetails(page, '#turnSection');
   await page.locator('[data-turn-tab="tactics"]').click();
-  await expect(page.locator('#selTacticalRole')).toHaveValue('mobile_striker');
-  await expect(page.locator('#selMappedCoreRole')).toHaveValue('skirmisher');
+  await expect(page.locator('#selTacticalRole')).toHaveValue('skirmisher');
+  await expect(page.locator('#selTacticalFunction')).toHaveValue('melee_harrier');
   await expect(page.locator('#selBehaviorCognition')).toHaveValue('animal');
   await expect(page.locator('#selBehaviorCoordination')).toHaveValue('pack');
 
   const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
   const wolf = snapshot.state.tokens.find((token) => token.name === 'Wolf');
   expect(wolf?.tactical).toMatchObject({
-    role: 'mobile_striker',
-    coreRole: 'skirmisher'
+    role: 'skirmisher',
+    function: 'melee_harrier'
   });
   expect(wolf?.behavior).toMatchObject({
     cognition: 'animal',
@@ -1201,10 +1201,10 @@ test('supervisor group scope preserves ctrl-click grouping and runs local group 
   await openDrawerTab(page, 'settings');
   await page.getByRole('button', { name: 'Run Tactics' }).click();
 
-  await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted Group');
+  await expect(page.locator('#sendStatus')).toContainText('Supervised Utility Group');
   await openDrawerTab(page, 'apply');
   const plan = await page.evaluate(() => JSON.parse(document.querySelector('#applyJson')?.value || '{}'));
-  expect(plan._controller.id).toBe('supervisor_scripted_group');
+  expect(plan._controller.id).toBe('supervised_utility_group');
 });
 
 test('mobile group select mode supports grouped selection without ctrl-click', async ({ page }) => {
@@ -1573,10 +1573,11 @@ test('imported board snapshot tactical metadata reaches tactical fixture yaml', 
   const mage = fixture.encounter.actors.find((actor) => actor.name === 'Mage');
 
   expect(yaml).toContain('tactical:');
-  expect(yaml).toContain('role: boss_caster');
-  expect(yaml).toContain('protected_asset: true');
-  expect(yaml).toContain('objective_role: ritual_actor');
-  expect(yaml).toContain('role_notes: Protected ritual caster');
+  expect(yaml).toContain('role: caster');
+  expect(yaml).toContain('function: ritualist');
+  expect(yaml).toContain('protectedAsset: true');
+  expect(yaml).toContain('objectiveRole: ritual_actor');
+  expect(yaml).toContain('roleNotes: Protected ritual caster');
   expect(yaml).toContain('behavior:');
   expect(yaml).toContain('cognition: cunning');
   expect(yaml).toContain('coordination: commander_led');
@@ -1584,7 +1585,8 @@ test('imported board snapshot tactical metadata reaches tactical fixture yaml', 
   expect(yaml).toContain('name: Dagger');
   expect(yaml).toContain('spells:');
   expect(yaml).toContain('name: Shield');
-  expect(mage?.tactical?.role).toBe('boss_caster');
+  expect(mage?.tactical?.role).toBe('caster');
+  expect(mage?.tactical?.function).toBe('ritualist');
   expect(mage?.tactical?.protectedAsset).toBe(true);
   expect(mage?.behavior).toMatchObject({
     cognition: 'cunning',
@@ -1605,9 +1607,9 @@ test('imported board snapshot tactical metadata reaches tactical fixture yaml', 
   });
   const assessment = output.logs.find((entry) => entry.phase === 'battlefield_assessment')?.data?.battlefieldAssessment;
   const roleDiagnostic = output.logs.find((entry) => entry.data?.diagnostics)?.data?.diagnostics?.candidateSetHealth;
-  expect(assessment?.protectedAsset).toMatchObject({ id: 'mage-token', name: 'Mage', role: 'support_caster' });
-  expect(roleDiagnostic?.role).toBe('support_caster');
-  expect(roleDiagnostic?.role).not.toBe('soldier');
+  expect(assessment?.protectedAsset).toMatchObject({ id: 'mage-token', name: 'Mage', role: 'caster' });
+  expect(roleDiagnostic?.role).toBe('caster');
+  expect(roleDiagnostic?.role).not.toBe('blocker');
   expect(roleDiagnostic?.availableFamilies).toEqual(expect.arrayContaining(['spell_from_current']));
 });
 
@@ -1637,8 +1639,8 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
     '    position: [2, 2]',
     '    speed: 30',
     '    tactical:',
-    '      role: boss_caster',
-    '      mapped_core_role: support_caster',
+    '      role: caster',
+    '      function: support',
     '      protected_asset: true',
     '      objective_role: ritual_actor',
     '      role_notes: Protected caster from fixture.',
@@ -1680,8 +1682,8 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
   const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
   const mageToken = snapshot.state.tokens.find((token) => token.id === 'mage');
   expect(mageToken?.tactical).toMatchObject({
-    role: 'boss_caster',
-    coreRole: 'support_caster',
+    role: 'caster',
+    function: 'support',
     protectedAsset: true,
     objectiveRole: 'ritual_actor'
   });
@@ -1696,8 +1698,8 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
   await setCurrentTurnToken(page, 'Mage');
   await openDetails(page, '#turnSection');
   await page.locator('[data-turn-tab="tactics"]').click();
-  await expect(page.locator('#selTacticalRole')).toHaveValue('boss_caster');
-  await expect(page.locator('#selMappedCoreRole')).toHaveValue('support_caster');
+  await expect(page.locator('#selTacticalRole')).toHaveValue('caster');
+  await expect(page.locator('#selTacticalFunction')).toHaveValue('support');
   await expect(page.locator('#selProtectedAsset')).toBeChecked();
   await expect(page.locator('#selObjectiveRole')).toHaveValue('ritual_actor');
   await expect(page.locator('#selBehaviorCognition')).toHaveValue('cunning');
@@ -1710,7 +1712,7 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
       if (!element) throw new Error(`Missing element: ${selector}`);
       element.value = value;
     };
-    setInputValue('#selMappedCoreRole', 'ambusher_bruiser');
+    setInputValue('#selTacticalFunction', 'lurker');
     setInputValue('#selBehaviorCognition', 'trained');
     setInputValue('#selBehaviorCoordination', 'squad');
     setInputValue('#selBehaviorDrive', 'protect_master');
@@ -1723,7 +1725,7 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
 
   const editedSnapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
   const editedMage = editedSnapshot.state.tokens.find((token) => token.id === 'mage');
-  expect(editedMage?.tactical?.coreRole).toBe('ambusher_bruiser');
+  expect(editedMage?.tactical?.function).toBe('lurker');
   expect(editedMage?.behavior).toMatchObject({
     cognition: 'trained',
     coordination: 'squad',
@@ -1734,10 +1736,10 @@ test('visible fixture tactical metadata becomes editable live token metadata', a
   const yaml = await page.evaluate(() => window.__VTT_DEBUG__.getTacticalFixtureYaml());
   const fixture = parseVisibleEncounterFixture(yaml);
   const mage = fixture.encounter.actors.find((actor) => actor.id === 'mage');
-  expect(yaml).toContain('mapped_core_role: ambusher_bruiser');
+  expect(yaml).toContain('function: lurker');
   expect(yaml).toContain('cognition: trained');
   expect(yaml).toContain('coordination: squad');
-  expect(mage?.tactical?.coreRole).toBe('ambusher_bruiser');
+  expect(mage?.tactical?.function).toBe('lurker');
   expect(mage?.behavior).toMatchObject({
     cognition: 'trained',
     coordination: 'squad',
@@ -1768,7 +1770,7 @@ test('archmage statblock parsing exports structured spells and avoids missing-sp
   await expect(page.locator('#logBox')).not.toContainText('Archmage has Spellcasting text but no structured spells');
 });
 
-test('tactical fixture export preserves mapped core roles from loaded fixtures', async ({ page }) => {
+test('tactical fixture export preserves portable tactical roles and functions from loaded fixtures', async ({ page }) => {
   const fixtureYaml = fs.readFileSync(
     new URL('./fixtures/stony-shore-export-role.fixture.yaml', import.meta.url),
     'utf8'
@@ -1782,13 +1784,18 @@ test('tactical fixture export preserves mapped core roles from loaded fixtures',
   const exportedFixture = parseVisibleEncounterFixture(exportedYaml);
   const actorsById = Object.fromEntries(exportedFixture.encounter.actors.map((actor) => [actor.id, actor]));
 
-  expect(exportedYaml).toContain('mapped_core_role: ambusher_bruiser');
-  expect(exportedYaml).toContain('mapped_core_role: skirmisher');
-  expect(exportedYaml).toContain('mapped_core_role: disciplined_blocker');
-  expect(actorsById.young_black_dragon?.tactical?.coreRole).toBe('ambusher_bruiser');
-  expect(actorsById.giant_crocodile?.tactical?.coreRole).toBe('ambusher_bruiser');
-  expect(actorsById.lizardfolk_a?.tactical?.coreRole).toBe('skirmisher');
-  expect(actorsById.troll_a?.tactical?.coreRole).toBe('disciplined_blocker');
+  expect(exportedYaml).toContain('function: boss_controller');
+  expect(exportedYaml).toContain('function: grappler');
+  expect(exportedYaml).toContain('function: ranged_harrier');
+  expect(exportedYaml).toContain('function: zone_anchor');
+  expect(actorsById.young_black_dragon?.tactical?.role).toBe('solo');
+  expect(actorsById.young_black_dragon?.tactical?.function).toBe('boss_controller');
+  expect(actorsById.giant_crocodile?.tactical?.role).toBe('lurker');
+  expect(actorsById.giant_crocodile?.tactical?.function).toBe('grappler');
+  expect(actorsById.lizardfolk_a?.tactical?.role).toBe('skirmisher');
+  expect(actorsById.lizardfolk_a?.tactical?.function).toBe('ranged_harrier');
+  expect(actorsById.troll_a?.tactical?.role).toBe('blocker');
+  expect(actorsById.troll_a?.tactical?.function).toBe('zone_anchor');
 });
 
 test('legacy board snapshot omits tactical fixture metadata but still parses spellcasting text', async ({ page }) => {
@@ -1810,7 +1817,7 @@ test('legacy board snapshot omits tactical fixture metadata but still parses spe
   await openDrawerTab(page, 'settings');
   await page.locator('#autoApplyAI').uncheck();
   await page.getByRole('button', { name: 'Run Tactics' }).click();
-  await expect(page.locator('#sendStatus')).toContainText('Supervisor + Scripted');
+  await expect(page.locator('#sendStatus')).toContainText('Supervised Utility');
   await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('Tactical metadata warning: Mage lacks tactical metadata.');
   await expect(page.locator('#logBox')).not.toContainText('Tactical metadata warning: Mage has Spellcasting text but no structured spells.');

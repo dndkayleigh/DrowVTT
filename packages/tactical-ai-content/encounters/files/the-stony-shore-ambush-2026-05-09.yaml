@@ -3266,10 +3266,21 @@ actors:
     hp: "127/127"
     speed: 40
     tactical:
-      role: mobile_boss_controller
-      mapped_core_role: ambusher_bruiser
-      objective_role: break_formation
-      role_notes: "Mobile Large boss controller. Break party formation without assuming unsupported flight, swim, or breath area targeting."
+      role: solo
+      function: boss_controller
+      secondaryRoles:
+        - caster
+        - striker
+      intent:
+        - break_formation
+        - punish_clusters
+        - preserve_mobility
+      posture: aggressive
+      tags:
+        - dragon
+        - boss
+        - area_effects
+        - mobile
     attacks:
       - name: Bite
         kind: melee
@@ -3292,10 +3303,19 @@ actors:
     hp: "84/84"
     speed: 30
     tactical:
-      role: brute_blocker
-      mapped_core_role: disciplined_blocker
-      objective_role: hold_cavern_choke
-      role_notes: "Brute chokepoint blocker. Hold a bridge, cavern, or approach lane instead of chasing low-value targets."
+      role: blocker
+      function: zone_anchor
+      secondaryRoles:
+        - striker
+      intent:
+        - hold_chokepoint
+        - protect_dragon_space
+      posture: aggressive
+      tags:
+        - brute
+        - melee
+        - durable
+        - regeneration
     attacks:
       - name: Bite
         kind: melee
@@ -3314,10 +3334,19 @@ actors:
     hp: "84/84"
     speed: 30
     tactical:
-      role: brute_blocker
-      mapped_core_role: disciplined_blocker
-      objective_role: hold_cavern_choke
-      role_notes: "Brute chokepoint blocker. Hold a bridge, cavern, or approach lane instead of chasing low-value targets."
+      role: blocker
+      function: zone_anchor
+      secondaryRoles:
+        - striker
+      intent:
+        - hold_chokepoint
+        - protect_dragon_space
+      posture: aggressive
+      tags:
+        - brute
+        - melee
+        - durable
+        - regeneration
     attacks:
       - name: Bite
         kind: melee
@@ -3337,9 +3366,17 @@ actors:
     speed: 30
     tactical:
       role: skirmisher
-      mapped_core_role: skirmisher
-      objective_role: harass_and_flank
-      role_notes: Side-lane harasser. Use javelin lanes and avoid blocking Large allies.
+      function: ranged_harrier
+      secondaryRoles:
+        - artillery
+      intent:
+        - harass_from_range
+        - avoid_congestion
+      posture: opportunistic
+      tags:
+        - humanoid
+        - ranged
+        - side_lane
     attacks:
       - name: Bite
         kind: melee
@@ -3367,9 +3404,17 @@ actors:
     speed: 30
     tactical:
       role: skirmisher
-      mapped_core_role: skirmisher
-      objective_role: harass_and_flank
-      role_notes: Side-lane harasser. Use javelin lanes and avoid blocking Large allies.
+      function: ranged_harrier
+      secondaryRoles:
+        - artillery
+      intent:
+        - harass_from_range
+        - avoid_congestion
+      posture: opportunistic
+      tags:
+        - humanoid
+        - ranged
+        - side_lane
     attacks:
       - name: Bite
         kind: melee
@@ -3397,9 +3442,17 @@ actors:
     speed: 30
     tactical:
       role: skirmisher
-      mapped_core_role: skirmisher
-      objective_role: harass_and_flank
-      role_notes: Side-lane harasser. Use javelin lanes and avoid blocking Large allies.
+      function: ranged_harrier
+      secondaryRoles:
+        - artillery
+      intent:
+        - harass_from_range
+        - avoid_congestion
+      posture: opportunistic
+      tags:
+        - humanoid
+        - ranged
+        - side_lane
     attacks:
       - name: Bite
         kind: melee
@@ -3427,9 +3480,17 @@ actors:
     speed: 30
     tactical:
       role: skirmisher
-      mapped_core_role: skirmisher
-      objective_role: harass_and_flank
-      role_notes: Side-lane harasser. Use javelin lanes and avoid blocking Large allies.
+      function: ranged_harrier
+      secondaryRoles:
+        - artillery
+      intent:
+        - harass_from_range
+        - avoid_congestion
+      posture: opportunistic
+      tags:
+        - humanoid
+        - ranged
+        - side_lane
     attacks:
       - name: Bite
         kind: melee
@@ -3456,10 +3517,19 @@ actors:
     hp: "85/85"
     speed: 30
     tactical:
-      role: grappler_ambusher
-      mapped_core_role: ambusher_bruiser
-      objective_role: punish_edge_movement
-      role_notes: "Water-edge ambusher. Punish isolated movement from a passable pocket near blocked water without assuming grapple, drag, or swim mechanics."
+      role: lurker
+      function: grappler
+      secondaryRoles:
+        - striker
+      intent:
+        - ambush_isolated_target
+        - punish_water_edge
+      posture: opportunistic
+      tags:
+        - beast
+        - melee
+        - grappler
+        - aquatic
     attacks:
       - name: Bite
         kind: melee

@@ -4,7 +4,8 @@ Behavior profiles exist so creatures can feel tactically appropriate without for
 
 ## Role vs. Behavior
 
-- `tactical.coreRole` is the combat role input: `skirmisher`, `disciplined_blocker`, `ambusher_bruiser`, `support_caster`, etc.
+- `tactical.role` is the broad battlefield job: `blocker`, `striker`, `skirmisher`, `caster`, `leader`, `lurker`, `artillery`, `swarm`, `solo`, or `hazard`.
+- `tactical.function` is the optional specialty inside that role, such as `body_pressure`, `support`, `control`, `ambusher`, or `zone_anchor`.
 - `behavior` is the decision-style input:
   - `cognition`
   - `drive`

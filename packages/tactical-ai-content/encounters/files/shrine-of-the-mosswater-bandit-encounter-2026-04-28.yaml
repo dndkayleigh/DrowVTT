@@ -17,7 +17,7 @@ description: |
   
     statblock_assumptions:
       creature: "Bandit"
-      role: "fragile humanoid skirmisher"
+      role: "skirmisher"
       armor_class: 12
       hit_points: 11
       speed_ft: 30

@@ -37,7 +37,7 @@ test('createBoardSnapshot keeps only serializable board state', () => {
       notes: 'Ready',
       statblock: 'Custom',
       tactical: {
-        role: 'boss_caster',
+        role: 'caster',
         protected_asset: true,
         objective_role: 'ritual_actor',
         role_notes: 'Protected ritual caster',
@@ -84,9 +84,12 @@ test('createBoardSnapshot keeps only serializable board state', () => {
   assert.equal('img' in snapshot.state.map, false);
   assert.equal(snapshot.state.tokens[0].art.fileName, 'aria.png');
   assert.deepEqual(snapshot.state.tokens[0].tactical, {
-    role: 'boss_caster',
-    authoredRole: 'boss_caster',
-    coreRole: '',
+    role: 'caster',
+    function: '',
+    secondaryRoles: [],
+    intent: [],
+    posture: '',
+    tags: [],
     protectedAsset: true,
     objectiveRole: 'ritual_actor',
     roleNotes: 'Protected ritual caster'
@@ -122,9 +125,12 @@ test('board snapshots round-trip tactical metadata and keep old tokens compatibl
   const parsed = parseBoardSnapshot(snapshot);
 
   assert.deepEqual(parsed.state.tokens[0].tactical, {
-    role: 'boss_caster',
-    authoredRole: 'boss_caster',
-    coreRole: '',
+    role: 'caster',
+    function: 'ritualist',
+    secondaryRoles: [],
+    intent: ['complete_ritual', 'preserve_self'],
+    posture: '',
+    tags: [],
     protectedAsset: true,
     objectiveRole: 'ritual_actor',
     roleNotes: 'Protected ritual caster'
@@ -144,8 +150,8 @@ test('board snapshots round-trip tactical metadata and keep old tokens compatibl
         id: 'ogre',
         name: 'Ogre',
         tactical: {
-          authoredRole: 'brute_blocker',
-          coreRole: 'disciplined_blocker',
+          role: 'blocker',
+          function: 'blocker',
           protectedAsset: false,
           objectiveRole: 'line_holder',
           roleNotes: 'Hold the entry'
@@ -155,9 +161,12 @@ test('board snapshots round-trip tactical metadata and keep old tokens compatibl
   });
 
   assert.deepEqual(camelCaseParsed.state.tokens[0].tactical, {
-    role: 'brute_blocker',
-    authoredRole: 'brute_blocker',
-    coreRole: 'disciplined_blocker',
+    role: 'blocker',
+    function: 'blocker',
+    secondaryRoles: [],
+    intent: [],
+    posture: '',
+    tags: [],
     protectedAsset: false,
     objectiveRole: 'line_holder',
     roleNotes: 'Hold the entry'

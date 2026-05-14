@@ -2021,12 +2021,13 @@ import {
   function hasTacticalMetadata(token) {
     return Boolean(token?.tactical && typeof token.tactical === 'object' && (
       token.tactical.role ||
-      token.tactical.authoredRole ||
-      token.tactical.protected_asset ||
+      token.tactical.function ||
+      token.tactical.secondaryRoles?.length ||
+      token.tactical.intent?.length ||
+      token.tactical.tags?.length ||
+      token.tactical.posture ||
       token.tactical.protectedAsset ||
-      token.tactical.objective_role ||
       token.tactical.objectiveRole ||
-      token.tactical.role_notes ||
       token.tactical.roleNotes
     ));
   }
@@ -2123,18 +2124,17 @@ import {
 
   function tacticalFieldsForYaml(tactical) {
     if (!tactical || typeof tactical !== 'object') return null;
-    const role = String(tactical.role ?? tactical.authoredRole ?? '').trim();
-    const mappedCoreRole = String(
-      tactical.mapped_core_role
-      ?? tactical.mappedCoreRole
-      ?? tactical.coreRole
-      ?? ''
-    ).trim();
+    const role = String(tactical.role ?? '').trim();
+    const tacticalFunction = String(tactical.function ?? '').trim();
+    const secondaryRoles = Array.isArray(tactical.secondaryRoles) ? tactical.secondaryRoles.map((value) => String(value).trim()).filter(Boolean) : [];
+    const intent = Array.isArray(tactical.intent) ? tactical.intent.map((value) => String(value).trim()).filter(Boolean) : [];
+    const posture = String(tactical.posture ?? '').trim();
+    const tags = Array.isArray(tactical.tags) ? tactical.tags.map((value) => String(value).trim()).filter(Boolean) : [];
     const protectedAsset = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
     const objectiveRole = String(tactical.objective_role ?? tactical.objectiveRole ?? '').trim();
     const roleNotes = String(tactical.role_notes ?? tactical.roleNotes ?? '').trim();
-    if (!role && !mappedCoreRole && !protectedAsset && !objectiveRole && !roleNotes) return null;
-    return { role, mappedCoreRole, protectedAsset, objectiveRole, roleNotes };
+    if (!role && !tacticalFunction && !secondaryRoles.length && !intent.length && !posture && !tags.length && !protectedAsset && !objectiveRole && !roleNotes) return null;
+    return { role, tacticalFunction, secondaryRoles, intent, posture, tags, protectedAsset, objectiveRole, roleNotes };
   }
 
   function behaviorFieldsForYaml(behavior) {
@@ -2207,10 +2207,14 @@ import {
       if (tactical) {
         lines.push('    tactical:');
         if (tactical.role) lines.push(`      role: ${yamlScalar(tactical.role)}`);
-        if (tactical.mappedCoreRole) lines.push(`      mapped_core_role: ${yamlScalar(tactical.mappedCoreRole)}`);
-        if (tactical.protectedAsset) lines.push('      protected_asset: true');
-        if (tactical.objectiveRole) lines.push(`      objective_role: ${yamlScalar(tactical.objectiveRole)}`);
-        if (tactical.roleNotes) lines.push(`      role_notes: ${yamlScalar(tactical.roleNotes)}`);
+        if (tactical.tacticalFunction) lines.push(`      function: ${yamlScalar(tactical.tacticalFunction)}`);
+        if (tactical.secondaryRoles.length) lines.push(`      secondaryRoles: [${tactical.secondaryRoles.map(yamlScalar).join(', ')}]`);
+        if (tactical.intent.length) lines.push(`      intent: [${tactical.intent.map(yamlScalar).join(', ')}]`);
+        if (tactical.posture) lines.push(`      posture: ${yamlScalar(tactical.posture)}`);
+        if (tactical.tags.length) lines.push(`      tags: [${tactical.tags.map(yamlScalar).join(', ')}]`);
+        if (tactical.protectedAsset) lines.push('      protectedAsset: true');
+        if (tactical.objectiveRole) lines.push(`      objectiveRole: ${yamlScalar(tactical.objectiveRole)}`);
+        if (tactical.roleNotes) lines.push(`      roleNotes: ${yamlScalar(tactical.roleNotes)}`);
       }
       const behavior = behaviorFieldsForYaml(actor.behavior);
       if (behavior) {
@@ -3679,7 +3683,7 @@ import {
   const selNotes = document.getElementById('selNotes');
   const selStatblock = document.getElementById('selStatblock');
   const selTacticalRole = document.getElementById('selTacticalRole');
-  const selMappedCoreRole = document.getElementById('selMappedCoreRole');
+  const selTacticalFunction = document.getElementById('selTacticalFunction');
   const selProtectedAsset = document.getElementById('selProtectedAsset');
   const selObjectiveRole = document.getElementById('selObjectiveRole');
   const selRoleNotes = document.getElementById('selRoleNotes');
@@ -3691,7 +3695,7 @@ import {
   const selBehaviorTargetStickiness = document.getElementById('selBehaviorTargetStickiness');
   const selSpellsJson = document.getElementById('selSpellsJson');
   const selAttacksJson = document.getElementById('selAttacksJson');
-  const tokenCoreRoleStatus = document.getElementById('tokenCoreRoleStatus');
+  const tokenTacticalStatus = document.getElementById('tokenTacticalStatus');
   const tokenMetadataStatus = document.getElementById('tokenMetadataStatus');
   const turnTabButtons = Array.from(document.querySelectorAll('[data-turn-tab]'));
   const turnTabPanels = Array.from(document.querySelectorAll('[data-turn-panel]'));
@@ -3699,7 +3703,7 @@ import {
   const drawerTabPanels = Array.from(document.querySelectorAll('[data-drawer-panel]'));
   const metadataEditorFields = [
     selTacticalRole,
-    selMappedCoreRole,
+    selTacticalFunction,
     selProtectedAsset,
     selObjectiveRole,
     selRoleNotes,
@@ -3751,11 +3755,11 @@ import {
 
   function updateTokenMetadataStatus(token = null) {
     const tactical = token?.tactical || {};
-    const mappedCoreRole = String(tactical.mapped_core_role ?? tactical.mappedCoreRole ?? tactical.coreRole ?? '').trim();
-    if (tokenCoreRoleStatus) {
-      tokenCoreRoleStatus.textContent = mappedCoreRole
-        ? `Core role override: ${mappedCoreRole}`
-        : 'Core role is inferred at runtime unless explicitly overridden.';
+    const tacticalFunction = String(tactical.function ?? '').trim();
+    if (tokenTacticalStatus) {
+      tokenTacticalStatus.textContent = tacticalFunction
+        ? `Tactical function: ${tacticalFunction}`
+        : 'Tactical function is optional.';
     }
     if (tokenMetadataStatus) {
       const behavior = behaviorProfileForActor(token || {});
@@ -3828,8 +3832,8 @@ import {
     const token = getCurrentTurnToken();
     const tactical = token?.tactical || {};
     const behaviorFields = tokenBehaviorEditorFields(token);
-    selTacticalRole.value = tactical.role || tactical.authoredRole || '';
-    selMappedCoreRole.value = tactical.mapped_core_role || tactical.mappedCoreRole || tactical.coreRole || '';
+    selTacticalRole.value = tactical.role || '';
+    selTacticalFunction.value = tactical.function || '';
     selProtectedAsset.checked = Boolean(tactical.protected_asset ?? tactical.protectedAsset);
     selObjectiveRole.value = tactical.objective_role || tactical.objectiveRole || '';
     selRoleNotes.value = tactical.role_notes || tactical.roleNotes || '';
@@ -3864,23 +3868,18 @@ import {
     });
 
     const role = selTacticalRole.value.trim();
-    const mappedCoreRole = selMappedCoreRole.value.trim();
+    const tacticalFunction = selTacticalFunction.value.trim();
     const objectiveRole = selObjectiveRole.value.trim();
     const roleNotes = selRoleNotes.value.trim();
     const protectedAsset = selProtectedAsset.checked;
     const previousTactical = t.tactical && typeof t.tactical === 'object' ? t.tactical : {};
-    t.tactical = role || mappedCoreRole || protectedAsset || objectiveRole || roleNotes
+    t.tactical = role || tacticalFunction || protectedAsset || objectiveRole || roleNotes
       ? {
         ...previousTactical,
         role,
-        mapped_core_role: mappedCoreRole,
-        coreRole: mappedCoreRole,
-        mappedCoreRole,
-        protected_asset: protectedAsset,
+        function: tacticalFunction,
         protectedAsset,
-        objective_role: objectiveRole,
         objectiveRole,
-        role_notes: roleNotes,
         roleNotes
       }
       : null;
