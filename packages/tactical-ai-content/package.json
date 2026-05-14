@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Portable tactical AI content defaults for DrowVTT.",
+  "scripts": {
+    "audit:monster-mappings": "node scripts/audit-monster-mappings.js"
+  },
   "exports": {
     ".": "./src/index.js"
   }

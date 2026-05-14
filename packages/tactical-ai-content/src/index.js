@@ -22,6 +22,20 @@ export const MONSTER_ARCHETYPES = {
 };
 
 export { parseVisibleEncounterFixture } from './visible-fixture-loader.js';
+export {
+  MORK_BORG_MONSTER_TACTICAL_MAP,
+  SRD_MONSTER_TACTICAL_MAP,
+  inferMonsterTacticalMapping,
+  monsterTacticalMapping,
+  morkBorgMonsterTacticalMapping,
+  normalizeMonsterMappingKey,
+  srdMonsterTacticalMapping
+} from './monster-mappings/index.js';
+import {
+  SRD_MONSTER_TACTICAL_MAP,
+  inferMonsterTacticalMapping,
+  monsterTacticalMapping
+} from './monster-mappings/index.js';
 
 export const RULESET_PRESETS = {
   simple_grid: {
@@ -99,198 +113,10 @@ export const SAMPLE_ENCOUNTER_FIXTURES = [
   }
 ];
 
-function normalizeMonsterBehaviorKey(name = '') {
-  return String(name || '').trim().toLowerCase();
-}
-
-export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
-  zombie: {
-    archetype: 'brute',
-    tactical: {
-      role: 'blocker',
-      function: 'body_pressure',
-      intent: ['press_nearest'],
-      posture: 'aggressive',
-      tags: ['undead', 'melee', 'body_pressure', 'swarm_member']
-    },
-    behavior: {
-      cognition: 'mindless',
-      drive: 'nearest_living_prey',
-      riskTolerance: 'fearless',
-      coordination: 'none',
-      planningHorizon: 'immediate',
-      targetStickiness: 'high'
-    }
-  },
-  skeleton: {
-    archetype: 'archer',
-    tactical: {
-      role: 'artillery',
-      function: 'sniper',
-      intent: ['harass_from_range'],
-      posture: 'cautious',
-      tags: ['undead', 'ranged']
-    },
-    behavior: {
-      cognition: 'mindless',
-      drive: 'nearest_living_prey',
-      riskTolerance: 'fearless',
-      coordination: 'none',
-      planningHorizon: 'immediate',
-      targetStickiness: 'high'
-    }
-  },
-  wolf: {
-    archetype: 'skirmisher',
-    tactical: {
-      role: 'skirmisher',
-      function: 'melee_harrier',
-      intent: ['isolate_weak_prey'],
-      posture: 'opportunistic',
-      tags: ['animal', 'melee', 'pack', 'fast']
-    },
-    behavior: {
-      cognition: 'animal',
-      drive: 'isolate_weak_prey',
-      riskTolerance: 'self_preserving',
-      coordination: 'pack',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  'dire wolf': {
-    archetype: 'brute',
-    tactical: {
-      role: 'striker',
-      function: 'brute',
-      secondaryRoles: ['skirmisher'],
-      intent: ['isolate_weak_prey', 'knock_down_target'],
-      posture: 'aggressive',
-      tags: ['animal', 'melee', 'pack', 'fast']
-    },
-    behavior: {
-      cognition: 'animal',
-      drive: 'isolate_weak_prey',
-      riskTolerance: 'self_preserving',
-      coordination: 'pack',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  goblin: {
-    archetype: 'skirmisher',
-    tactical: {
-      role: 'skirmisher',
-      function: 'ranged_harrier',
-      intent: ['harass_from_range', 'avoid_melee'],
-      posture: 'opportunistic',
-      tags: ['humanoid', 'ranged', 'mobile', 'cowardly']
-    },
-    behavior: {
-      cognition: 'trained',
-      drive: 'tactical_role_objective',
-      riskTolerance: 'normal',
-      coordination: 'squad',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  hobgoblin: {
-    archetype: 'brute',
-    tactical: {
-      role: 'blocker',
-      function: 'hold_line',
-      intent: ['hold_line', 'focus_fire'],
-      posture: 'protective',
-      tags: ['humanoid', 'soldier', 'formation', 'trained']
-    },
-    behavior: {
-      cognition: 'trained',
-      drive: 'hold_line',
-      riskTolerance: 'normal',
-      coordination: 'squad',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  bandit: {
-    archetype: 'skirmisher',
-    tactical: {
-      role: 'skirmisher',
-      function: 'ranged_harrier',
-      intent: ['survive_and_harass'],
-      posture: 'opportunistic',
-      tags: ['humanoid', 'self_preserving']
-    },
-    behavior: {
-      cognition: 'trained',
-      drive: 'tactical_role_objective',
-      riskTolerance: 'normal',
-      coordination: 'squad',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  guard: {
-    archetype: 'brute',
-    tactical: {
-      role: 'blocker',
-      function: 'hold_line',
-      intent: ['hold_line', 'protect_area'],
-      posture: 'protective',
-      tags: ['humanoid', 'soldier', 'trained', 'defensive']
-    },
-    behavior: {
-      cognition: 'trained',
-      drive: 'hold_line',
-      riskTolerance: 'normal',
-      coordination: 'squad',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  acolyte: {
-    archetype: 'controller',
-    tactical: {
-      role: 'caster',
-      function: 'support',
-      intent: ['support_allies', 'protect_master'],
-      posture: 'cautious',
-      tags: ['humanoid', 'divine', 'fragile']
-    },
-    behavior: {
-      cognition: 'trained',
-      drive: 'protect_master',
-      riskTolerance: 'self_preserving',
-      coordination: 'commander_led',
-      planningHorizon: 'medium',
-      targetStickiness: 'medium'
-    }
-  },
-  mage: {
-    archetype: 'controller',
-    tactical: {
-      role: 'caster',
-      function: 'control',
-      secondaryRoles: ['artillery'],
-      intent: ['control_battlefield', 'preserve_self'],
-      posture: 'cautious',
-      tags: ['humanoid', 'arcane', 'fragile', 'area_effects']
-    },
-    behavior: {
-      cognition: 'cunning',
-      drive: 'complete_objective',
-      riskTolerance: 'self_preserving',
-      coordination: 'commander_led',
-      planningHorizon: 'long',
-      targetStickiness: 'high'
-    }
-  }
-});
+export const SRD_MONSTER_TACTICAL_OVERRIDES = SRD_MONSTER_TACTICAL_MAP;
 
 export function srdMonsterTacticalOverride(monster = {}) {
-  const key = normalizeMonsterBehaviorKey(monster?.name);
-  return SRD_MONSTER_TACTICAL_OVERRIDES[key] || null;
+  return monsterTacticalMapping('srd', monster);
 }
 
 function parseStatblockAttacks(statblock = '', fallbackDamage = 5) {
@@ -311,9 +137,48 @@ function parseStatblockAttacks(statblock = '', fallbackDamage = 5) {
   });
 }
 
-export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher', overrides = {}, analog = null } = {}) {
-  const srdOverride = srdMonsterTacticalOverride(monster);
-  const resolvedArchetype = srdOverride?.archetype || archetype;
+function normalizeTacticalMappingValue(tactical = null) {
+  if (!tactical) return null;
+  return {
+    role: String(tactical.role ?? '').trim(),
+    function: String(tactical.function ?? '').trim(),
+    secondaryRoles: Array.isArray(tactical.secondaryRoles) ? tactical.secondaryRoles.map(String) : [],
+    intent: Array.isArray(tactical.intent) ? tactical.intent.map(String) : tactical.intent ? [String(tactical.intent)] : [],
+    posture: String(tactical.posture ?? '').trim(),
+    tags: Array.isArray(tactical.tags) ? tactical.tags.map(String) : tactical.tags ? [String(tactical.tags)] : [],
+    protectedAsset: Boolean(tactical.protectedAsset),
+    objectiveRole: String(tactical.objectiveRole ?? '').trim(),
+    roleNotes: String(tactical.roleNotes ?? '').trim()
+  };
+}
+
+function mergeTacticalMapping(base = null, override = null) {
+  const normalizedBase = normalizeTacticalMappingValue(base);
+  if (!override) return normalizedBase;
+  const normalizedOverride = normalizeTacticalMappingValue(override);
+  const merged = { ...(normalizedBase || {}) };
+  const fieldSource = {
+    role: ['role'],
+    function: ['function'],
+    secondaryRoles: ['secondaryRoles', 'secondary_roles'],
+    intent: ['intent'],
+    posture: ['posture'],
+    tags: ['tags'],
+    protectedAsset: ['protectedAsset', 'protected_asset'],
+    objectiveRole: ['objectiveRole', 'objective_role'],
+    roleNotes: ['roleNotes', 'role_notes']
+  };
+  for (const [field, sourceKeys] of Object.entries(fieldSource)) {
+    if (sourceKeys.some((key) => Object.hasOwn(override, key))) {
+      merged[field] = normalizedOverride[field];
+    }
+  }
+  return merged;
+}
+
+export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher', overrides = {}, analog = null, systemId = 'srd' } = {}) {
+  const mapping = monsterTacticalMapping(systemId, monster) || inferMonsterTacticalMapping({ systemId, monster });
+  const resolvedArchetype = overrides.archetype || mapping?.archetype || archetype;
   const archetypeDefaults = MONSTER_ARCHETYPES[resolvedArchetype]?.defaults || MONSTER_ARCHETYPES.skirmisher.defaults;
   const analogDefaults = analog ? MONSTER_ARCHETYPES[analog]?.defaults || {} : {};
   const provenance = {};
@@ -343,19 +208,8 @@ export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher'
     ? monster.attacks
     : parseStatblockAttacks(monster.statblock, expectedDamage);
 
-  const tactical = srdOverride?.tactical
-    ? {
-      role: String(srdOverride.tactical.role ?? '').trim(),
-      function: String(srdOverride.tactical.function ?? '').trim(),
-      secondaryRoles: Array.isArray(srdOverride.tactical.secondaryRoles) ? [...srdOverride.tactical.secondaryRoles] : [],
-      intent: Array.isArray(srdOverride.tactical.intent) ? [...srdOverride.tactical.intent] : [],
-      posture: String(srdOverride.tactical.posture ?? '').trim(),
-      tags: Array.isArray(srdOverride.tactical.tags) ? [...srdOverride.tactical.tags] : [],
-      protectedAsset: Boolean(srdOverride.tactical.protectedAsset),
-      objectiveRole: String(srdOverride.tactical.objectiveRole ?? '').trim(),
-      roleNotes: String(srdOverride.tactical.roleNotes ?? '').trim()
-    }
-    : null;
+  const tactical = mergeTacticalMapping(mapping?.tactical || null, overrides.tactical || monster.tactical || null);
+  const behavior = overrides.behavior || monster.behavior || mapping?.behavior || null;
 
   return {
     id: String(monster.id || monster.name || 'custom_monster'),
@@ -365,7 +219,8 @@ export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher'
     ac: Number(resolve('ac', 10)) || 10,
     attacks: attacks.length ? attacks : [{ name: 'Strike', attackKind: 'melee', rangeFt: 5, expectedDamage }],
     tactical,
-    behavior: srdOverride?.behavior ? { ...srdOverride.behavior } : null,
+    behavior: behavior ? { ...behavior } : null,
+    mappingProvenance: mapping?.provenance || null,
     provenance
   };
 }
