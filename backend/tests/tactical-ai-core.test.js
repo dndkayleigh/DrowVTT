@@ -39,6 +39,7 @@ import {
   srdMonsterTacticalOverride,
   parseVisibleEncounterFixture
 } from '../../packages/tactical-ai-content/src/index.js';
+import { validateAction as validateVttAction } from '../ai-turn-eval-utils.mjs';
 import {
   compareControllers,
   evaluateTacticalFixtureExpectations,
@@ -404,6 +405,7 @@ test('supervised utility group emits one combined VTT plan for grouped actors', 
   const plan = tacticalOutputToVttPlan(output);
 
   assert.equal(output.controllerId, 'supervised_utility_group');
+  assert.equal(plan.groupedPlan.length, 2);
   assert.equal(plan.actions.length, 2);
   assert.equal(plan._controller.id, 'supervised_utility_group');
   assert.match(output.logs[0].message, /supervised 2 grouped activations/);
@@ -423,6 +425,92 @@ test('supervised utility group emits one combined VTT plan for grouped actors', 
   assert.ok(actorLog.data.diagnostics.roleCompliance.role);
   const doctrineInfluenceLog = output.logs.find((log) => log.phase === 'doctrine_influence');
   assert.match(doctrineInfluenceLog.message, /doctrine bonuses applied=/);
+});
+
+test('grouped controller keeps both compound attacker and moving spellcaster plans', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'grouped-compound-spell',
+    round: 1,
+    activeActorId: 'goblin-a',
+    activationGroups: [{
+      id: 'group',
+      actorIds: ['goblin-a', 'mage'],
+      activationMode: 'coordinated_sequential'
+    }],
+    battlefield: {
+      gridSize: 64,
+      width: 12,
+      height: 12,
+      edges: [{ orientation: 'horizontal', x: 7, y: 1 }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'goblin-a',
+        name: 'Goblin A',
+        side: 'monsters',
+        cell: { x: 6, y: 3 },
+        speed: 30,
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }],
+        tactical: { role: 'skirmisher', function: 'ranged_harrier' }
+      },
+      {
+        id: 'mage',
+        name: 'Mage',
+        side: 'monsters',
+        cell: { x: 4, y: 0 },
+        speed: 30,
+        attacks: [{ name: 'Dagger', attackKind: 'melee', rangeFt: 5, expectedDamage: 2 }],
+        spells: [{
+          name: 'Cone of Cold',
+          kind: 'damage',
+          target: 'enemy',
+          rangeFt: 60,
+          expectedValue: 30,
+          requiresLineOfSight: true
+        }],
+        tactical: { role: 'caster', function: 'control', secondaryRoles: ['artillery'] }
+      },
+      { id: 'aria', name: 'Aria', side: 'heroes', cell: { x: 8, y: 4 }, speed: 30, attacks: [] }
+    ]
+  });
+
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter,
+    actorId: encounter.activeActorId,
+    activationGroup: encounter.activationGroups[0],
+    candidateLimit: 24
+  });
+  const plan = tacticalOutputToVttPlan(output);
+
+  assert.match(output.selectedCandidateId, /^shoot_and_scoot:.*\|move_and_spell:/);
+  assert.equal(plan.groupedPlan.length, 2);
+
+  const goblinPlan = plan.groupedPlan.find((entry) => entry.actorId === 'goblin-a');
+  const magePlan = plan.groupedPlan.find((entry) => entry.actorId === 'mage');
+  assert.ok(goblinPlan);
+  assert.ok(magePlan);
+
+  assert.equal(goblinPlan.steps.some((step) => step.type === 'attack' && step.details === 'Shortbow'), true);
+  assert.equal(goblinPlan.steps.some((step) => step.type === 'move' && step.purpose === 'hide_position'), true);
+  assert.deepEqual(
+    goblinPlan.steps.find((step) => step.type === 'attack')?.from,
+    [6, 3]
+  );
+
+  assert.equal(magePlan.steps.some((step) => step.type === 'move'), true);
+  assert.equal(magePlan.steps.some((step) => step.type === 'spell' && step.details === 'Cone of Cold'), true);
+  assert.deepEqual(
+    magePlan.steps.find((step) => step.type === 'spell')?.from,
+    [3, 0]
+  );
+
+  assert.equal(plan.steps.some((step) => step.token === 'Goblin A' && step.type === 'attack'), true);
+  assert.equal(plan.actions.some((action) => action.token === 'Mage' && action.type === 'spell' && action.details === 'Cone of Cold'), true);
+
+  const mageSpellLog = output.logs.find((entry) => entry.actorId === 'mage' && /Cone of Cold is modeled as single_target/.test(entry.message));
+  assert.ok(mageSpellLog);
 });
 
 test('controller registry resolves canonical and legacy supervised utility ids to the same plan shape', async () => {
@@ -1305,6 +1393,110 @@ test('skirmisher still prefers shoot-and-scoot when not guarding a protected scr
   assert.equal(output.logs[0].data.selected.supervisorBreakdown.roleBlockerShootAndScootBonusOffset, 0);
 });
 
+test('shoot-and-scoot plan preserves firing cell before final hide cell', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'shoot-scoot-firing-origin',
+    activeActorId: 'goblin',
+    battlefield: {
+      width: 12,
+      height: 8,
+      edges: [{ orientation: 'h', x: 7, y: 1, blocksMovement: false, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'goblin',
+        name: 'Goblin A',
+        side: 'monsters',
+        cell: { x: 6, y: 3 },
+        speed: 30,
+        tactical: { role: 'skirmisher', function: 'ranged_harrier' },
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      { id: 'aria', name: 'Aria', side: 'heroes', cell: { x: 8, y: 4 }, speed: 30, attacks: [] }
+    ]
+  });
+  const goblin = encounter.actors[0];
+  const candidates = generateCandidateActions(encounter, goblin, { limit: 200 });
+  const candidate = candidates.find((entry) =>
+    entry.family === 'shoot_and_scoot' &&
+    entry.metadata?.hideCell?.x === 7 &&
+    entry.metadata?.hideCell?.y === 0
+  );
+
+  assert.ok(candidate, 'expected shoot_and_scoot to hide at (7,0)');
+  assert.deepEqual(candidate.fromCell, candidate.action.from);
+  assert.equal(candidate.move.to.x, 7);
+  assert.equal(candidate.move.to.y, 0);
+  assert.equal(candidate.moveSteps <= Math.floor(goblin.speed / 5), true);
+
+  const output = await new HumanController().chooseAction({
+    encounter,
+    selectedAction: candidate
+  });
+  const plan = tacticalOutputToVttPlan(output);
+  assert.equal(plan.steps.at(-2).type, 'attack');
+  assert.deepEqual(plan.steps.at(-2).from, [candidate.action.from.x, candidate.action.from.y]);
+  assert.equal(plan.steps.at(-1).type, 'move');
+  assert.deepEqual(plan.steps.at(-1).to, [7, 0]);
+
+  const stateAtHideCell = {
+    gridSize: 64,
+    snapMode: 'topleft',
+    currentTurnTokenId: 'goblin',
+    blockingEdges: ['h:7,1'],
+    tokens: [
+      {
+        id: 'goblin',
+        name: 'Goblin A',
+        type: 'Monster',
+        x: 7 * 64,
+        y: 0,
+        sizeCells: 1,
+        speed: 30,
+        statblock: '- Shortbow: Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 piercing damage.'
+      },
+      { id: 'aria', name: 'Aria', type: 'PC', x: 8 * 64, y: 4 * 64, sizeCells: 1, speed: 30 }
+    ]
+  };
+  const attack = { token: 'Goblin A', type: 'attack', target: 'Aria', details: 'Shortbow', attack_kind: 'ranged', range_ft: 80, from: [8, 0] };
+  assert.equal(validateVttAction(stateAtHideCell, attack).ok, true);
+  assert.equal(validateVttAction(stateAtHideCell, { ...attack, from: undefined }).ok, false);
+});
+
+test('shoot-and-scoot is not emitted for a firing cell without line of sight', () => {
+  const encounter = normalizeEncounterState({
+    id: 'shoot-scoot-illegal-firing-origin',
+    activeActorId: 'goblin',
+    battlefield: {
+      width: 12,
+      height: 8,
+      edges: [{ orientation: 'h', x: 8, y: 2, blocksMovement: false, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'goblin',
+        name: 'Goblin A',
+        side: 'monsters',
+        cell: { x: 6, y: 3 },
+        speed: 30,
+        tactical: { role: 'skirmisher', function: 'ranged_harrier' },
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      { id: 'aria', name: 'Aria', side: 'heroes', cell: { x: 8, y: 4 }, speed: 30, attacks: [] }
+    ]
+  });
+  const candidates = generateCandidateActions(encounter, encounter.actors[0], { limit: 200 });
+  assert.equal(candidates.some((entry) =>
+    entry.family === 'shoot_and_scoot' &&
+    entry.action?.from?.x === 8 &&
+    entry.action?.from?.y === 0
+  ), false);
+});
+
 test('disciplined blocker may fire from current screening position', async () => {
   const encounter = normalizeEncounterState({
     id: 'blocker-current-ranged-screen',
@@ -1492,6 +1684,115 @@ test('content normalization preserves both modes for melee-or-ranged attacks', (
       { name: 'Javelin', attackKind: 'ranged', rangeFt: 30 }
     ]
   );
+});
+
+test('content normalization parses zombie statblocks without emitting Senses as an attack', () => {
+  const profile = normalizeMonsterProfile({
+    id: 'zombie',
+    name: 'Zombie',
+    statblock: [
+      'Armor Class 8',
+      'Hit Points 22 (3d8 + 9)',
+      'Speed 20 ft.',
+      'Senses darkvision 60 ft., passive Perception 8',
+      'Languages understands Common and one other language but can\'t speak',
+      'Challenge 1/4 (50 XP)',
+      'Actions',
+      'Slam. Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) bludgeoning damage.'
+    ].join('\n')
+  }, { archetype: 'brute' });
+
+  assert.equal(profile.attacks.some((attack) => attack.name === 'Senses'), false);
+  assert.equal(profile.attacks.some((attack) => attack.name === 'Slam' && attack.attackKind === 'melee'), true);
+  assert.equal(profile.attackProvenance.source, 'parsed_statblock');
+});
+
+test('content normalization never emits metadata headings such as Senses as attacks', () => {
+  const profile = normalizeMonsterProfile({
+    id: 'shadow',
+    name: 'Shadow',
+    statblock: 'Senses darkvision 60 ft., passive Perception 10'
+  }, { archetype: 'skirmisher' });
+
+  assert.equal(profile.attacks.some((attack) => attack.name === 'Senses'), false);
+  assert.equal(profile.attacks[0].name, 'Strike');
+  assert.equal(profile.attackProvenance.source, 'fallback_strike');
+});
+
+test('content normalization preserves real ranged attacks from mixed statblocks', () => {
+  const profile = normalizeMonsterProfile({
+    id: 'goblin-archer',
+    name: 'Goblin Archer',
+    statblock: [
+      'Senses darkvision 60 ft., passive Perception 10',
+      'Actions',
+      'Shortbow. Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage.'
+    ].join('\n')
+  }, { archetype: 'archer' });
+
+  assert.equal(profile.attacks.some((attack) => attack.name === 'Shortbow' && attack.attackKind === 'ranged' && attack.rangeFt === 80), true);
+});
+
+test('spellcasting text without explicit attack lines does not create fake attacks', () => {
+  const profile = normalizeMonsterProfile({
+    id: 'mystic',
+    name: 'Mystic',
+    statblock: [
+      'Spellcasting. The mystic is a 9th-level spellcaster.',
+      'The mystic has the following spells prepared: mage armor, magic missile, shield.'
+    ].join('\n')
+  }, { archetype: 'controller' });
+
+  assert.equal(profile.attacks.some((attack) => attack.name === 'Spellcasting'), false);
+  assert.equal(profile.attacks[0].name, 'Strike');
+  assert.equal(profile.attackProvenance.source, 'fallback_strike');
+});
+
+test('zombie candidates use Slam and never metadata headings such as Senses', () => {
+  const zombieProfile = normalizeMonsterProfile({
+    id: 'zombie-a',
+    name: 'Zombie A',
+    statblock: [
+      'Armor Class 8',
+      'Hit Points 22 (3d8 + 9)',
+      'Speed 20 ft.',
+      'Senses darkvision 60 ft., passive Perception 8',
+      'Languages understands Common but can\'t speak',
+      'Challenge 1/4 (50 XP)',
+      'Actions',
+      'Slam. Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) bludgeoning damage.'
+    ].join('\n')
+  }, { archetype: 'brute' });
+  const encounter = normalizeEncounterState({
+    id: 'zombie-slam-only',
+    round: 1,
+    activeActorId: 'zombie-a',
+    battlefield: { gridSize: 64, width: 8, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'zombie-a',
+        name: 'Zombie A',
+        side: 'monsters',
+        cell: { x: 2, y: 2 },
+        speed: 20,
+        attacks: zombieProfile.attacks,
+        tactical: zombieProfile.tactical,
+        behavior: zombieProfile.behavior
+      },
+      {
+        id: 'aria',
+        name: 'Aria',
+        side: 'heroes',
+        cell: { x: 3, y: 2 },
+        speed: 30,
+        attacks: []
+      }
+    ]
+  });
+
+  const candidates = generateCandidateActions(encounter, encounter.actors[0], { limit: 24 });
+  assert.equal(candidates.some((candidate) => /Senses/.test(candidate.id) || /Senses/.test(candidate.label)), false);
+  assert.equal(candidates.some((candidate) => /Slam/.test(candidate.id) || /Slam/.test(candidate.label)), true);
 });
 
 test('portable SRD tactical overrides seed representative monster behavior profiles', () => {

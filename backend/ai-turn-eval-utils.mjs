@@ -73,8 +73,8 @@ function getBlockingEdgeKeys(state) {
   return normalizeBlockingEdgeKeys(state?.blockingEdges?.edgeKeys || state?.blockingEdges || []);
 }
 
-function tokenAimPoint(state, token) {
-  const cell = gridCoordsFromToken(state, token);
+function tokenAimPoint(state, token, fromCell = null) {
+  const cell = fromCell || gridCoordsFromToken(state, token);
   const size = Math.max(1, Math.round(Number(token?.sizeCells) || 1));
   return {
     x: cell.x + (size / 2),
@@ -272,8 +272,9 @@ export function validateAction(state, action) {
   }
 
   const maxCells = attackRangeCells(rangeFt);
+  const originCell = parseGridCellTuple(action?.from) || null;
   const actualCells = (() => {
-    const actorCell = gridCoordsFromToken(state, actor);
+    const actorCell = originCell || gridCoordsFromToken(state, actor);
     const targetCell = gridCoordsFromToken(state, target);
     let minDistance = Infinity;
     for (const left of cellsOccupiedAt(actorCell.x, actorCell.y, actor.sizeCells)) {
@@ -292,7 +293,7 @@ export function validateAction(state, action) {
 
   if (attackKind === 'ranged') {
     const blockedLine = findBlockedLineCrossing({
-      fromPoint: tokenAimPoint(state, actor),
+      fromPoint: tokenAimPoint(state, actor, originCell),
       toPoint: tokenAimPoint(state, target),
       blockingEdges: getBlockingEdgeKeys(state)
     });
