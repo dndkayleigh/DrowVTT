@@ -2035,8 +2035,24 @@ import {
   function collectTacticalMetadataWarnings(tokens = []) {
     const warnings = [];
     for (const token of tokens) {
+      const normalizedProfile = token?.type === 'Monster'
+        ? normalizeMonsterProfile({
+            id: token?.id,
+            name: token?.name,
+            speed: token?.speed,
+            ac: token?.ac,
+            attacks: token?.attacks,
+            statblock: token?.statblock,
+            tactical: token?.tactical,
+            behavior: token?.behavior
+          })
+        : null;
       if (token?.type === 'Monster' && !hasTacticalMetadata(token)) {
-        warnings.push(`${token.name || token.id || 'Monster'} lacks tactical metadata.`);
+        const inferredRole = inferTacticalRoleForWarning(token);
+        warnings.push(`${token.name || token.id || 'Monster'} lacks authored tactical metadata; inferred role=${inferredRole} from attacks/behavior.`);
+      }
+      if (normalizedProfile?.attackProvenance?.source === 'fallback_strike' && String(token?.statblock || '').trim()) {
+        warnings.push(`${token.name || token.id || 'Actor'} has no parsed attacks from statblock; using fallback Strike.`);
       }
       const hasSpellcastingText = /\bSpellcasting\b/i.test(String(token?.statblock || ''));
       if (hasSpellcastingText) {
@@ -2051,6 +2067,23 @@ import {
       }
     }
     return warnings;
+  }
+
+  function inferTacticalRoleForWarning(token = {}) {
+    const attacks = attacksForToken(token);
+    const hasRanged = attacks.some((attack) => String(attack.attackKind || '').toLowerCase() === 'ranged');
+    const hasMelee = attacks.some((attack) => String(attack.attackKind || '').toLowerCase() === 'melee');
+    const spells = spellsForToken(token);
+    const text = `${token?.name || ''} ${token?.statblock || ''}`.toLowerCase();
+    if (spells.length || /\bspellcasting|spell|cantrip|ritual\b/i.test(text)) return 'caster';
+    if (/\bswarm|horde|mob\b/i.test(text)) return 'swarm';
+    if (/\bdragon|boss|ancient|adult\b/i.test(text)) return 'solo';
+    if (/\btrap|turret|hazard|lair|ritual object\b/i.test(text)) return 'hazard';
+    if (/\bambush|stalk|spider|crocodile|assassin\b/i.test(text)) return 'lurker';
+    if (hasRanged && !hasMelee) return 'artillery';
+    if (hasRanged) return 'skirmisher';
+    if (/\bguard|knight|armor|shield|line\b/i.test(text)) return 'blocker';
+    return 'striker';
   }
 
   function buildEncounterStateFromBoard() {
@@ -4235,27 +4268,30 @@ import {
   }
 
   function applyAiObject(obj, options = {}) {
+    const groupedPlan = Array.isArray(obj?.groupedPlan) ? obj.groupedPlan : [];
+    const steps = Array.isArray(obj?.steps) ? obj.steps : [];
     const moves = Array.isArray(obj?.moves) ? obj.moves : [];
     const actions = Array.isArray(obj?.actions) ? obj.actions : [];
     const { source = 'AI' } = options;
     const nextPaths = [];
     const nextSightLines = [];
     const moveOutcomes = new Map();
+    const originalCurrentTurnTokenId = state.currentTurnTokenId;
 
-    for (const m of moves) {
+    const processMove = (m) => {
       const name = (m?.token ?? "").toString();
       const to = m?.to;
-      if (!name || !Array.isArray(to) || to.length !== 2) continue;
+      if (!name || !Array.isArray(to) || to.length !== 2) return;
 
       const t = state.tokens.find(t => t.name === name);
       if (!t) {
         pushLog(`Move ignored (token not found): ${name}`);
         moveOutcomes.set(name, { ok: false, token: null, currentCell: null, plannedCell: parseGridCellTuple(to) });
-        continue;
+        return;
       }
 
       const gx = Number(to[0]), gy = Number(to[1]);
-      if (!Number.isFinite(gx) || !Number.isFinite(gy)) continue;
+      if (!Number.isFinite(gx) || !Number.isFinite(gy)) return;
 
       const result = applyTokenMoveAlongPath(t, { x: gx, y: gy }, m?.path, { source });
       if (!result.ok) {
@@ -4268,7 +4304,7 @@ import {
           reason: result.reason
         });
         pushLog(`Move ignored: ${result.reason}`);
-        continue;
+        return;
       }
       moveOutcomes.set(name, {
         ok: true,
@@ -4294,15 +4330,15 @@ import {
         `${moveRationale ? ` | Why: ${moveRationale}` : ''}` +
         ` | Path: ${pathLabel}`
       );
-    }
+    };
 
-    for (const a of actions) {
+    const processAction = (a) => {
       const token = (a?.token ?? "").toString();
       const type = (a?.type ?? "other").toString();
       const target = (a?.target ?? null);
       const details = (a?.details ?? "").toString();
       const rationale = conciseAiText(a?.rationale, 180);
-      if (!token) continue;
+      if (!token) return;
       const actionActor = state.tokens.find((entry) => entry.name === token);
       const actionTargetName = target == null ? null : String(target);
       const actionTarget = actionTargetName ? state.tokens.find((entry) => entry.name === actionTargetName) : null;
@@ -4315,11 +4351,8 @@ import {
         actionActor &&
         declaredOriginCell &&
         actualOriginCell &&
-        (
-          (moveOutcome && !moveOutcome.ok)
-          || declaredOriginCell.x !== actualOriginCell.x
-          || declaredOriginCell.y !== actualOriginCell.y
-        )
+        moveOutcome &&
+        !moveOutcome.ok
       );
       const actionOriginCell = shouldUseActualOrigin ? actualOriginCell : declaredOriginCell;
       if (isRangedAttack && actionActor && actionTarget) {
@@ -4353,19 +4386,65 @@ import {
           pushLog(`Action ignored after failed move: ${token} remained at (${actualOriginCell?.x},${actualOriginCell?.y}), so the planned action from (${declaredOriginCell?.x},${declaredOriginCell?.y}) was revalidated from the actual position.`);
         }
         pushLog(`Action ignored: ${validation.reason}`);
-        continue;
+        return;
       }
       pushLog(
         `Action: ${token} ${type}${target ? " vs " + target : ""} — ${details}` +
         `${rationale ? ` | Why: ${rationale}` : ''}`
       );
+    };
+
+    const executePlanSteps = (planSteps = []) => {
+      for (const step of planSteps) {
+        const stepType = String(step?.type || '').toLowerCase();
+        if (stepType === 'move') processMove(step);
+        else processAction(step);
+      }
+    };
+
+    const executeLegacyPlan = (planMoves = [], planActions = []) => {
+      for (const m of planMoves) processMove(m);
+      for (const a of planActions) processAction(a);
+    };
+
+    const resolveActorPlanName = (actorPlan = {}) =>
+      actorPlan?.token
+      || actorPlan?.steps?.find((step) => step?.token)?.token
+      || actorPlan?.moves?.find((step) => step?.token)?.token
+      || actorPlan?.actions?.find((step) => step?.token)?.token
+      || state.tokens.find((token) => token.id === actorPlan?.actorId)?.name
+      || actorPlan?.actorId
+      || 'Unknown Actor';
+
+    if (groupedPlan.length) {
+      pushLog(`Executing grouped activation: ${groupedPlan.length} actor plans`);
+      for (const [index, actorPlan] of groupedPlan.entries()) {
+        const actorName = resolveActorPlanName(actorPlan);
+        const actorToken = state.tokens.find((token) => token.id === actorPlan?.actorId)
+          || state.tokens.find((token) => token.name === actorName)
+          || null;
+        if (actorToken) state.currentTurnTokenId = actorToken.id;
+        pushLog(`Executing ${actorName} plan ${index + 1}/${groupedPlan.length}`);
+        const actorSteps = Array.isArray(actorPlan?.steps) ? actorPlan.steps : [];
+        const actorMoves = Array.isArray(actorPlan?.moves) ? actorPlan.moves : [];
+        const actorActions = Array.isArray(actorPlan?.actions) ? actorPlan.actions : [];
+        if (actorSteps.length) executePlanSteps(actorSteps);
+        else executeLegacyPlan(actorMoves, actorActions);
+        if (actorPlan?.end_turn !== false) pushLog(`End ${actorName} activation ✓`);
+      }
+    } else if (steps.length) {
+      executePlanSteps(steps);
+    } else {
+      executeLegacyPlan(moves, actions);
     }
 
     state.aiOverlay.paths = nextPaths;
     state.aiOverlay.sightLines = nextSightLines;
     setDecisionSummary(buildDecisionSummary(obj));
 
-    if (obj?.end_turn) pushLog("End turn ✓");
+    state.currentTurnTokenId = originalCurrentTurnTokenId;
+
+    if (obj?.end_turn) pushLog(groupedPlan.length ? 'End grouped activation ✓' : 'End turn ✓');
 
     draw(); renderTokenList(); refreshExport(); loadCurrentTurnTokenToEditor();
   }

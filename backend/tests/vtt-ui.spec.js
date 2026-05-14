@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
-import { SupervisorScriptedGroupController } from '../../packages/tactical-ai-core/src/index.js';
+import { SupervisorScriptedGroupController, tacticalOutputToVttPlan } from '../../packages/tactical-ai-core/src/index.js';
 import { parseVisibleEncounterFixture } from '../../packages/tactical-ai-content/src/index.js';
 import {
   LEGACY_BOARD_SNAPSHOT_WITHOUT_TACTICAL,
@@ -1819,7 +1819,7 @@ test('legacy board snapshot omits tactical fixture metadata but still parses spe
   await page.getByRole('button', { name: 'Run Tactics' }).click();
   await expect(page.locator('#sendStatus')).toContainText('Supervised Utility');
   await openDrawerTab(page, 'log');
-  await expect(page.locator('#logBox')).toContainText('Tactical metadata warning: Mage lacks tactical metadata.');
+  await expect(page.locator('#logBox')).toContainText('Tactical metadata warning: Mage lacks authored tactical metadata; inferred role=caster from attacks/behavior.');
   await expect(page.locator('#logBox')).not.toContainText('Tactical metadata warning: Mage has Spellcasting text but no structured spells.');
 });
 
@@ -1926,6 +1926,157 @@ test('group tactical application moves multiple grouped monsters and keeps a tra
   const overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
   expect(overlay.paths).toHaveLength(2);
   expect(overlay.paths.map((entry) => entry.name).sort()).toEqual(['Goblin A', 'Goblin B']);
+});
+
+test('grouped activation applies both compound shooter and moving spellcaster plans', async ({ page }) => {
+  const encounter = {
+    id: 'grouped-compound-spell',
+    round: 1,
+    activeActorId: 'goblin-a',
+    activationGroups: [{
+      id: 'monsters',
+      actorIds: ['goblin-a', 'mage'],
+      activationMode: 'coordinated_sequential'
+    }],
+    battlefield: {
+      gridSize: 64,
+      width: 12,
+      height: 12,
+      edges: [{ orientation: 'horizontal', x: 7, y: 1 }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'goblin-a',
+        name: 'Goblin A',
+        side: 'monsters',
+        cell: { x: 6, y: 3 },
+        speed: 30,
+        tactical: { role: 'skirmisher', function: 'ranged_harrier' },
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      {
+        id: 'mage',
+        name: 'Mage',
+        side: 'monsters',
+        cell: { x: 4, y: 0 },
+        speed: 30,
+        tactical: { role: 'caster', function: 'control', secondaryRoles: ['artillery'] },
+        attacks: [{ name: 'Dagger', attackKind: 'melee', rangeFt: 5, expectedDamage: 2 }],
+        spells: [{
+          name: 'Cone of Cold',
+          kind: 'damage',
+          target: 'enemy',
+          rangeFt: 60,
+          expectedValue: 30,
+          requiresLineOfSight: true
+        }]
+      },
+      { id: 'aria', name: 'Aria', side: 'heroes', cell: { x: 8, y: 4 }, speed: 30, attacks: [] }
+    ]
+  };
+  const fixtureYaml = [
+    'id: grouped_compound_spell',
+    'title: Grouped Compound Spell',
+    'category: custom',
+    'battlefield:',
+    '  width: 12',
+    '  height: 12',
+    '  gridSize: 64',
+    '  blockingEdges:',
+    '    - h:7,1',
+    'activeActor: goblin-a',
+    'activationGroups:',
+    '  - id: monsters',
+    '    actorIds: [goblin-a, mage]',
+    '    activationMode: coordinated_sequential',
+    'actors:',
+    '  - id: goblin-a',
+    '    name: Goblin A',
+    '    side: monsters',
+    '    position: [6, 3]',
+    '    speed: 30',
+    '    tactical:',
+    '      role: skirmisher',
+    '      function: ranged_harrier',
+    '    attacks:',
+    '      - name: Shortbow',
+    '        kind: ranged',
+    '        rangeFt: 80',
+    '        expectedDamage: 5',
+    '  - id: mage',
+    '    name: Mage',
+    '    side: monsters',
+    '    position: [4, 0]',
+    '    speed: 30',
+    '    tactical:',
+    '      role: caster',
+    '      function: control',
+    '      secondaryRoles: [artillery]',
+    '    attacks:',
+    '      - name: Dagger',
+    '        kind: melee',
+    '        rangeFt: 5',
+    '        expectedDamage: 2',
+    '    spells:',
+    '      - name: Cone of Cold',
+    '        kind: damage',
+    '        target: enemy',
+    '        rangeFt: 60',
+    '        expectedValue: 30',
+    '        requiresLineOfSight: true',
+    '  - id: aria',
+    '    name: Aria',
+    '    side: heroes',
+    '    position: [8, 4]',
+    '    speed: 30'
+  ].join('\n');
+
+  await page.evaluate(async (yaml) => {
+    await window.__VTT_DEBUG__.loadTacticalFixtureYaml(yaml);
+  }, fixtureYaml);
+
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter,
+    actorId: encounter.activeActorId,
+    activationGroup: encounter.activationGroups[0],
+    candidateLimit: 24
+  });
+  const plan = tacticalOutputToVttPlan(output);
+  const executablePlan = {
+    summary: plan.summary,
+    groupedPlan: plan.groupedPlan,
+    steps: plan.steps,
+    moves: plan.moves,
+    actions: plan.actions,
+    end_turn: plan.end_turn
+  };
+
+  expect(plan.groupedPlan).toHaveLength(2);
+  expect(output.selectedCandidateId).toMatch(/^shoot_and_scoot:.*\|move_and_spell:/);
+
+  await openDrawerTab(page, 'apply');
+  await page.locator('#applyJson').fill(JSON.stringify(executablePlan, null, 2));
+  await page.locator('#applyBtn').click();
+
+  await expectTokenCell(page, 'Goblin A', 7, 0);
+  await expectTokenCell(page, 'Mage', 3, 0);
+
+  const overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
+  expect(overlay.paths.map((entry) => entry.name).sort()).toEqual(['Goblin A', 'Mage']);
+
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('Executing grouped activation: 2 actor plans');
+  await expect(page.locator('#logBox')).toContainText('Executing Goblin A plan 1/2');
+  await expect(page.locator('#logBox')).toContainText('Executing Mage plan 2/2');
+  await expect(page.locator('#logBox')).toContainText('Action: Goblin A attack vs Aria');
+  await expect(page.locator('#logBox')).toContainText('Action: Mage spell vs Aria — Cone of Cold');
+  await expect(page.locator('#logBox')).toContainText('End Goblin A activation ✓');
+  await expect(page.locator('#logBox')).toContainText('End Mage activation ✓');
+  await expect(page.locator('#logBox')).toContainText('End grouped activation ✓');
+  await expect(page.locator('#logBox')).not.toContainText('cannot act because it is not the current turn token');
+  await expect(page.locator('#logBox')).not.toContainText('blocking edge blocks line of fire');
 });
 
 test('manual movement clears the AI trail for the moved token only', async ({ page }) => {
@@ -2312,6 +2463,46 @@ test('ranged tactics attacks draw line-of-sight debug overlays', async ({ page }
   });
   await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).toContainText('Action: Archer attack vs Hero');
+});
+
+test('shoot-and-scoot steps validate ranged attack from firing cell before final hide cell', async ({ page }) => {
+  await clearTokens(page);
+  await addToken(page, { name: 'Goblin A', size: 1, type: 'Monster' });
+  await dragTokenToTopLeftCell(page, { size: 1, cellX: 6, cellY: 3 });
+  await addToken(page, { name: 'Aria', size: 1, type: 'PC' });
+  await dragNamedTokenToTopLeftCell(page, { name: 'Aria', cellX: 8, cellY: 4 });
+  await setAiControls(page, 'Both');
+  await setCurrentTurnToken(page, 'Goblin A');
+  await page.evaluate(() => window.__VTT_DEBUG__.setBlockingEdges(['h:7,1']));
+
+  await openDrawerTab(page, 'apply');
+  await page.locator('#applyJson').fill(JSON.stringify({
+    summary: 'Goblin A shoots from a clear firing position, then hides behind the edge.',
+    steps: [
+      { type: 'move', token: 'Goblin A', to: [8, 0], path: [[7, 2], [8, 1], [8, 0]], purpose: 'firing_position', rationale: 'Reach a clear shortbow lane.' },
+      { type: 'attack', token: 'Goblin A', target: 'Aria', details: 'Shortbow', attack_kind: 'ranged', range_ft: 80, from: [8, 0], purpose: 'attack_from_firing_position', rationale: 'Shoot before ducking behind cover.' },
+      { type: 'move', token: 'Goblin A', to: [7, 0], path: [[7, 0]], purpose: 'hide_position', rationale: 'Break line of sight after the shot.' }
+    ],
+    moves: [{ token: 'Goblin A', to: [7, 0], path: [[7, 2], [8, 1], [8, 0], [7, 0]], rationale: 'Legacy final destination.' }],
+    actions: [{ token: 'Goblin A', type: 'attack', target: 'Aria', details: 'Shortbow', attack_kind: 'ranged', range_ft: 80, from: [8, 0], rationale: 'Legacy action origin.' }],
+    end_turn: false
+  }));
+  await page.locator('#applyBtn').click();
+
+  await expectTokenCell(page, 'Goblin A', 7, 0);
+  const overlay = await page.evaluate(() => window.__VTT_DEBUG__.getAiOverlay());
+  expect(overlay.sightLines).toHaveLength(1);
+  expect(overlay.sightLines[0]).toMatchObject({
+    name: 'Goblin A',
+    targetName: 'Aria',
+    label: 'Goblin A ranged line',
+    color: '#34d5ff'
+  });
+  await openDrawerTab(page, 'log');
+  await expect(page.locator('#logBox')).toContainText('Moved Goblin A -> (8,0)');
+  await expect(page.locator('#logBox')).toContainText('Action: Goblin A attack vs Aria');
+  await expect(page.locator('#logBox')).toContainText('Moved Goblin A -> (7,0)');
+  await expect(page.locator('#logBox')).not.toContainText('blocking edge blocks line of fire');
 });
 
 test('ranged blocking is enforced when tactics omit attack kind but details match a ranged weapon', async ({ page }) => {

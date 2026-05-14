@@ -22,6 +22,20 @@ export const MONSTER_ARCHETYPES = {
 };
 
 export { parseVisibleEncounterFixture } from './visible-fixture-loader.js';
+export {
+  MORK_BORG_MONSTER_TACTICAL_MAP,
+  SRD_MONSTER_TACTICAL_MAP,
+  inferMonsterTacticalMapping,
+  monsterTacticalMapping,
+  morkBorgMonsterTacticalMapping,
+  normalizeMonsterMappingKey,
+  srdMonsterTacticalMapping
+} from './monster-mappings/index.js';
+import {
+  SRD_MONSTER_TACTICAL_MAP,
+  inferMonsterTacticalMapping,
+  monsterTacticalMapping
+} from './monster-mappings/index.js';
 
 export const RULESET_PRESETS = {
   simple_grid: {
@@ -99,221 +113,192 @@ export const SAMPLE_ENCOUNTER_FIXTURES = [
   }
 ];
 
-function normalizeMonsterBehaviorKey(name = '') {
-  return String(name || '').trim().toLowerCase();
-}
-
-export const SRD_MONSTER_TACTICAL_OVERRIDES = Object.freeze({
-  zombie: {
-    archetype: 'brute',
-    tactical: {
-      role: 'blocker',
-      function: 'body_pressure',
-      intent: ['press_nearest'],
-      posture: 'aggressive',
-      tags: ['undead', 'melee', 'body_pressure', 'swarm_member']
-    },
-    behavior: {
-      cognition: 'mindless',
-      drive: 'nearest_living_prey',
-      riskTolerance: 'fearless',
-      coordination: 'none',
-      planningHorizon: 'immediate',
-      targetStickiness: 'high'
-    }
-  },
-  skeleton: {
-    archetype: 'archer',
-    tactical: {
-      role: 'artillery',
-      function: 'sniper',
-      intent: ['harass_from_range'],
-      posture: 'cautious',
-      tags: ['undead', 'ranged']
-    },
-    behavior: {
-      cognition: 'mindless',
-      drive: 'nearest_living_prey',
-      riskTolerance: 'fearless',
-      coordination: 'none',
-      planningHorizon: 'immediate',
-      targetStickiness: 'high'
-    }
-  },
-  wolf: {
-    archetype: 'skirmisher',
-    tactical: {
-      role: 'skirmisher',
-      function: 'melee_harrier',
-      intent: ['isolate_weak_prey'],
-      posture: 'opportunistic',
-      tags: ['animal', 'melee', 'pack', 'fast']
-    },
-    behavior: {
-      cognition: 'animal',
-      drive: 'isolate_weak_prey',
-      riskTolerance: 'self_preserving',
-      coordination: 'pack',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  'dire wolf': {
-    archetype: 'brute',
-    tactical: {
-      role: 'striker',
-      function: 'brute',
-      secondaryRoles: ['skirmisher'],
-      intent: ['isolate_weak_prey', 'knock_down_target'],
-      posture: 'aggressive',
-      tags: ['animal', 'melee', 'pack', 'fast']
-    },
-    behavior: {
-      cognition: 'animal',
-      drive: 'isolate_weak_prey',
-      riskTolerance: 'self_preserving',
-      coordination: 'pack',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  goblin: {
-    archetype: 'skirmisher',
-    tactical: {
-      role: 'skirmisher',
-      function: 'ranged_harrier',
-      intent: ['harass_from_range', 'avoid_melee'],
-      posture: 'opportunistic',
-      tags: ['humanoid', 'ranged', 'mobile', 'cowardly']
-    },
-    behavior: {
-      cognition: 'trained',
-      drive: 'tactical_role_objective',
-      riskTolerance: 'normal',
-      coordination: 'squad',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  hobgoblin: {
-    archetype: 'brute',
-    tactical: {
-      role: 'blocker',
-      function: 'hold_line',
-      intent: ['hold_line', 'focus_fire'],
-      posture: 'protective',
-      tags: ['humanoid', 'soldier', 'formation', 'trained']
-    },
-    behavior: {
-      cognition: 'trained',
-      drive: 'hold_line',
-      riskTolerance: 'normal',
-      coordination: 'squad',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  bandit: {
-    archetype: 'skirmisher',
-    tactical: {
-      role: 'skirmisher',
-      function: 'ranged_harrier',
-      intent: ['survive_and_harass'],
-      posture: 'opportunistic',
-      tags: ['humanoid', 'self_preserving']
-    },
-    behavior: {
-      cognition: 'trained',
-      drive: 'tactical_role_objective',
-      riskTolerance: 'normal',
-      coordination: 'squad',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  guard: {
-    archetype: 'brute',
-    tactical: {
-      role: 'blocker',
-      function: 'hold_line',
-      intent: ['hold_line', 'protect_area'],
-      posture: 'protective',
-      tags: ['humanoid', 'soldier', 'trained', 'defensive']
-    },
-    behavior: {
-      cognition: 'trained',
-      drive: 'hold_line',
-      riskTolerance: 'normal',
-      coordination: 'squad',
-      planningHorizon: 'short',
-      targetStickiness: 'medium'
-    }
-  },
-  acolyte: {
-    archetype: 'controller',
-    tactical: {
-      role: 'caster',
-      function: 'support',
-      intent: ['support_allies', 'protect_master'],
-      posture: 'cautious',
-      tags: ['humanoid', 'divine', 'fragile']
-    },
-    behavior: {
-      cognition: 'trained',
-      drive: 'protect_master',
-      riskTolerance: 'self_preserving',
-      coordination: 'commander_led',
-      planningHorizon: 'medium',
-      targetStickiness: 'medium'
-    }
-  },
-  mage: {
-    archetype: 'controller',
-    tactical: {
-      role: 'caster',
-      function: 'control',
-      secondaryRoles: ['artillery'],
-      intent: ['control_battlefield', 'preserve_self'],
-      posture: 'cautious',
-      tags: ['humanoid', 'arcane', 'fragile', 'area_effects']
-    },
-    behavior: {
-      cognition: 'cunning',
-      drive: 'complete_objective',
-      riskTolerance: 'self_preserving',
-      coordination: 'commander_led',
-      planningHorizon: 'long',
-      targetStickiness: 'high'
-    }
-  }
-});
+export const SRD_MONSTER_TACTICAL_OVERRIDES = SRD_MONSTER_TACTICAL_MAP;
 
 export function srdMonsterTacticalOverride(monster = {}) {
-  const key = normalizeMonsterBehaviorKey(monster?.name);
-  return SRD_MONSTER_TACTICAL_OVERRIDES[key] || null;
+  return monsterTacticalMapping('srd', monster);
+}
+
+const BLOCKED_STATBLOCK_ATTACK_NAMES = new Set([
+  'armor class',
+  'hit points',
+  'speed',
+  'str',
+  'dex',
+  'con',
+  'int',
+  'wis',
+  'cha',
+  'saving throws',
+  'skills',
+  'damage vulnerabilities',
+  'damage resistances',
+  'damage immunities',
+  'condition immunities',
+  'senses',
+  'languages',
+  'challenge',
+  'proficiency bonus',
+  'traits',
+  'actions',
+  'bonus actions',
+  'reactions',
+  'legendary actions',
+  'description',
+  'spellcasting',
+  'innate spellcasting'
+]);
+
+const ACTION_SECTION_NAMES = new Set(['actions', 'bonus actions', 'reactions']);
+
+function normalizeStatblockHeadingName(value = '') {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function parseStatblockHeading(line = '') {
+  const headingMatch = String(line).trim().match(/^-?\s*([A-Za-z][A-Za-z ]*[A-Za-z])\s*:?\s*$/);
+  if (!headingMatch) return '';
+  return normalizeStatblockHeadingName(headingMatch[1]);
+}
+
+function parseAttackLineCandidate(line = '') {
+  const match = String(line).trim().match(/^-?\s*([^:.]+?)[.:]\s*(.+)$/);
+  if (!match) return null;
+  return {
+    name: match[1].trim(),
+    body: match[2].trim()
+  };
+}
+
+function hasStrongActionEvidence(line = '') {
+  const text = String(line);
+  return /\b(?:Melee Weapon Attack|Ranged Weapon Attack|Melee or Ranged Weapon Attack|Spell Attack|Hit:)\b/i.test(text)
+    || /\+\d+\s+to\s+hit,\s*(?:reach\s+\d+\s*ft\b|range\s+\d+)/i.test(text);
+}
+
+function attackProfilesFromLine(name, line, fallbackDamage = 5) {
+  const meleeOrRangedMatch = String(line).match(/\bMelee or Ranged Weapon Attack\b.*?\breach\s+(\d+)\s*ft\.?\s+or\s+range\s+(\d+)(?:\s*ft\.)?(?:\/\d+)?/i);
+  if (meleeOrRangedMatch) {
+    return [
+      { name, attackKind: 'melee', rangeFt: Number(meleeOrRangedMatch[1]), expectedDamage: fallbackDamage },
+      { name, attackKind: 'ranged', rangeFt: Number(meleeOrRangedMatch[2]), expectedDamage: fallbackDamage }
+    ];
+  }
+
+  const meleeMatch = String(line).match(/\bMelee Weapon Attack\b.*?\breach\s+(\d+)\s*ft\b/i);
+  if (meleeMatch) {
+    return [{ name, attackKind: 'melee', rangeFt: Number(meleeMatch[1]), expectedDamage: fallbackDamage }];
+  }
+
+  const rangedMatch = String(line).match(/\bRanged Weapon Attack\b.*?\brange\s+(\d+)(?:\s*ft\.)?(?:\/\d+)?/i);
+  if (rangedMatch) {
+    return [{ name, attackKind: 'ranged', rangeFt: Number(rangedMatch[1]), expectedDamage: fallbackDamage }];
+  }
+
+  const shorthandRangedMatch = String(line).match(/\+\d+\s+to\s+hit,\s*range\s+(\d+)(?:\s*ft\.)?(?:\/\d+)?/i);
+  if (shorthandRangedMatch) {
+    return [{ name, attackKind: 'ranged', rangeFt: Number(shorthandRangedMatch[1]), expectedDamage: fallbackDamage }];
+  }
+
+  const shorthandMeleeMatch = String(line).match(/\+\d+\s+to\s+hit,\s*(?:reach\s+)?(\d+)\s*ft\b/i);
+  if (shorthandMeleeMatch && !/\brange\b/i.test(String(line))) {
+    return [{ name, attackKind: 'melee', rangeFt: Number(shorthandMeleeMatch[1]), expectedDamage: fallbackDamage }];
+  }
+
+  return [];
+}
+
+function sanitizeParsedAttacks(attacks = []) {
+  const deduped = new Map();
+  for (const attack of attacks) {
+    const name = String(attack?.name || '').trim();
+    const attackKind = String(attack?.attackKind || '').trim().toLowerCase();
+    const rangeFt = Number(attack?.rangeFt);
+    if (!name) continue;
+    if (BLOCKED_STATBLOCK_ATTACK_NAMES.has(normalizeStatblockHeadingName(name))) continue;
+    if (!['melee', 'ranged'].includes(attackKind)) continue;
+    if (!Number.isFinite(rangeFt) || rangeFt <= 0) continue;
+    const key = `${name.toLowerCase()}|${attackKind}|${rangeFt}`;
+    if (!deduped.has(key)) {
+      deduped.set(key, {
+        name,
+        attackKind,
+        rangeFt,
+        expectedDamage: Number(attack?.expectedDamage) || 5
+      });
+    }
+  }
+  return [...deduped.values()];
 }
 
 function parseStatblockAttacks(statblock = '', fallbackDamage = 5) {
-  return String(statblock || '').split('\n').map((line) => line.trim()).flatMap((line) => {
-    const name = line.match(/^-?\s*([^:]+):/)?.[1]?.trim();
-    if (!name) return [];
-    const ranged = line.match(/\brange\s+(\d+)/i);
-    const melee = line.match(/\b(?:reach\s+)?(\d+)\s*ft\b/i);
-    if (/\bMelee or Ranged\b/i.test(line) && melee && ranged) {
-      return [
-        { name, attackKind: 'melee', rangeFt: Number(melee[1]), expectedDamage: fallbackDamage },
-        { name, attackKind: 'ranged', rangeFt: Number(ranged[1]), expectedDamage: fallbackDamage }
-      ];
+  const lines = String(statblock || '').split('\n').map((line) => line.trim()).filter(Boolean);
+  const parsed = [];
+  let currentSection = '';
+
+  for (const line of lines) {
+    const heading = parseStatblockHeading(line);
+    if (heading) {
+      currentSection = heading;
+      continue;
     }
-    if (ranged) return [{ name, attackKind: 'ranged', rangeFt: Number(ranged[1]), expectedDamage: fallbackDamage }];
-    if (melee && !/\brange\b/i.test(line)) return [{ name, attackKind: 'melee', rangeFt: Number(melee[1]), expectedDamage: fallbackDamage }];
-    return [];
-  });
+
+    const candidate = parseAttackLineCandidate(line);
+    if (!candidate) continue;
+    if (BLOCKED_STATBLOCK_ATTACK_NAMES.has(normalizeStatblockHeadingName(candidate.name))) continue;
+
+    const inSupportedSection = ACTION_SECTION_NAMES.has(currentSection);
+    const traitAttackEvidence = currentSection === 'traits' && hasStrongActionEvidence(line);
+    if (!inSupportedSection && !traitAttackEvidence && !hasStrongActionEvidence(line)) continue;
+
+    parsed.push(...attackProfilesFromLine(candidate.name, line, fallbackDamage));
+  }
+
+  return sanitizeParsedAttacks(parsed);
 }
 
-export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher', overrides = {}, analog = null } = {}) {
-  const srdOverride = srdMonsterTacticalOverride(monster);
-  const resolvedArchetype = srdOverride?.archetype || archetype;
+function normalizeTacticalMappingValue(tactical = null) {
+  if (!tactical) return null;
+  return {
+    role: String(tactical.role ?? '').trim(),
+    function: String(tactical.function ?? '').trim(),
+    secondaryRoles: Array.isArray(tactical.secondaryRoles) ? tactical.secondaryRoles.map(String) : [],
+    intent: Array.isArray(tactical.intent) ? tactical.intent.map(String) : tactical.intent ? [String(tactical.intent)] : [],
+    posture: String(tactical.posture ?? '').trim(),
+    tags: Array.isArray(tactical.tags) ? tactical.tags.map(String) : tactical.tags ? [String(tactical.tags)] : [],
+    protectedAsset: Boolean(tactical.protectedAsset),
+    objectiveRole: String(tactical.objectiveRole ?? '').trim(),
+    roleNotes: String(tactical.roleNotes ?? '').trim()
+  };
+}
+
+function mergeTacticalMapping(base = null, override = null) {
+  const normalizedBase = normalizeTacticalMappingValue(base);
+  if (!override) return normalizedBase;
+  const normalizedOverride = normalizeTacticalMappingValue(override);
+  const merged = { ...(normalizedBase || {}) };
+  const fieldSource = {
+    role: ['role'],
+    function: ['function'],
+    secondaryRoles: ['secondaryRoles', 'secondary_roles'],
+    intent: ['intent'],
+    posture: ['posture'],
+    tags: ['tags'],
+    protectedAsset: ['protectedAsset', 'protected_asset'],
+    objectiveRole: ['objectiveRole', 'objective_role'],
+    roleNotes: ['roleNotes', 'role_notes']
+  };
+  for (const [field, sourceKeys] of Object.entries(fieldSource)) {
+    if (sourceKeys.some((key) => Object.hasOwn(override, key))) {
+      merged[field] = normalizedOverride[field];
+    }
+  }
+  return merged;
+}
+
+export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher', overrides = {}, analog = null, systemId = 'srd' } = {}) {
+  const mapping = monsterTacticalMapping(systemId, monster) || inferMonsterTacticalMapping({ systemId, monster });
+  const resolvedArchetype = overrides.archetype || mapping?.archetype || archetype;
   const archetypeDefaults = MONSTER_ARCHETYPES[resolvedArchetype]?.defaults || MONSTER_ARCHETYPES.skirmisher.defaults;
   const analogDefaults = analog ? MONSTER_ARCHETYPES[analog]?.defaults || {} : {};
   const provenance = {};
@@ -339,23 +324,18 @@ export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher'
   };
 
   const expectedDamage = Number(resolve('expectedDamage', 4)) || 4;
+  const parsedAttacks = parseStatblockAttacks(monster.statblock, expectedDamage);
   const attacks = Array.isArray(monster.attacks) && monster.attacks.length
-    ? monster.attacks
-    : parseStatblockAttacks(monster.statblock, expectedDamage);
+    ? sanitizeParsedAttacks(monster.attacks)
+    : parsedAttacks;
+  const attackProvenance = Array.isArray(monster.attacks) && monster.attacks.length
+    ? { source: 'provided', confidence: 1, parsedCount: parsedAttacks.length }
+    : attacks.length
+      ? { source: 'parsed_statblock', confidence: 0.9, parsedCount: attacks.length }
+      : { source: 'fallback_strike', confidence: 0.35, parsedCount: 0 };
 
-  const tactical = srdOverride?.tactical
-    ? {
-      role: String(srdOverride.tactical.role ?? '').trim(),
-      function: String(srdOverride.tactical.function ?? '').trim(),
-      secondaryRoles: Array.isArray(srdOverride.tactical.secondaryRoles) ? [...srdOverride.tactical.secondaryRoles] : [],
-      intent: Array.isArray(srdOverride.tactical.intent) ? [...srdOverride.tactical.intent] : [],
-      posture: String(srdOverride.tactical.posture ?? '').trim(),
-      tags: Array.isArray(srdOverride.tactical.tags) ? [...srdOverride.tactical.tags] : [],
-      protectedAsset: Boolean(srdOverride.tactical.protectedAsset),
-      objectiveRole: String(srdOverride.tactical.objectiveRole ?? '').trim(),
-      roleNotes: String(srdOverride.tactical.roleNotes ?? '').trim()
-    }
-    : null;
+  const tactical = mergeTacticalMapping(mapping?.tactical || null, overrides.tactical || monster.tactical || null);
+  const behavior = overrides.behavior || monster.behavior || mapping?.behavior || null;
 
   return {
     id: String(monster.id || monster.name || 'custom_monster'),
@@ -364,8 +344,10 @@ export function normalizeMonsterProfile(monster = {}, { archetype = 'skirmisher'
     speed: Number(resolve('speed', 30)) || 30,
     ac: Number(resolve('ac', 10)) || 10,
     attacks: attacks.length ? attacks : [{ name: 'Strike', attackKind: 'melee', rangeFt: 5, expectedDamage }],
+    attackProvenance,
     tactical,
-    behavior: srdOverride?.behavior ? { ...srdOverride.behavior } : null,
+    behavior: behavior ? { ...behavior } : null,
+    mappingProvenance: mapping?.provenance || null,
     provenance
   };
 }

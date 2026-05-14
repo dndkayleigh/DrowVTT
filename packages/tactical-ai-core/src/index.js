@@ -129,6 +129,7 @@ const CURRENTLY_UNIMPLEMENTED_CANDIDATE_FAMILIES = new Set([
   'interactable_effect',
   'intercept_flanker',
   'move_and_cast',
+  'stalk_to_cover',
   'support',
   'trigger_effect'
 ]);
@@ -1164,7 +1165,7 @@ function shootAndScootAction(actor, target, attack, attackCell, hideCell, attack
       from: normalizedAttackCell
     },
     targetIds: [target.id],
-    fromCell: normalizedHideCell,
+    fromCell: normalizedAttackCell,
     expectedDamage: attack.expectedDamage,
     moveSteps: fullPath.length,
     legal: true,
@@ -1178,6 +1179,19 @@ function shootAndScootAction(actor, target, attack, attackCell, hideCell, attack
       postAttackRemainingMovement: Math.max(0, Number(metadata.maxSteps || 0) - fullPath.length)
     }
   };
+}
+
+function isLegalShootAndScoot(encounter, actor, target, attack, attackCell, hideCell, attackPath = [], hidePath = [], maxSteps = 0) {
+  const normalizedAttackCell = normalizeCell(attackCell);
+  const normalizedHideCell = normalizeCell(hideCell);
+  const firstLeg = (attackPath || []).map(normalizeCell);
+  const secondLeg = (hidePath || []).map(normalizeCell);
+  const rangeCells = Math.max(1, Math.ceil(Number(attack?.rangeFt || 0) / 5));
+  if (firstLeg.length + secondLeg.length > maxSteps) return false;
+  if (!canActorOccupyCell(encounter, actor, normalizedHideCell, { excludeActorId: actor.id })) return false;
+  if (occupiedCellDistance(actor, normalizedAttackCell, target, target.cell) > rangeCells) return false;
+  if (!hasLineOfSight(encounter, actor, target, normalizedAttackCell)) return false;
+  return true;
 }
 
 function advanceAction(actor, target, toCell, moveSteps = 0, metadata = {}) {
@@ -1531,7 +1545,7 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
         }
         if (attack.attackKind === 'ranged') {
           const scoot = findShootAndScootDestination(encounter, actor, actor.cell, [], reachable, pathfindingService, maxSteps);
-          if (scoot) {
+          if (scoot && isLegalShootAndScoot(encounter, actor, enemy, attack, actor.cell, scoot.cell, [], scoot.path, maxSteps)) {
             candidates.push(shootAndScootAction(actor, enemy, attack, actor.cell, scoot.cell, [], scoot.path, {
               maxSteps,
               visibleEnemiesBeforeScoot: visibleEnemiesFromCell(encounter, actor, actor.cell).length,
@@ -1580,7 +1594,7 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
         if (attack.attackKind === 'ranged') {
           const attackPath = cell.path || pathCellsBetween(actor.cell, cell);
           const scoot = findShootAndScootDestination(encounter, actor, cell, attackPath, reachable, pathfindingService, maxSteps);
-          if (scoot) {
+          if (scoot && isLegalShootAndScoot(encounter, actor, enemy, attack, cell, scoot.cell, attackPath, scoot.path, maxSteps)) {
             candidates.push(shootAndScootAction(actor, enemy, attack, cell, scoot.cell, attackPath, scoot.path, {
               maxSteps,
               visibleEnemiesBeforeScoot: visibleEnemiesFromCell(encounter, actor, cell).length,
@@ -1773,11 +1787,12 @@ const SUPERVISOR_SCORE_TERM_NAMESPACES = {
   roleAmbusherAttackIsolatedBonus: 'role',
   roleAmbusherEarlyRevealPenalty: 'role',
   roleAmbusherRangedSkirmishPenalty: 'role',
-  roleSupportStaysProtectedBonus: 'role',
+  casterProtectedPositionBonus: 'role',
   roleSupportBuffBonus: 'role',
   roleSupportMovesAwayFromThreatBonus: 'role',
-  roleSupportExposedPenalty: 'role',
+  casterExposedPenalty: 'role',
   roleSupportMeleeFallbackPenalty: 'role',
+  functionControlSpellBonus: 'role',
   targetPriorityMainThreatBonus: 'targeting',
   targetPriorityLowHpBonus: 'dnd5e',
   targetPriorityCasterBonus: 'dnd5e',
@@ -2095,9 +2110,19 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
   const expectedFamilies = expectedCandidateFamiliesForActor(actor, role);
   const missingExpectedCandidates = expectedFamilies.filter((family) => !availableFamilies.includes(family));
   const unsupportedExpectedCandidates = missingExpectedCandidates.filter((family) => CURRENTLY_UNIMPLEMENTED_CANDIDATE_FAMILIES.has(family));
-  const status = missingExpectedCandidates.length >= Math.max(2, Math.ceil(expectedFamilies.length / 2))
+  let severityMissingCandidates = missingExpectedCandidates.filter((family) => !unsupportedExpectedCandidates.includes(family));
+  if (role === 'skirmisher') {
+    const hasAlternativeAttackWindow = availableFamilies.includes('move_and_attack') || availableFamilies.includes('shoot_and_scoot');
+    const hasLosBreakingMovement = availableFamilies.includes('stalk_to_cover');
+    severityMissingCandidates = severityMissingCandidates.filter((family) => {
+      if (family === 'attack_from_current' && hasAlternativeAttackWindow) return false;
+      if (family === 'shoot_and_scoot' && !hasLosBreakingMovement) return false;
+      return true;
+    });
+  }
+  const status = severityMissingCandidates.length >= Math.max(2, Math.ceil(expectedFamilies.length / 2))
     ? 'warning'
-    : missingExpectedCandidates.length ? 'weak_pass' : 'pass';
+    : (severityMissingCandidates.length || missingExpectedCandidates.length) ? 'weak_pass' : 'pass';
   return {
     role,
     function: inferActorFunction(actor),
@@ -2106,6 +2131,7 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
     availableFamilies,
     expectedFamilies,
     missingExpectedCandidates,
+    severityMissingCandidates,
     unsupportedExpectedCandidates
   };
 }
@@ -2638,12 +2664,12 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, r
       breakdown.roleAmbusherRangedSkirmishPenalty = -18;
     }
   } else if (role === 'caster') {
-    if (protectedAsset?.id === actor.id || finalProtectedDistance <= currentProtectedDistance) breakdown.roleSupportStaysProtectedBonus = 4;
+    if (protectedAsset?.id === actor.id || finalProtectedDistance <= currentProtectedDistance) breakdown.casterProtectedPositionBonus = 4;
     if (candidate.action?.type === 'spell' && ['support', 'healing', 'defensive'].includes(candidate.action?.spellKind)) breakdown.roleSupportBuffBonus = 3;
     const currentThreatDistance = mainThreat ? gridDistance(actor.cell, mainThreat.cell) : Infinity;
     const finalThreatDistance = mainThreat && finalCell ? gridDistance(finalCell, mainThreat.cell) : Infinity;
     if (finalThreatDistance > currentThreatDistance) breakdown.roleSupportMovesAwayFromThreatBonus = 3;
-    if (finalThreatDistance <= 1 || visibleAfter > 0) breakdown.roleSupportExposedPenalty = -5;
+    if (finalThreatDistance <= 1 || visibleAfter > 0) breakdown.casterExposedPenalty = -5;
     if (
       tacticalFunction === 'support' &&
       roleGateContext?.hasSupportPreferredAlternative &&
@@ -2652,7 +2678,7 @@ function roleScoreModifiers(encounter, actor, candidate, doctrineContext = {}, r
     ) {
       breakdown.roleSupportMeleeFallbackPenalty = -14;
     }
-    if (tacticalFunction === 'control' && ['spell_from_current', 'move_and_spell'].includes(candidate.family)) breakdown.roleControlCasterSpellBonus = 2;
+    if (tacticalFunction === 'control' && ['spell_from_current', 'move_and_spell'].includes(candidate.family)) breakdown.functionControlSpellBonus = 2;
     if (tacticalFunction === 'artillery' && finalCell && mainThreat) breakdown.roleArtilleryCasterDistanceBonus = Math.min(3, gridDistance(finalCell, mainThreat.cell) / 4);
   } else if (role === 'striker') {
     if (candidate.action?.type === 'attack') breakdown.roleStrikerPressureBonus = 2;
@@ -3058,7 +3084,8 @@ function outputFromCandidate({ encounter, controllerId, candidate, candidates = 
         details: candidate.action.details,
         rationale: candidate.label,
         spell_kind: candidate.action.spellKind,
-        range_ft: candidate.action.rangeFt
+        range_ft: candidate.action.rangeFt,
+        from: candidate.fromCell ? [candidate.fromCell.x, candidate.fromCell.y] : undefined
       }
     : {
         token: actor.name,
@@ -3069,10 +3096,58 @@ function outputFromCandidate({ encounter, controllerId, candidate, candidates = 
         attack_kind: null,
         range_ft: null
       };
+  const steps = candidate.family === 'shoot_and_scoot'
+    ? [
+        ...((candidate.metadata?.attackPath || []).length
+          ? [{
+              type: 'move',
+              token: actor.name,
+              to: [candidate.metadata.attackCell.x, candidate.metadata.attackCell.y],
+              path: candidate.metadata.attackPath.map((cell) => [cell.x, cell.y]),
+              purpose: 'firing_position',
+              rationale: `Move to firing position for ${candidate.action?.details || 'ranged attack'}.`
+            }]
+          : []),
+        {
+          ...action,
+          purpose: 'attack_from_firing_position'
+        },
+        ...(candidate.metadata?.hideCell
+          ? [{
+              type: 'move',
+              token: actor.name,
+              to: [candidate.metadata.hideCell.x, candidate.metadata.hideCell.y],
+              path: (candidate.metadata.postAttackPath || []).map((cell) => [cell.x, cell.y]),
+              purpose: 'hide_position',
+              rationale: 'Break line of sight after the shot.'
+            }]
+          : [])
+      ]
+    : [
+        ...(candidate.move
+          ? [{
+              type: 'move',
+              token: actor.name,
+              to: [candidate.move.to.x, candidate.move.to.y],
+              path: candidate.move.path.map((cell) => [cell.x, cell.y]),
+              purpose: candidate.action?.type === 'spell' ? 'spell_position' : 'attack_position',
+              rationale: candidate.action?.type === 'spell'
+                ? `Move to cast ${candidate.action?.details || 'spell'} from a legal origin.`
+                : candidate.label
+            }]
+          : []),
+        {
+          ...action,
+          purpose: candidate.action?.type === 'spell'
+            ? (candidate.move ? 'cast_from_spell_position' : 'cast_from_current_position')
+            : (candidate.move ? 'attack_after_move' : 'attack_from_current_position')
+        }
+      ];
   return {
     controllerId,
     actorId: actor.id,
     plan: {
+      steps,
       moves: candidate.move ? [{ token: actor.name, to: [candidate.move.to.x, candidate.move.to.y], path: candidate.move.path.map((cell) => [cell.x, cell.y]), rationale: candidate.label }] : [],
       actions: [action],
       endTurn: true
@@ -3289,6 +3364,19 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
       }
       outputs.push(output);
     }
+    const groupedPlan = outputs.map((output) => {
+      const actor = encounter.actors.find((entry) => entry.id === output.actorId);
+      return {
+        actorId: output.actorId,
+        token: actor?.name || null,
+        selectedCandidateId: output.selectedCandidateId || null,
+        steps: output.plan?.steps || [],
+        moves: output.plan?.moves || [],
+        actions: output.plan?.actions || [],
+        end_turn: output.plan?.endTurn !== false
+      };
+    });
+    const steps = outputs.flatMap((output) => output.plan?.steps || []);
     const moves = outputs.flatMap((output) => output.plan?.moves || []);
     const actions = outputs.flatMap((output) => output.plan?.actions || []);
     const doctrineActionTension = buildDoctrineActionTension(battlefieldAssessment, actions);
@@ -3343,7 +3431,7 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
     return {
       controllerId: this.id,
       actorId: encounter.activeActorId,
-      plan: { moves, actions, endTurn: true },
+      plan: { groupedPlan, steps, moves, actions, endTurn: true },
       selectedCandidateId: outputs.map((output) => output.selectedCandidateId).filter(Boolean).join('|') || null,
       candidates: outputs.flatMap((output) => output.candidates || []),
       explanation: {
@@ -3390,6 +3478,19 @@ class SequentialGroupController {
       else if (actor?.cell) reservedDestinations.add(cellKey(actor.cell));
       outputs.push(output);
     }
+    const groupedPlan = outputs.map((output) => {
+      const actor = encounter.actors.find((entry) => entry.id === output.actorId);
+      return {
+        actorId: output.actorId,
+        token: actor?.name || null,
+        selectedCandidateId: output.selectedCandidateId || null,
+        steps: output.plan?.steps || [],
+        moves: output.plan?.moves || [],
+        actions: output.plan?.actions || [],
+        end_turn: output.plan?.endTurn !== false
+      };
+    });
+    const steps = outputs.flatMap((output) => output.plan?.steps || []);
     const moves = outputs.flatMap((output) => output.plan?.moves || []);
     const actions = outputs.flatMap((output) => output.plan?.actions || []);
     const logs = [
@@ -3408,7 +3509,7 @@ class SequentialGroupController {
     return {
       controllerId: this.id,
       actorId: encounter.activeActorId,
-      plan: { moves, actions, endTurn: true },
+      plan: { groupedPlan, steps, moves, actions, endTurn: true },
       selectedCandidateId: outputs.map((output) => output.selectedCandidateId).filter(Boolean).join('|') || null,
       candidates: outputs.flatMap((output) => output.candidates || []),
       explanation: {
@@ -3519,6 +3620,8 @@ export function getController(controllerId, registry = createControllerRegistry(
 export function tacticalOutputToVttPlan(output = {}) {
   return {
     summary: output.explanation?.summary || '',
+    groupedPlan: output.plan?.groupedPlan || [],
+    steps: output.plan?.steps || [],
     moves: output.plan?.moves || [],
     actions: output.plan?.actions || [],
     end_turn: output.plan?.endTurn !== false,
