@@ -411,7 +411,7 @@ test('supervised utility group emits one combined VTT plan for grouped actors', 
   assert.match(output.logs[0].message, /supervised 2 grouped activations/);
   assert.ok(output.logs[0].data.battlefieldAssessment.doctrine);
   assert.ok(output.logs[0].data.doctrineActionTension.status);
-  assert.match(output.logs[0].data.doctrineInfluence.note, /doctrine modifiers/);
+  assert.match(output.logs[0].data.doctrineInfluence.note, /(doctrine modifiers|only protect_caster has explicit doctrine score modifiers)/);
   assert.equal(output.logs[0].data.reservations.length, 2);
   const actorLog = output.logs.find((log) => log.data?.diagnostics);
   assert.match(actorLog.message, /raw .*mechanically distinct .*tactical groups/);
@@ -1497,6 +1497,51 @@ test('shoot-and-scoot is not emitted for a firing cell without line of sight', (
   ), false);
 });
 
+test('candidate bounds audit stays clean for ranged candidates near the map edge', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'edge-bounds-audit',
+    activeActorId: 'archer',
+    battlefield: { width: 8, height: 8, edges: [], tiles: [], interactables: [] },
+    actors: [
+      {
+        id: 'archer',
+        name: 'Archer',
+        side: 'monsters',
+        cell: { x: 0, y: 3 },
+        speed: 30,
+        tactical: { role: 'skirmisher', function: 'ranged_harrier' },
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] }
+    ]
+  });
+  const actor = encounter.actors[0];
+  const candidates = generateCandidateActions(encounter, actor, { limit: 48 });
+  for (const candidate of candidates) {
+    for (const location of [
+      candidate.fromCell,
+      candidate.move?.to,
+      candidate.action?.from,
+      candidate.metadata?.attackCell,
+      candidate.metadata?.hideCell,
+      ...(candidate.move?.path || []),
+      ...(candidate.metadata?.attackPath || []),
+      ...(candidate.metadata?.postAttackPath || [])
+    ].filter(Boolean)) {
+      assert.equal(isCellInBounds(encounter, location), true, `${candidate.id} should stay in bounds at ${location.x},${location.y}`);
+    }
+  }
+
+  const output = await new SupervisorScriptedController().chooseAction({
+    encounter,
+    actorId: 'archer',
+    candidateLimit: 36
+  });
+  const decision = output.logs[0].data;
+  assert.equal(decision.diagnostics.candidateBoundsAudit.outOfBoundsCellCount, 0);
+  assert.equal(decision.diagnostics.candidateBoundsAudit.selectedOutOfBounds, false);
+});
+
 test('disciplined blocker may fire from current screening position', async () => {
   const encounter = normalizeEncounterState({
     id: 'blocker-current-ranged-screen',
@@ -1600,6 +1645,46 @@ test('disciplined blocker may shoot-and-scoot when the hide cell preserves the p
   assert.equal(output.logs[0].data.selected.supervisorBreakdown.doctrineBlockerLaneBonus, 2);
   assert.match(output.logs[0].data.selected.protectedAssetSafetyDelta.assessment, /^(improves|preserves)$/);
   assert.equal(output.logs[0].data.selected.protectedAssetSafetyDelta.maintainsProtectedScreen, true);
+});
+
+test('blocker ranged skirmish movement without an authored defended objective is classified as ambiguous rather than illegal', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'blocker-ambiguous-line',
+    activeActorId: 'hobgoblin',
+    battlefield: {
+      width: 10,
+      height: 7,
+      edges: [{ orientation: 'h', x: 4, y: 2, blocksMovement: false, blocksLineOfSight: true }],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'hobgoblin',
+        name: 'Hobgoblin',
+        side: 'monsters',
+        cell: { x: 3, y: 3 },
+        speed: 30,
+        tactical: { role: 'blocker', function: 'hold_line' },
+        attacks: [{ name: 'Longbow', attackKind: 'ranged', rangeFt: 150, expectedDamage: 6 }]
+      },
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 6, y: 3 }, speed: 30, attacks: [] }
+    ]
+  });
+
+  const output = await new SupervisorScriptedController().chooseAction({
+    encounter,
+    actorId: 'hobgoblin',
+    candidateLimit: 36
+  });
+  const roleCompliance = output.logs[0].data.diagnostics.roleCompliance;
+
+  assert.match(output.selectedCandidateId, /^shoot_and_scoot:/);
+  assert.equal(roleCompliance.role, 'blocker');
+  assert.equal(roleCompliance.function, 'hold_line');
+  assert.equal(roleCompliance.status, 'weak_pass');
+  assert.equal(roleCompliance.classification, 'mapping_or_fixture_ambiguous');
+  assert.match(roleCompliance.concern, /no explicit defended asset or objective/i);
 });
 
 test('bugbear ambusher candidates include hidden and stalking options', () => {
@@ -2596,8 +2681,9 @@ test('Stony Shore group controller preserves benchmark behavior roles', async ()
   assert.equal(crocodile.diagnostics.roleCompliance?.function, 'grappler');
   assert.equal(crocodile.selected.family, 'hold_hidden');
   assert.equal(crocodile.selected.actionName, 'hold_hidden');
-  assert.equal(crocodile.diagnostics.candidateSetHealth?.status, 'warning');
-  assert.equal(crocodile.diagnostics.roleCompliance?.status, 'warning');
+  assert.equal(crocodile.diagnostics.candidateSetHealth?.status, 'weak_pass');
+  assert.equal(crocodile.diagnostics.roleCompliance?.status, 'pass');
+  assert.equal(crocodile.diagnostics.roleCompliance?.classification, 'unsupported_ambush_trigger');
   assert.deepEqual(
     crocodile.diagnostics.candidateSetHealth?.missingExpectedCandidates,
     ['move_and_attack', 'attack_from_current']
@@ -2723,6 +2809,27 @@ test('group controller preserves direct tactical function on live-token-shaped a
   assert.equal(decisionLogs.get('lizardfolk')?.data?.diagnostics?.candidateSetHealth?.function, 'ranged_harrier');
   assert.equal(decisionLogs.get('troll')?.data?.diagnostics?.candidateSetHealth?.role, 'blocker');
   assert.equal(decisionLogs.get('troll')?.data?.diagnostics?.candidateSetHealth?.function, 'zone_anchor');
+});
+
+test('Sinkhole Watch audit shows descriptive doctrine and blocker mapping ambiguity rather than a hard legality failure', async () => {
+  const fixture = sinkholeWatchFixture();
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter: fixture.encounter,
+    activationGroup: fixture.encounter.activationGroups[0],
+    candidateLimit: 36
+  });
+  const doctrineLog = output.logs.find((log) => log.phase === 'doctrine_influence');
+  const hobgoblinDecisions = output.logs
+    .filter((log) => log.phase === 'decision')
+    .filter((log) => ['2emieq7f', 'bggpdl26'].includes(log.actorId))
+    .map((log) => log.data);
+
+  assert.ok(doctrineLog);
+  assert.equal(doctrineLog.data.doctrineInfluence.scoringMode, 'descriptive');
+  assert.match(doctrineLog.data.doctrineInfluence.note, /only protect_caster has explicit doctrine score modifiers/i);
+  assert.equal(hobgoblinDecisions.length, 2);
+  assert.equal(hobgoblinDecisions.every((decision) => decision.selected?.family === 'shoot_and_scoot'), true);
+  assert.equal(hobgoblinDecisions.every((decision) => decision.diagnostics?.roleCompliance?.classification === 'mapping_or_fixture_ambiguous'), true);
 });
 
 test('visible fixture actors without tactical metadata keep inferred roles', async () => {

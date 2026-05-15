@@ -2004,21 +2004,128 @@ function buildTacticalSummaryGroups(uniqueScored = [], actor = null, encounter =
     .slice(0, limit);
 }
 
-function buildScoreFlatnessDiagnostic(scored = [], topLimit = 8) {
+function buildScoreFlatnessDiagnostic(encounter, actor, scored = [], topLimit = 8) {
   if (!scored.length) return { status: 'ok', identicalTopCount: 0 };
   const topScore = Number(scored[0].score.toFixed(2));
-  const identicalTopCount = scored
+  const topSlice = scored
     .slice(0, topLimit)
-    .filter((entry) => Number(entry.score.toFixed(2)) === topScore).length;
+    .filter((entry) => Number(entry.score.toFixed(2)) === topScore);
+  const identicalTopCount = topSlice.length;
+  const featureVectors = topSlice.map((entry) => flatnessFeatureVector(encounter, actor, entry.candidate, entry.score));
+  const varyingFeatures = differingFlatnessFeatures(featureVectors);
   return {
     status: identicalTopCount >= 3 ? 'warning' : 'ok',
     topScore,
     identicalTopCount,
     inspectedTopCount: Math.min(topLimit, scored.length),
+    featureVectors,
+    varyingFeatures,
+    tiedCandidatesAreMechanicallyIdentical: identicalTopCount >= 2 && varyingFeatures.length === 0,
     possibleMissingDifferentiators: identicalTopCount >= 3
-      ? ['target_priority', 'cover_quality', 'path_safety', 'role_objective_alignment']
+      ? varyingFeatures.length
+        ? varyingFeatures
+        : ['target_priority', 'cover_quality', 'path_safety', 'role_objective_alignment']
       : []
   };
+}
+
+function candidateCellsForAudit(candidate = {}, actor = null) {
+  return [
+    { label: 'fromCell', cell: candidate.fromCell || null },
+    { label: 'move.to', cell: candidate.move?.to || null },
+    { label: 'action.from', cell: candidate.action?.from || null },
+    { label: 'metadata.attackCell', cell: candidate.metadata?.attackCell || null },
+    { label: 'metadata.hideCell', cell: candidate.metadata?.hideCell || null },
+    ...((candidate.move?.path || []).map((cell) => ({ label: 'move.path', cell }))),
+    ...((candidate.metadata?.attackPath || []).map((cell) => ({ label: 'metadata.attackPath', cell }))),
+    ...((candidate.metadata?.postAttackPath || []).map((cell) => ({ label: 'metadata.postAttackPath', cell })))
+  ].filter((entry) => entry.cell);
+}
+
+function buildCandidateBoundsAudit(encounter, actor, scored = [], selected = null) {
+  const violations = [];
+  for (const entry of scored) {
+    const candidate = entry?.candidate || {};
+    for (const location of candidateCellsForAudit(candidate, actor)) {
+      if (!isCellInsideBattlefield(encounter, location.cell)) {
+        violations.push({
+          candidateId: candidate.id,
+          family: candidate.family,
+          label: candidate.label,
+          source: location.label,
+          cell: normalizeCell(location.cell),
+          score: entry.score
+        });
+      }
+    }
+  }
+  const byFamily = violations.reduce((counts, violation) => {
+    counts[violation.family] = (counts[violation.family] || 0) + 1;
+    return counts;
+  }, {});
+  const selectedViolations = selected
+    ? violations.filter((violation) => violation.candidateId === selected.id)
+    : [];
+  return {
+    status: violations.length ? (selectedViolations.length ? 'warning' : 'watch') : 'ok',
+    outOfBoundsCellCount: violations.length,
+    outOfBoundsCandidateCount: new Set(violations.map((violation) => violation.candidateId)).size,
+    byFamily,
+    selectedOutOfBounds: selectedViolations.length > 0,
+    sample: violations.slice(0, 8)
+  };
+}
+
+function flatnessFeatureVector(encounter, actor, candidate, score = null) {
+  const finalCell = candidateFinalCell(candidate, actor);
+  const primaryTarget = candidate.targetIds?.[0]
+    ? encounter?.actors?.find((entry) => entry.id === candidate.targetIds[0]) || null
+    : null;
+  const nearestEnemyDistance = actor && finalCell
+    ? enemiesFor(encounter, actor).reduce((minDistance, enemy) =>
+      Math.min(minDistance, gridDistance(finalCell, enemy.cell)), Infinity)
+    : Infinity;
+  const escapeNeighbors = finalCell
+    ? neighborCells(encounter, finalCell, { actor }).filter((cell) =>
+      canActorOccupyCell(encounter, actor, cell, { excludeActorId: actor?.id || null })
+    ).length
+    : 0;
+  const firingCell = candidate.metadata?.attackCell || candidate.action?.from || candidate.fromCell || finalCell || null;
+  const targetVisibleFromFinal = primaryTarget && finalCell
+    ? hasLineOfSight(encounter, actor, primaryTarget, finalCell)
+    : null;
+  return {
+    candidateId: candidate.id,
+    family: candidate.family,
+    score: score == null ? null : Number(score.toFixed(2)),
+    pathLength: candidate.move?.path?.length ?? 0,
+    finalCell: finalCell ? coordLabel(finalCell) : '',
+    firingCell: firingCell ? coordLabel(firingCell) : '',
+    finalDistanceToTarget: primaryTarget && finalCell ? gridDistance(finalCell, primaryTarget.cell) : null,
+    finalDistanceToNearestEnemy: Number.isFinite(nearestEnemyDistance) ? nearestEnemyDistance : null,
+    numberOfEscapeNeighbors: escapeNeighbors,
+    endsAdjacentToEnemy: Number.isFinite(nearestEnemyDistance) ? nearestEnemyDistance <= 1 : false,
+    breaksLineOfSight: candidate.family === 'shoot_and_scoot'
+      ? normalizeNumber(candidate.metadata?.visibilityReduction, 0) > 0
+      : (primaryTarget && firingCell && finalCell
+        ? hasLineOfSight(encounter, actor, primaryTarget, firingCell) && targetVisibleFromFinal === false
+        : false),
+    roleFunctionAlignment: `${inferActorRole(actor)}/${inferActorFunction(actor) || 'none'}`
+  };
+}
+
+function differingFlatnessFeatures(vectors = []) {
+  const inspectableKeys = [
+    'pathLength',
+    'finalDistanceToTarget',
+    'finalDistanceToNearestEnemy',
+    'numberOfEscapeNeighbors',
+    'endsAdjacentToEnemy',
+    'breaksLineOfSight',
+    'finalCell',
+    'firingCell'
+  ];
+  return inspectableKeys.filter((key) => new Set(vectors.map((vector) => JSON.stringify(vector[key]))).size > 1);
 }
 
 function candidateCategory(candidate = {}) {
@@ -2120,14 +2227,24 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
       return true;
     });
   }
-  const status = severityMissingCandidates.length >= Math.max(2, Math.ceil(expectedFamilies.length / 2))
+  let status = severityMissingCandidates.length >= Math.max(2, Math.ceil(expectedFamilies.length / 2))
     ? 'warning'
     : (severityMissingCandidates.length || missingExpectedCandidates.length) ? 'weak_pass' : 'pass';
+  let note = '';
+  if (
+    role === 'lurker' &&
+    availableFamilies.some((family) => ['hold_hidden', 'stalk_to_cover'].includes(family)) &&
+    severityMissingCandidates.every((family) => ['move_and_attack', 'attack_from_current'].includes(family))
+  ) {
+    status = 'weak_pass';
+    note = 'lurker can preserve hidden/stalking posture, but ambush trigger and reveal timing remain under-modeled';
+  }
   return {
     role,
     function: inferActorFunction(actor),
     behavior,
     status,
+    note,
     availableFamilies,
     expectedFamilies,
     missingExpectedCandidates,
@@ -2167,7 +2284,7 @@ function buildSpellTargetExplanation(encounter, actor, selected, uniqueScored = 
   };
 }
 
-function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null) {
+function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null, context = {}) {
   const behavior = behaviorProfileForActor(actor);
   const role = inferActorRole(actor);
   const tacticalFunction = inferActorFunction(actor);
@@ -2175,16 +2292,35 @@ function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null)
   const checks = [];
   let status = 'pass';
   let concern = '';
+  let classification = 'aligned';
   const actionType = candidate?.action?.type || '';
   const attackKind = candidate?.action?.attackKind || '';
-  const spellKind = candidate?.action?.spellKind || '';
   const family = candidate?.family || '';
 
   if (role === 'blocker') {
     checks.push({ label: 'controlsSpace', ok: ['hold_position', 'advance_to_attack', 'attack_from_current', 'move_and_attack'].includes(family) });
     if (family === 'shoot_and_scoot') {
-      status = 'warning';
-      concern = 'blocker is using skirmish movement and may abandon space-control duties';
+      const protectedDelta = context.selectedProtectedAssetSafetyDelta;
+      const tactical = normalizeTacticalMetadata(actor.tactical);
+      const authoredDefensiveObjective = tactical.protectedAsset || tactical.objectiveRole || tactical.intent.some((intent) => /^(protect_|guard_|hold_)/.test(intent));
+      if (protectedDelta?.assessment === 'worsens') {
+        status = 'warning';
+        concern = 'blocker shoot_and_scoot appears to worsen the defended line/protected screen';
+        classification = 'line_abandoned';
+      } else if (protectedDelta?.assessment === 'preserves' || protectedDelta?.assessment === 'improves') {
+        status = 'weak_pass';
+        concern = 'blocker shoot_and_scoot preserved the current defended line while taking a ranged skirmish action';
+        classification = 'line_preserved';
+        checks[0].ok = true;
+      } else if (authoredDefensiveObjective) {
+        status = 'weak_pass';
+        concern = 'blocker used skirmish movement, but the defended lane/objective is not modeled precisely enough to classify this as abandonment';
+        classification = 'defended_line_ambiguous';
+      } else {
+        status = 'weak_pass';
+        concern = 'blocker used skirmish movement; with no explicit defended asset or objective, hold_line remains ambiguous';
+        classification = 'mapping_or_fixture_ambiguous';
+      }
     }
   } else if (role === 'striker') {
     checks.push({ label: 'appliesPressure', ok: ['move_and_attack', 'attack_from_current', 'advance_to_attack'].includes(family) });
@@ -2223,16 +2359,27 @@ function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null)
       concern = 'leader command/support candidate families are not implemented yet';
     }
   } else if (role === 'lurker') {
-    checks.push({ label: 'pressuresMeleeOrIntercepts', ok: attackKind === 'melee' || ['advance_to_attack', 'hold_position'].includes(family) });
+    checks.push({ label: 'pressuresMeleeOrIntercepts', ok: attackKind === 'melee' || ['advance_to_attack', 'hold_position', 'hold_hidden', 'stalk_to_cover'].includes(family) });
     if (attackKind === 'ranged' || family === 'shoot_and_scoot') {
       status = 'warning';
       concern = 'lurker is taking a ranged/skirmish line instead of preserving ambush pressure';
+      classification = 'ranged_lurker_mismatch';
+    } else if (family === 'hold_hidden' && candidate.metadata?.engaged === false) {
+      status = 'pass';
+      concern = 'lurker is holding hidden in a plausible wait state; ambush trigger timing is still unsupported';
+      classification = 'unsupported_ambush_trigger';
+    } else if (family === 'stalk_to_cover') {
+      status = 'weak_pass';
+      concern = 'lurker is repositioning to preserve ambush posture; reveal/trigger logic is still under-modeled';
+      classification = 'unsupported_ambush_trigger';
     } else if (candidateSetHealth?.status === 'warning') {
-      status = 'warning';
-      concern = 'lurker selected a plausible action, but the candidate set lacks ambush-specific options';
+      status = 'weak_pass';
+      concern = 'lurker selected a plausible action, but the candidate set lacks full ambush-specific follow-through';
+      classification = 'candidate_coverage_thin';
     } else if (candidateSetHealth?.status === 'weak_pass') {
       status = 'weak_pass';
       concern = 'lurker selected a plausible action, but candidate coverage is thin';
+      classification = 'candidate_coverage_thin';
     }
   } else if (role === 'artillery') {
     checks.push({ label: 'projectsRangedPressure', ok: attackKind === 'ranged' || ['attack_from_current', 'hold_position'].includes(family) });
@@ -2244,7 +2391,7 @@ function roleComplianceForCandidate(actor, candidate, candidateSetHealth = null)
     checks.push({ label: 'usesStaticOrEffectFamily', ok: ['hold_position', 'trigger_effect', 'area_effect', 'interactable_effect'].includes(family) });
   }
 
-  return { role, function: tacticalFunction, behavior, status, concern, checks };
+  return { role, function: tacticalFunction, behavior, status, concern, classification, checks };
 }
 
 function protectedAssetSafetyDelta(encounter, actor, candidate, doctrineContext = {}) {
@@ -2332,7 +2479,9 @@ function buildCandidateDiagnostics(encounter, actor, scored = [], selected = nul
     : null;
   const candidateSetHealth = buildCandidateSetHealth(actor, uniqueScored);
   const tacticalSummaryGroups = buildTacticalSummaryGroups(uniqueScored, actor, encounter, 5);
-  const scoreFlatness = buildScoreFlatnessDiagnostic(scored);
+  const scoreFlatness = buildScoreFlatnessDiagnostic(encounter, actor, scored);
+  const selectedProtectedAssetSafetyDelta = selected ? protectedAssetSafetyDelta(encounter, actor, selected, doctrineContext) : null;
+  const candidateBoundsAudit = buildCandidateBoundsAudit(encounter, actor, scored, selected);
 
   return {
     rawCandidateCount: scored.length,
@@ -2346,15 +2495,18 @@ function buildCandidateDiagnostics(encounter, actor, scored = [], selected = nul
     targetsRepresented,
     selectedScoreBreakdown: selectedScored?.scoreBreakdown || null,
     selectedSupervisorBreakdown: selectedScored?.supervisorFeatures || null,
-    selectedProtectedAssetSafetyDelta: selected ? protectedAssetSafetyDelta(encounter, actor, selected, doctrineContext) : null,
     topByCategory,
     topRejectedAlternatives,
     reservationRejected,
     tacticalSummaryGroups,
     scoreFlatness,
+    candidateBoundsAudit,
     candidateSetHealth,
     spellTargetExplanation: selected?.action?.type === 'spell' ? buildSpellTargetExplanation(encounter, actor, selected, uniqueScored) : null,
-    roleCompliance: selected ? roleComplianceForCandidate(actor, selected, candidateSetHealth) : null
+    selectedProtectedAssetSafetyDelta,
+    roleCompliance: selected
+      ? roleComplianceForCandidate(actor, selected, candidateSetHealth, { selectedProtectedAssetSafetyDelta })
+      : null
   };
 }
 
@@ -2948,8 +3100,19 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       actorId: actor.id,
       phase: 'score_flatness',
       level: 'warning',
-      message: `${actor.name} score flatness WARNING: top ${flatness.identicalTopCount} candidates have identical score ${Number(flatness.topScore).toFixed(2)}; possible missing differentiators: ${flatness.possibleMissingDifferentiators.join(', ')}.`,
+      message: `${actor.name} score flatness WARNING: top ${flatness.identicalTopCount} candidates have identical score ${Number(flatness.topScore).toFixed(2)}; possible missing differentiators: ${flatness.possibleMissingDifferentiators.join(', ')}${flatness.varyingFeatures?.length ? `; observed feature differences: ${flatness.varyingFeatures.join(', ')}` : '; tied candidates look mechanically identical on currently tracked audit features'}.`,
       data: { scoreFlatness: flatness }
+    }));
+  }
+  const bounds = diagnostics.candidateBoundsAudit;
+  if (bounds?.status !== 'ok') {
+    logs.push(createDecisionLogEntry({
+      controllerId,
+      actorId: actor.id,
+      phase: 'candidate_bounds',
+      level: bounds.status === 'warning' ? 'warning' : 'info',
+      message: `${actor.name} candidate bounds ${bounds.status.toUpperCase()}: ${bounds.outOfBoundsCellCount} out-of-bounds cell references across ${bounds.outOfBoundsCandidateCount} candidates${bounds.selectedOutOfBounds ? '; selected candidate includes out-of-bounds coordinates' : '; selected candidate remained in bounds'}.`,
+      data: { candidateBoundsAudit: bounds }
     }));
   }
   const role = diagnostics.roleCompliance;
@@ -2958,8 +3121,8 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       controllerId,
       actorId: actor.id,
       phase: 'role_compliance',
-      level: role.status === 'pass' ? 'info' : 'warning',
-      message: `${actor.name} role compliance ${role.status.toUpperCase()}: role=${role.role}${role.function ? `; function=${role.function}` : ''}${role.behavior ? `; behavior=${compactBehaviorDiagnostic(role.behavior)}` : ''}${role.concern ? `; concern=${role.concern}` : ''}.`,
+      level: role.status === 'warning' ? 'warning' : 'info',
+      message: `${actor.name} role compliance ${role.status.toUpperCase()}: role=${role.role}${role.function ? `; function=${role.function}` : ''}${role.behavior ? `; behavior=${compactBehaviorDiagnostic(role.behavior)}` : ''}${role.classification ? `; classification=${role.classification}` : ''}${role.concern ? `; concern=${role.concern}` : ''}.`,
       data: { roleCompliance: role }
     }));
   }
@@ -2969,8 +3132,8 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       controllerId,
       actorId: actor.id,
       phase: 'candidate_health',
-      level: health.status === 'pass' ? 'info' : 'warning',
-      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}${health.function ? `; function=${health.function}` : ''}${health.behavior ? `; behavior=${compactBehaviorDiagnostic(health.behavior)}` : ''}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}${health.unsupportedExpectedCandidates?.length ? `; unsupported=${health.unsupportedExpectedCandidates.join(', ')}` : ''}.`,
+      level: health.status === 'warning' ? 'warning' : 'info',
+      message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}${health.function ? `; function=${health.function}` : ''}${health.behavior ? `; behavior=${compactBehaviorDiagnostic(health.behavior)}` : ''}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}${health.unsupportedExpectedCandidates?.length ? `; unsupported=${health.unsupportedExpectedCandidates.join(', ')}` : ''}${health.note ? `; note=${health.note}` : ''}.`,
       data: { candidateSetHealth: health }
     }));
   }
@@ -3042,13 +3205,17 @@ function buildDoctrineInfluence(battlefieldAssessment, outputs = []) {
   const penaltiesApplied = applied
     .filter(([, value]) => Number(value) < 0)
     .map(([key, value]) => `${key} ${Number(value).toFixed(2)}`);
+  const scoringMode = battlefieldAssessment?.doctrine === 'protect_caster' ? 'causal' : 'descriptive';
   return {
     doctrine: battlefieldAssessment?.doctrine || 'unknown',
+    scoringMode,
     bonusesApplied,
     penaltiesApplied,
     note: applied.length
       ? 'doctrine modifiers are applied as conservative supervisor score nudges'
-      : 'doctrine modifiers available, but none applied to selected candidates'
+      : scoringMode === 'causal'
+      ? 'doctrine modifiers are available for this doctrine, but none affected the selected candidates'
+      : `selected doctrine is currently descriptive; only protect_caster has explicit doctrine score modifiers`
   };
 }
 
@@ -3416,7 +3583,7 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
         controllerId: this.id,
         actorId: encounter.activeActorId,
         phase: 'doctrine_influence',
-        message: `${this.label} doctrine influence: selected doctrine=${doctrineInfluence.doctrine}; doctrine bonuses applied=${doctrineInfluence.bonusesApplied.length ? doctrineInfluence.bonusesApplied.join(', ') : 'none'}; doctrine penalties applied=${doctrineInfluence.penaltiesApplied.length ? doctrineInfluence.penaltiesApplied.join(', ') : 'none'}; note=${doctrineInfluence.note}.`,
+        message: `${this.label} doctrine influence: selected doctrine=${doctrineInfluence.doctrine}; scoring_mode=${doctrineInfluence.scoringMode}; doctrine bonuses applied=${doctrineInfluence.bonusesApplied.length ? doctrineInfluence.bonusesApplied.join(', ') : 'none'}; doctrine penalties applied=${doctrineInfluence.penaltiesApplied.length ? doctrineInfluence.penaltiesApplied.join(', ') : 'none'}; note=${doctrineInfluence.note}.`,
         data: { doctrineInfluence }
       }),
       createDecisionLogEntry({
