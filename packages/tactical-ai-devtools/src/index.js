@@ -130,18 +130,7 @@ function matchesExpectation(rule, context) {
     return Boolean(value) === !blocked;
   }
   if (key === 'noOccupiedDestination') {
-    const destinations = new Map();
-    const occupied = (plan.moves || []).some((candidateMove) => {
-      const moveActor = actorForPlanToken(encounter, candidateMove.token) || actor;
-      const moveDestination = candidateMove?.to ? normalizePlanCell(candidateMove.to) : moveActor?.cell;
-      if (!moveDestination) return false;
-      const key = `${moveDestination.x},${moveDestination.y}`;
-      if (destinations.has(key)) return true;
-      destinations.set(key, moveActor?.id || candidateMove.token || key);
-      return encounter?.actors?.some((entry) =>
-        entry.id !== moveActor?.id && entry.cell.x === moveDestination.x && entry.cell.y === moveDestination.y
-      );
-    });
+    const occupied = hasSequentialDestinationConflict(encounter, plan.moves || [], actor);
     return Boolean(value) === !occupied;
   }
   throw new Error(`Unknown tactical fixture expectation: ${key}`);
@@ -160,6 +149,32 @@ function normalizePlanCell(cell) {
 function actorForPlanToken(encounter, tokenName = '') {
   const normalized = String(tokenName || '');
   return encounter?.actors?.find((entry) => entry.name === normalized || entry.id === normalized) || null;
+}
+
+function hasSequentialDestinationConflict(encounter, moves = [], fallbackActor = null) {
+  const positions = new Map(
+    (encounter?.actors || []).map((entry) => [
+      entry.id,
+      { x: Number(entry.cell?.x), y: Number(entry.cell?.y) }
+    ])
+  );
+
+  for (const candidateMove of Array.isArray(moves) ? moves : []) {
+    const moveActor = actorForPlanToken(encounter, candidateMove.token) || fallbackActor;
+    const moveDestination = candidateMove?.to ? normalizePlanCell(candidateMove.to) : moveActor?.cell;
+    if (!moveActor || !moveDestination) continue;
+
+    for (const [otherActorId, otherCell] of positions.entries()) {
+      if (otherActorId === moveActor.id) continue;
+      if (otherCell.x === moveDestination.x && otherCell.y === moveDestination.y) {
+        return true;
+      }
+    }
+
+    positions.set(moveActor.id, moveDestination);
+  }
+
+  return false;
 }
 
 function planActions(context) {

@@ -630,7 +630,6 @@ function battlefieldSearchBounds(encounter) {
 function neighborCells(encounter, cell, { actor = null, goal = null } = {}) {
   const current = normalizeCell(cell);
   const actorId = actor?.id || null;
-  const movingSide = actor?.side || null;
   const directions = [
     { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
     { x: -1, y: 0 },                    { x: 1, y: 0 },
@@ -644,7 +643,7 @@ function neighborCells(encounter, cell, { actor = null, goal = null } = {}) {
       const occupant = occupiedCellMap(encounter, { excludeActorId: actorId }).get(cellKey(next));
       if (!occupant) return true;
       if (goal && cellKey(next) === cellKey(goal)) return false;
-      return movingSide && occupant.side === movingSide;
+      return false;
     });
 }
 
@@ -661,9 +660,7 @@ function legacyFindPathCells(encounterInput, fromCell, toCell, { maxExpanded = 3
   let directPathIsLegal = true;
   for (const step of directPath) {
     const occupant = occupiedCellMap(encounter, { excludeActorId: movingActor?.id || null }).get(cellKey(step));
-    const occupiedByOpponent = occupant && (!movingActor?.side || occupant.side !== movingActor.side);
-    const occupiedFinal = occupant && cellKey(step) === cellKey(goal);
-    if (!isCellInsideBattlefield(encounter, step) || hasBlockedMovementPath(encounter, previous, step) || occupiedByOpponent || occupiedFinal) {
+    if (!isCellInsideBattlefield(encounter, step) || hasBlockedMovementPath(encounter, previous, step) || occupant) {
       directPathIsLegal = false;
       break;
     }
@@ -727,7 +724,7 @@ function legacyReachableCells(encounterInput, actorInput, { limit = 24 } = {}) {
       if (!isCellInsideBattlefield(encounter, next)) continue;
       if (hasBlockedMovementPath(encounter, current.cell, next)) continue;
       const occupant = occupiedCellMap(encounter, { excludeActorId: actor?.id || null }).get(cellKey(next));
-      if (occupant && occupant.side !== actor?.side) continue;
+      if (occupant) continue;
       visited.add(key);
       const entry = { ...next, steps: current.steps + 1, path: [...(current.path || []), normalizeCell(next)], occupied: !!occupant };
       if (!occupant) reachable.push(entry);
@@ -3166,6 +3163,21 @@ function formatReservationSummary(reservations = []) {
     .join('; ');
 }
 
+function projectEncounterAfterPlannedMove(encounterInput, actorId, output = {}) {
+  const encounter = normalizeEncounterState(encounterInput);
+  const actor = encounter.actors.find((entry) => entry.id === actorId);
+  if (!actor) return encounter;
+  const finalMove = Array.isArray(output?.plan?.moves) && output.plan.moves.length
+    ? output.plan.moves[output.plan.moves.length - 1]
+    : null;
+  const destination = Array.isArray(finalMove?.to) && finalMove.to.length >= 2
+    ? { x: Number(finalMove.to[0]), y: Number(finalMove.to[1]) }
+    : actor.cell;
+  actor.cell = normalizeCell(destination);
+  encounter.activeActorId = actorId;
+  return encounter;
+}
+
 function buildDoctrineActionTension(battlefieldAssessment, actions = []) {
   const targetCounts = actions.reduce((counts, action) => {
     if (!action?.target || action.target === 'null') return counts;
@@ -3498,11 +3510,12 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
     const outputs = [];
     const resolvedActorIds = actorIds.length ? actorIds : [encounter.activeActorId].filter(Boolean);
     const battlefieldAssessment = buildSupervisorBattlefieldAssessment(encounter, resolvedActorIds);
+    let projectedEncounter = encounter;
     for (const actorId of resolvedActorIds) {
-      const actor = encounter.actors.find((entry) => entry.id === actorId);
+      const actor = projectedEncounter.actors.find((entry) => entry.id === actorId);
       const output = await super.chooseAction({
         ...input,
-        encounter,
+        encounter: projectedEncounter,
         actorId,
         candidateLimit: input.candidateLimit || 36,
         reservedDestinations,
@@ -3530,6 +3543,7 @@ export class SupervisorScriptedGroupController extends SupervisorScriptedControl
         }
       }
       outputs.push(output);
+      projectedEncounter = projectEncounterAfterPlannedMove(projectedEncounter, actorId, output);
     }
     const groupedPlan = outputs.map((output) => {
       const actor = encounter.actors.find((entry) => entry.id === output.actorId);
@@ -3632,11 +3646,12 @@ class SequentialGroupController {
     );
     const reservedDestinations = new Set();
     const outputs = [];
+    let projectedEncounter = encounter;
     for (const actorId of actorIds.length ? actorIds : [encounter.activeActorId].filter(Boolean)) {
-      const actor = encounter.actors.find((entry) => entry.id === actorId);
+      const actor = projectedEncounter.actors.find((entry) => entry.id === actorId);
       const output = await this.baseController.chooseAction({
         ...input,
-        encounter,
+        encounter: projectedEncounter,
         actorId,
         reservedDestinations
       });
@@ -3644,6 +3659,7 @@ class SequentialGroupController {
       if (moveDestination) reservedDestinations.add(`${moveDestination[0]},${moveDestination[1]}`);
       else if (actor?.cell) reservedDestinations.add(cellKey(actor.cell));
       outputs.push(output);
+      projectedEncounter = projectEncounterAfterPlannedMove(projectedEncounter, actorId, output);
     }
     const groupedPlan = outputs.map((output) => {
       const actor = encounter.actors.find((entry) => entry.id === output.actorId);

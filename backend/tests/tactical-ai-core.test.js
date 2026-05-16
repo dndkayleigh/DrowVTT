@@ -99,6 +99,23 @@ function destinationOverlapsActor(actor = {}, destination = null, other = {}) {
   return occupiedCellsForTest(other, other.cell).some((cell) => a.has(`${cell.x},${cell.y}`));
 }
 
+function pathContainsCell(path = [], cell = null) {
+  const x = Number(cell?.x);
+  const y = Number(cell?.y);
+  return (Array.isArray(path) ? path : []).some((step) => Number(step?.x) === x && Number(step?.y) === y);
+}
+
+function assertContiguousPath(path = [], start = null) {
+  const cells = [start, ...(Array.isArray(path) ? path : [])].filter(Boolean);
+  for (let index = 1; index < cells.length; index += 1) {
+    const previous = cells[index - 1];
+    const current = cells[index];
+    const dx = Math.abs(Number(current.x) - Number(previous.x));
+    const dy = Math.abs(Number(current.y) - Number(previous.y));
+    assert.ok(dx <= 1 && dy <= 1 && (dx + dy) > 0, `expected adjacent path steps but saw (${previous.x},${previous.y}) -> (${current.x},${current.y})`);
+  }
+}
+
 function stonyShoreFixture() {
   const source = fs.readFileSync(
     path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/the-stony-shore-ambush-2026-05-09.yaml'),
@@ -511,6 +528,83 @@ test('grouped controller keeps both compound attacker and moving spellcaster pla
 
   const mageSpellLog = output.logs.find((entry) => entry.actorId === 'mage' && /Cone of Cold is modeled as single_target/.test(entry.message));
   assert.ok(mageSpellLog);
+});
+
+test('grouped controller does not route an earlier actor through a later ally start cell', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'grouped-transit-occupancy',
+    round: 1,
+    activeActorId: 'goblin-a',
+    activationGroups: [{
+      id: 'group',
+      actorIds: ['goblin-a', 'mage'],
+      activationMode: 'coordinated_sequential'
+    }],
+    battlefield: {
+      gridSize: 64,
+      width: 12,
+      height: 8,
+      edges: [],
+      tiles: [],
+      interactables: []
+    },
+    actors: [
+      {
+        id: 'goblin-a',
+        name: 'Goblin A',
+        side: 'monsters',
+        cell: { x: 4, y: 3 },
+        speed: 30,
+        attacks: [{ name: 'Shortbow', attackKind: 'ranged', rangeFt: 80, expectedDamage: 5 }],
+        tactical: { role: 'skirmisher', function: 'ranged_harrier' },
+        behavior: { cognition: 'trained', coordination: 'squad' }
+      },
+      {
+        id: 'mage',
+        name: 'Mage',
+        side: 'monsters',
+        cell: { x: 4, y: 2 },
+        speed: 30,
+        attacks: [{ name: 'Dagger', attackKind: 'melee', rangeFt: 5, expectedDamage: 2 }],
+        tactical: { role: 'striker', function: 'brute' },
+        behavior: { cognition: 'trained', coordination: 'squad' }
+      },
+      {
+        id: 'aria',
+        name: 'Aria',
+        side: 'heroes',
+        cell: { x: 9, y: 1 },
+        speed: 30,
+        attacks: []
+      }
+    ]
+  });
+
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter,
+    actorId: encounter.activeActorId,
+    activationGroup: encounter.activationGroups[0],
+    candidateLimit: 24
+  });
+  const plan = tacticalOutputToVttPlan(output);
+  const goblinPlan = plan.groupedPlan.find((entry) => entry.actorId === 'goblin-a');
+  const magePlan = plan.groupedPlan.find((entry) => entry.actorId === 'mage');
+
+  assert.ok(goblinPlan);
+  assert.ok(magePlan);
+
+  const goblinMoveSteps = goblinPlan.steps.filter((step) => step.type === 'move');
+  for (const step of goblinMoveSteps) {
+    const normalizedPath = (step.path || []).map((cell) => ({ x: Number(cell[0]), y: Number(cell[1]) }));
+    assert.equal(pathContainsCell(normalizedPath, { x: 4, y: 2 }), false);
+    assertContiguousPath(normalizedPath, { x: 4, y: 3 });
+  }
+
+  const mageMoveStep = magePlan.steps.find((step) => step.type === 'move');
+  if (mageMoveStep) {
+    const normalizedPath = (mageMoveStep.path || []).map((cell) => ({ x: Number(cell[0]), y: Number(cell[1]) }));
+    assertContiguousPath(normalizedPath, { x: 4, y: 2 });
+  }
 });
 
 test('controller registry resolves canonical and legacy supervised utility ids to the same plan shape', async () => {
