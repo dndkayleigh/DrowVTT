@@ -4,6 +4,10 @@ import assert from 'node:assert/strict';
 import {
   computeCanvasContextMenuTarget,
   computeCanvasMouseDownIntent,
+  blockingEdgesAreConnected,
+  blockingEdgeFromWorldPoint,
+  chooseLockedBlockingEdgeOrientation,
+  collectBlockingEdgesAlongWorldPath,
   computeAiGroupAssignment,
   computeAiControlsState,
   computeCurrentTurnSelectionState,
@@ -342,6 +346,52 @@ test('shared VTT runtime helpers validate and apply token movement', () => {
     blockingEdges: ['h:0,1']
   });
   assert.equal(openLine, null);
+});
+
+test('shared blocking edge helpers collect connected drag strokes', () => {
+  assert.equal(
+    blockingEdgeFromWorldPoint({ x: 32, y: 64 }, { cellSize: 64, zoom: 1 }),
+    'h:0,1'
+  );
+  assert.deepEqual(
+    collectBlockingEdgesAlongWorldPath({
+      startWorldPoint: { x: 32, y: 64 },
+      endWorldPoint: { x: 160, y: 64 },
+      cellSize: 64,
+      zoom: 1,
+      preferredOrientation: 'h',
+      lastEdge: 'h:0,1'
+    }),
+    ['h:0,1', 'h:1,1', 'h:2,1']
+  );
+  assert.equal(blockingEdgesAreConnected('h:1,1', 'v:1,1'), true);
+  assert.equal(blockingEdgesAreConnected('h:0,1', 'h:3,1'), false);
+});
+
+test('shared blocking edge helpers switch orientation at connected corners', () => {
+  assert.equal(
+    chooseLockedBlockingEdgeOrientation({
+      currentOrientation: 'v',
+      worldPoint: { x: 96, y: 126 },
+      anchorWorldPoint: { x: 64, y: 32 },
+      lastEdge: 'v:1,1',
+      cellSize: 64,
+      zoom: 1
+    }),
+    'h'
+  );
+
+  assert.equal(
+    chooseLockedBlockingEdgeOrientation({
+      currentOrientation: 'h',
+      worldPoint: { x: 126, y: 96 },
+      anchorWorldPoint: { x: 32, y: 64 },
+      lastEdge: 'h:1,1',
+      cellSize: 64,
+      zoom: 1
+    }),
+    'v'
+  );
 });
 
 test('shared VTT runtime helpers expose token-row, turn-dropdown, and editor state', () => {

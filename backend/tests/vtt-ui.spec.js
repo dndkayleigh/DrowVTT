@@ -310,6 +310,24 @@ async function clickStageWorld(page, worldX, worldY) {
   await page.mouse.click(clientX, clientY);
 }
 
+async function dragStageWorld(page, startWorld, endWorld, { steps = 12 } = {}) {
+  const canvas = page.locator('#stage');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box unavailable');
+
+  const snapshot = await page.evaluate(() => window.__VTT_DEBUG__.getBoardSnapshot());
+  const { zoom, panX, panY } = snapshot.state.view;
+  const startX = box.x + (startWorld.x * zoom) + panX;
+  const startY = box.y + (startWorld.y * zoom) + panY;
+  const endX = box.x + (endWorld.x * zoom) + panX;
+  const endY = box.y + (endWorld.y * zoom) + panY;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(endX, endY, { steps });
+  await page.mouse.up();
+}
+
 async function rightClickTokenOnStage(page, name) {
   const canvas = page.locator('#stage');
   const box = await canvas.boundingBox();
@@ -2372,6 +2390,20 @@ test('blocking edge controls persist edges while allowing manual movement across
   await expectTokenCell(page, 'Scout', 0, 1);
   await openDrawerTab(page, 'log');
   await expect(page.locator('#logBox')).not.toContainText('blocking edge blocks the path');
+});
+
+test('blocking edge drag painting fills connected edges across one stroke', async ({ page }) => {
+  await openDetails(page, '#mapSection');
+  await page.locator('#blockingDrawBtn').click();
+  await closeDrawer(page);
+
+  await dragStageWorld(page, { x: 32, y: 60 }, { x: 160, y: 60 });
+
+  await expect.poll(async () => page.evaluate(() => window.__VTT_DEBUG__.getBlockingEdges())).toEqual([
+    'h:0,1',
+    'h:1,1',
+    'h:2,1'
+  ]);
 });
 
 test('blocking edges block ranged tactics attacks through line of fire', async ({ page }) => {

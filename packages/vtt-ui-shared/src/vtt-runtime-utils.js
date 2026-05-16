@@ -477,6 +477,227 @@ export function parseBlockingEdgeKey(edgeKey) {
   return { orientation, x, y, key: normalized };
 }
 
+function blockingEdgeEndpointKeys(edge) {
+  if (!edge) return [];
+  if (edge.orientation === 'h') {
+    return [`${edge.x},${edge.y}`, `${edge.x + 1},${edge.y}`];
+  }
+  return [`${edge.x},${edge.y}`, `${edge.x},${edge.y + 1}`];
+}
+
+function blockingEdgeWorldEndpoints(edge, cellSize = 64) {
+  if (!edge) return [];
+  if (edge.orientation === 'h') {
+    return [
+      { x: edge.x * cellSize, y: edge.y * cellSize },
+      { x: (edge.x + 1) * cellSize, y: edge.y * cellSize }
+    ];
+  }
+  return [
+    { x: edge.x * cellSize, y: edge.y * cellSize },
+    { x: edge.x * cellSize, y: (edge.y + 1) * cellSize }
+  ];
+}
+
+export function blockingEdgesAreConnected(a, b) {
+  const left = parseBlockingEdgeKey(a);
+  const right = parseBlockingEdgeKey(b);
+  if (!left || !right) return false;
+  if (left.key === right.key) return true;
+  const endpoints = new Set(blockingEdgeEndpointKeys(left));
+  return blockingEdgeEndpointKeys(right).some((key) => endpoints.has(key));
+}
+
+function shouldTurnAtConnectedCorner({
+  worldPoint,
+  currentOrientation,
+  anchorWorldPoint,
+  lastEdge,
+  cellSize = 64,
+  zoom = 1
+} = {}) {
+  if (!worldPoint || !anchorWorldPoint || !lastEdge || lastEdge.orientation !== currentOrientation) return false;
+
+  const dx = Number(worldPoint.x) - Number(anchorWorldPoint.x);
+  const dy = Number(worldPoint.y) - Number(anchorWorldPoint.y);
+  const perpendicularTravel = currentOrientation === 'v' ? Math.abs(dx) : Math.abs(dy);
+  const minPerpendicularTravel = Math.max(8 / Math.max(0.2, zoom), cellSize * 0.08);
+  if (perpendicularTravel < minPerpendicularTravel) return false;
+
+  const alongAllowance = Math.max(24 / Math.max(0.2, zoom), cellSize * 0.55);
+  const perpendicularAllowance = Math.max(24 / Math.max(0.2, zoom), cellSize * 0.6);
+  const endpoints = blockingEdgeWorldEndpoints(lastEdge, cellSize);
+  return endpoints.some((endpoint) => {
+    const distX = Number(worldPoint.x) - endpoint.x;
+    const distY = Number(worldPoint.y) - endpoint.y;
+    if (currentOrientation === 'v') {
+      return Math.abs(distY) <= alongAllowance && Math.abs(distX) <= perpendicularAllowance;
+    }
+    return Math.abs(distX) <= alongAllowance && Math.abs(distY) <= perpendicularAllowance;
+  });
+}
+
+export function chooseLockedBlockingEdgeOrientation({
+  currentOrientation = null,
+  worldPoint,
+  anchorWorldPoint,
+  lastEdge,
+  cellSize = 64,
+  zoom = 1
+} = {}) {
+  if (!currentOrientation || !worldPoint || !anchorWorldPoint) return currentOrientation || null;
+
+  const dx = Number(worldPoint.x) - Number(anchorWorldPoint.x);
+  const dy = Number(worldPoint.y) - Number(anchorWorldPoint.y);
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+  const switchThreshold = Math.max(9 / Math.max(0.2, zoom), cellSize * 0.15);
+  const dominanceRatio = 1.08;
+  const parsedLastEdge = parseBlockingEdgeKey(lastEdge);
+
+  if (
+    currentOrientation === 'v' &&
+    (
+      shouldTurnAtConnectedCorner({
+        worldPoint,
+        currentOrientation,
+        anchorWorldPoint,
+        lastEdge: parsedLastEdge,
+        cellSize,
+        zoom
+      }) ||
+      (absX > switchThreshold && absX > absY * dominanceRatio)
+    )
+  ) {
+    return 'h';
+  }
+
+  if (
+    currentOrientation === 'h' &&
+    (
+      shouldTurnAtConnectedCorner({
+        worldPoint,
+        currentOrientation,
+        anchorWorldPoint,
+        lastEdge: parsedLastEdge,
+        cellSize,
+        zoom
+      }) ||
+      (absY > switchThreshold && absY > absX * dominanceRatio)
+    )
+  ) {
+    return 'v';
+  }
+
+  return currentOrientation;
+}
+
+export function blockingEdgeFromWorldPoint(
+  worldPoint,
+  {
+    cellSize = 64,
+    zoom = 1,
+    preferredOrientation = null,
+    forceOrientation = false,
+    strictOrientationLock = false
+  } = {}
+) {
+  if (!worldPoint) return null;
+  const gridX = Number(worldPoint.x) / cellSize;
+  const gridY = Number(worldPoint.y) / cellSize;
+  if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) return null;
+
+  const candidates = [];
+  const nearestVerticalX = Math.round(gridX);
+  candidates.push({
+    orientation: 'v',
+    x: nearestVerticalX,
+    y: Math.floor(gridY),
+    distance: Math.abs(Number(worldPoint.x) - (nearestVerticalX * cellSize))
+  });
+
+  const nearestHorizontalY = Math.round(gridY);
+  candidates.push({
+    orientation: 'h',
+    x: Math.floor(gridX),
+    y: nearestHorizontalY,
+    distance: Math.abs(Number(worldPoint.y) - (nearestHorizontalY * cellSize))
+  });
+
+  candidates.sort((left, right) => left.distance - right.distance);
+  let selected = candidates[0] || null;
+  if (!selected) return null;
+
+  if (preferredOrientation) {
+    const preferred = candidates.find((candidate) => candidate.orientation === preferredOrientation);
+    const alternate = candidates.find((candidate) => candidate.orientation !== preferredOrientation);
+    if (preferred) {
+      selected = preferred;
+      if (
+        alternate &&
+        !strictOrientationLock &&
+        alternate.distance + Math.max(4 / Math.max(0.2, zoom), cellSize * 0.08) < preferred.distance
+      ) {
+        selected = alternate;
+      }
+    } else if (forceOrientation) {
+      return null;
+    }
+  }
+
+  const threshold = Math.max(8, 12 / Math.max(0.2, zoom));
+  if (selected.distance > threshold) return null;
+  return normalizeBlockingEdgeKey(selected) || null;
+}
+
+export function collectBlockingEdgesAlongWorldPath(
+  {
+    startWorldPoint,
+    endWorldPoint,
+    cellSize = 64,
+    zoom = 1,
+    preferredOrientation = null,
+    lastEdge = null
+  } = {}
+) {
+  if (!startWorldPoint || !endWorldPoint) return [];
+  const dx = Number(endWorldPoint.x) - Number(startWorldPoint.x);
+  const dy = Number(endWorldPoint.y) - Number(startWorldPoint.y);
+  const distance = Math.max(Math.abs(dx), Math.abs(dy));
+  const stepSize = Math.max(4 / Math.max(0.2, zoom), cellSize * 0.18);
+  const steps = Math.max(1, Math.ceil(distance / stepSize));
+  const edges = [];
+  const seen = new Set();
+  let previousEdge = parseBlockingEdgeKey(lastEdge);
+
+  for (let index = 0; index <= steps; index += 1) {
+    const t = index / steps;
+    const edgeKey = blockingEdgeFromWorldPoint({
+      x: Number(startWorldPoint.x) + (dx * t),
+      y: Number(startWorldPoint.y) + (dy * t)
+    }, {
+      cellSize,
+      zoom,
+      preferredOrientation,
+      forceOrientation: Boolean(preferredOrientation),
+      strictOrientationLock: Boolean(preferredOrientation)
+    });
+    const edge = parseBlockingEdgeKey(edgeKey);
+    if (!edge) continue;
+    if (previousEdge && !blockingEdgesAreConnected(previousEdge, edge)) continue;
+    if (previousEdge && previousEdge.orientation === edge.orientation) {
+      if (edge.orientation === 'v' && edge.x !== previousEdge.x) continue;
+      if (edge.orientation === 'h' && edge.y !== previousEdge.y) continue;
+    }
+    if (seen.has(edge.key)) continue;
+    seen.add(edge.key);
+    edges.push(edge.key);
+    previousEdge = edge;
+  }
+
+  return edges;
+}
+
 export function blockingEdgesBetweenCells(fromCell, toCell) {
   if (!fromCell || !toCell) return [];
   const fromX = Number(fromCell.x);
