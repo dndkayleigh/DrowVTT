@@ -996,6 +996,47 @@ export function rankApproachCells(encounterInput, actorInput, targetInput, attac
     .slice(0, limit);
 }
 
+function rankPressureCells(encounterInput, actorInput, targetInput, attacksInput = [], { limit = 5, pathfinding = null } = {}) {
+  const encounter = normalizeEncounterState(encounterInput);
+  const actor = normalizeActor(actorInput);
+  const target = normalizeActor(targetInput);
+  const maxSteps = Math.floor((Number(actor?.speed) || 0) / 5);
+  const attacks = attacksInput.length ? attacksInput.map(normalizeAttackProfile) : [normalizeAttackProfile({ name: 'Strike', attackKind: 'melee', rangeFt: 5 })];
+  const primaryAttack = attacks.find((attack) => attack.attackKind === 'melee') || attacks[0];
+  const rulesAdapter = new SimpleGridRulesAdapter({ pathfinding: pathfinding || createPathfindingService() });
+  const reachable = rulesAdapter.reachableTiles(encounter, actor, { limit: Math.max(limit * 6, (maxSteps * 2 + 1) ** 2) });
+  const currentDistance = occupiedCellDistance(actor, actor.cell, target, target.cell);
+
+  return reachable
+    .filter((cell) => Number(cell?.steps) > 0)
+    .filter((cell) => cell.legalStop !== false)
+    .filter((cell) => canActorOccupyCell(encounter, actor, cell, { excludeActorId: actor.id }))
+    .map((cell) => ({
+      cell: normalizeCell(cell),
+      path: Array.isArray(cell.path) ? cell.path.map(normalizeCell) : pathCellsBetween(actor.cell, cell),
+      futureAttackCell: null,
+      futureAttackDistance: occupiedCellDistance(actor, cell, target, target.cell),
+      remainingDistance: occupiedCellDistance(actor, cell, target, target.cell),
+      movementUsed: Number(cell.steps) || 0,
+      reserveCells: Math.max(0, maxSteps - (Number(cell.steps) || 0)),
+      laneDeviation: Math.abs(Number(cell.y) - Number(target.cell?.y || actor.cell?.y || 0)),
+      attackName: primaryAttack?.name || 'Strike',
+      attackKind: primaryAttack?.attackKind || 'melee',
+      rangeFt: primaryAttack?.rangeFt || 5,
+      expectedDamage: primaryAttack?.expectedDamage || 0,
+      targetId: target.id,
+      pressureFallback: true
+    }))
+    .filter((approach) => approach.remainingDistance < currentDistance)
+    .sort((left, right) =>
+      left.remainingDistance - right.remainingDistance ||
+      right.movementUsed - left.movementUsed ||
+      right.reserveCells - left.reserveCells ||
+      left.laneDeviation - right.laneDeviation
+    )
+    .slice(0, limit);
+}
+
 /**
  * @typedef {object} TacticalRulesAdapter
  * @property {(encounterInput: object, actor: object, options?: object) => Array<object>} reachableTiles
@@ -1076,6 +1117,159 @@ function enemiesFor(encounter, actor) {
 
 function alliesFor(encounter, actor) {
   return encounter.actors.filter((other) => other.id !== actor.id && other.side === actor.side);
+}
+
+function adjacentCells(cell = null) {
+  const origin = normalizeCell(cell);
+  const cells = [];
+  for (let dx = -1; dx <= 1; dx += 1) {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      if (dx === 0 && dy === 0) continue;
+      cells.push({ x: origin.x + dx, y: origin.y + dy });
+    }
+  }
+  return cells;
+}
+
+function nearestEnemyForBehavior(encounter, actor = {}) {
+  const enemies = enemiesFor(encounter, actor);
+  if (!enemies.length) return null;
+  return enemies
+    .map((enemy) => ({
+      enemy,
+      distance: occupiedCellDistance(actor, actor.cell, enemy, enemy.cell)
+    }))
+    .sort((left, right) => left.distance - right.distance || left.enemy.id.localeCompare(right.enemy.id))[0]
+    ?.enemy || null;
+}
+
+function summarizeCells(cells = []) {
+  return [...new Map((Array.isArray(cells) ? cells : [])
+    .map((cell) => {
+      const normalized = normalizeCell(cell);
+      return [`${normalized.x},${normalized.y}`, normalized];
+    })).values()];
+}
+
+function classifyMindlessBodyPressureHold({
+  encounter,
+  actor,
+  uniqueScored = [],
+  availableFamilies = []
+} = {}) {
+  const role = inferActorRole(actor);
+  const tacticalFunction = inferActorFunction(actor);
+  const behavior = behaviorProfileForActor(actor);
+  if (role !== 'blocker' || tacticalFunction !== 'body_pressure' || behavior.cognition !== 'mindless') return null;
+
+  const target = nearestEnemyForBehavior(encounter, actor);
+  if (!target) return null;
+
+  const maxSteps = Math.floor((Number(actor?.speed) || 0) / 5);
+  const movementEnvelopeLimit = Math.max(1, (maxSteps * 2 + 1) ** 2);
+  const rulesAdapter = new SimpleGridRulesAdapter({ pathfinding: createPathfindingService() });
+  const reachable = rulesAdapter.reachableTiles(encounter, actor, { limit: Math.max(36, movementEnvelopeLimit) });
+  const reachableByKey = new Set((reachable || [])
+    .filter((cell) => Number(cell?.steps) > 0)
+    .map((cell) => cellKey(cell)));
+  const legalMovementCells = reachable
+    .filter((cell) => Number(cell?.steps) > 0)
+    .filter((cell) => cell.legalStop !== false)
+    .filter((cell) => canActorOccupyCell(encounter, actor, cell, { excludeActorId: actor.id }));
+  const currentDistance = occupiedCellDistance(actor, actor.cell, target, target.cell);
+  const legalProgressCells = legalMovementCells
+    .filter((cell) => occupiedCellDistance(actor, cell, target, target.cell) < currentDistance);
+
+  const rejectedByBounds = [];
+  const rejectedByBlockingEdges = [];
+  const rejectedByOccupancy = [];
+  const rejectedByPathfinding = [];
+  const legalMovementNeighborCells = [];
+
+  for (const neighbor of adjacentCells(actor.cell)) {
+    if (!isCellInsideBattlefield(encounter, neighbor)) {
+      rejectedByBounds.push(neighbor);
+      continue;
+    }
+    if (hasBlockedMovementPath(encounter, actor.cell, neighbor)) {
+      rejectedByBlockingEdges.push(neighbor);
+      continue;
+    }
+    if (!canActorOccupyCell(encounter, actor, neighbor, { excludeActorId: actor.id })) {
+      rejectedByOccupancy.push(neighbor);
+      continue;
+    }
+    if (!reachableByKey.has(cellKey(neighbor))) {
+      rejectedByPathfinding.push(neighbor);
+      continue;
+    }
+    legalMovementNeighborCells.push(neighbor);
+  }
+
+  const advanceCandidates = uniqueScored.filter((entry) => entry.candidate.family === 'advance_to_attack');
+  const moveAndAttackCandidates = uniqueScored.filter((entry) => entry.candidate.family === 'move_and_attack');
+  const reservedProgressCells = uniqueScored
+    .filter((entry) =>
+      entry.supervisorFeatures?.reservationPenalty < 0
+      && ['advance_to_attack', 'move_and_attack'].includes(entry.candidate.family))
+    .map((entry) => entry.candidate.fromCell || entry.candidate.move?.to)
+    .filter(Boolean)
+    .map(normalizeCell);
+  const progressCellKeys = new Set(legalProgressCells.map(cellKey));
+  const reservedProgressCellKeys = new Set(
+    reservedProgressCells
+      .filter((cell) => progressCellKeys.has(cellKey(cell)))
+      .map(cellKey)
+  );
+
+  let reason = null;
+  if (availableFamilies.length === 1 && availableFamilies[0] === 'hold_position') {
+    if (currentDistance <= maxMeleeReachCells(actor)) reason = 'already_exerting_pressure';
+    else if (legalProgressCells.length > 0 && reservedProgressCellKeys.size >= progressCellKeys.size) reason = 'all_progress_cells_reserved';
+    else if (legalProgressCells.length > 0) reason = 'candidate_generation_gap';
+    else if (legalMovementCells.length > 0 || legalMovementNeighborCells.length > 0) reason = 'no_progress_cell';
+    else if (rejectedByOccupancy.length) reason = 'blocked_by_actors';
+    else if (rejectedByBlockingEdges.length) reason = 'blocked_by_terrain';
+    else if ((reachable || []).length <= 1) reason = 'no_path_to_prey';
+    else reason = 'unknown';
+  }
+
+  function familyMissingReason(family) {
+    if (availableFamilies.includes(family)) return 'emitted';
+    if (reason === 'all_progress_cells_reserved') return 'all legal progress cells were reserved by earlier activations';
+    if (reason === 'blocked_by_actors') return 'occupied ally bodies blocked every legal pressure lane';
+    if (reason === 'blocked_by_terrain') return 'blocking edges or terrain denied every legal pressure lane';
+    if (reason === 'no_path_to_prey') return 'no legal path toward nearest prey exists';
+    if (reason === 'no_progress_cell') return 'legal movement existed, but none reduced distance to nearest prey';
+    if (reason === 'candidate_generation_gap') return 'legal progress cells existed but no pressure candidate family was emitted';
+    if (reason === 'already_exerting_pressure') return 'actor is already adjacent and exerting pressure from current position';
+    return 'not emitted';
+  }
+
+  return {
+    actorId: actor.id,
+    actorName: actor.name,
+    currentPosition: normalizeCell(actor.cell),
+    nearestPrey: {
+      id: target.id,
+      name: target.name,
+      distance: currentDistance
+    },
+    availableFamilies,
+    rawNeighborCells: summarizeCells(adjacentCells(actor.cell)),
+    legalMovementNeighborCells: summarizeCells(legalMovementNeighborCells),
+    legalProgressCells: summarizeCells(legalProgressCells),
+    rejectedByBlockingEdges: summarizeCells(rejectedByBlockingEdges),
+    rejectedByOccupancy: summarizeCells(rejectedByOccupancy),
+    rejectedByReservations: summarizeCells(reservedProgressCells),
+    rejectedByBounds: summarizeCells(rejectedByBounds),
+    rejectedByPathfinding: summarizeCells(rejectedByPathfinding),
+    advanceToAttackAttempted: advanceCandidates.length > 0,
+    advanceToAttackMissingReason: familyMissingReason('advance_to_attack'),
+    moveAndAttackAttempted: moveAndAttackCandidates.length > 0,
+    moveAndAttackMissingReason: familyMissingReason('move_and_attack'),
+    holdOnlyReason: reason
+  };
 }
 
 function attackAction(actor, target, attack, fromCell, family, moveSteps = 0, metadata = {}) {
@@ -1526,6 +1720,8 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
   const attacks = actor.attacks.length ? actor.attacks : [normalizeAttackProfile({ name: 'Strike', attackKind: 'melee', rangeFt: 5 })];
   const spells = actor.spells || [];
   const role = inferActorRole(actor);
+  const tacticalFunction = inferActorFunction(actor);
+  const behavior = behaviorProfileForActor(actor);
   const currentNearestEnemyDistance = enemies.length
     ? Math.min(...enemies.map((enemy) => gridDistance(actor.cell, enemy.cell)))
     : Infinity;
@@ -1631,7 +1827,15 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
     .map((enemy) => ({ enemy, distance: gridDistance(actor.cell, enemy.cell) }))
     .sort((left, right) => left.distance - right.distance)[0]?.enemy;
   if (nearestEnemy) {
-    const approach = rankApproachCells(encounter, actor, nearestEnemy, attacks, { limit: 1, pathfinding: pathfindingService })[0];
+    let approach = rankApproachCells(encounter, actor, nearestEnemy, attacks, { limit: 1, pathfinding: pathfindingService })[0];
+    if (
+      !approach &&
+      role === 'blocker' &&
+      tacticalFunction === 'body_pressure' &&
+      behavior.cognition === 'mindless'
+    ) {
+      approach = rankPressureCells(encounter, actor, nearestEnemy, attacks, { limit: 1, pathfinding: pathfindingService })[0];
+    }
     if (approach && gridDistance(approach.cell, actor.cell) > 0) {
       candidates.push(advanceAction(actor, nearestEnemy, approach.cell, approach.path.length, {
         path: approach.path,
@@ -1643,7 +1847,8 @@ export function generateCandidateActions(encounterInput, actorInput, { rulesAdap
         laneDeviation: approach.laneDeviation,
         attackName: approach.attackName,
         attackKind: approach.attackKind,
-        targetId: approach.targetId
+        targetId: approach.targetId,
+        pressureFallback: approach.pressureFallback === true
       }));
     }
 
@@ -2207,7 +2412,7 @@ function expectedCandidateFamiliesForActor(actor, role) {
   return ['attack_from_current', 'move_and_attack', 'advance_to_attack'];
 }
 
-function buildCandidateSetHealth(actor, uniqueScored = []) {
+function buildCandidateSetHealth(encounter, actor, uniqueScored = []) {
   const behavior = behaviorProfileForActor(actor);
   const role = inferActorRole(actor);
   const availableFamilies = [...new Set(uniqueScored.map((entry) => entry.candidate.family).filter(Boolean))].sort();
@@ -2236,6 +2441,21 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
     status = 'weak_pass';
     note = 'lurker can preserve hidden/stalking posture, but ambush trigger and reveal timing remain under-modeled';
   }
+  const bodyPressureAudit = classifyMindlessBodyPressureHold({ encounter, actor, uniqueScored, availableFamilies });
+  const holdOnlyReason = bodyPressureAudit?.holdOnlyReason || null;
+  if (holdOnlyReason === 'already_exerting_pressure') {
+    status = 'pass';
+    note = 'hold_only; reason=already_exerting_pressure';
+  } else if (['blocked_by_actors', 'blocked_by_terrain', 'blocked_by_reservations', 'all_progress_cells_reserved', 'no_path_to_prey'].includes(holdOnlyReason)) {
+    status = 'pass';
+    note = `hold_only; reason=${holdOnlyReason}`;
+  } else if (holdOnlyReason === 'no_progress_cell') {
+    status = 'weak_pass';
+    note = 'hold_only; reason=no_progress_cell';
+  } else if (['candidate_generation_gap', 'parity_input_mismatch', 'unknown'].includes(holdOnlyReason)) {
+    status = 'warning';
+    note = `hold_only; reason=${holdOnlyReason}`;
+  }
   return {
     role,
     function: inferActorFunction(actor),
@@ -2246,7 +2466,9 @@ function buildCandidateSetHealth(actor, uniqueScored = []) {
     expectedFamilies,
     missingExpectedCandidates,
     severityMissingCandidates,
-    unsupportedExpectedCandidates
+    unsupportedExpectedCandidates,
+    holdOnlyReason,
+    bodyPressureAudit
   };
 }
 
@@ -2474,7 +2696,7 @@ function buildCandidateDiagnostics(encounter, actor, scored = [], selected = nul
   const selectedScored = selected
     ? scored.find((entry) => entry.candidate.id === selected.id) || uniqueScored.find((entry) => candidateDiagnosticKey(entry.candidate, actor) === selectedKey)
     : null;
-  const candidateSetHealth = buildCandidateSetHealth(actor, uniqueScored);
+  const candidateSetHealth = buildCandidateSetHealth(encounter, actor, uniqueScored);
   const tacticalSummaryGroups = buildTacticalSummaryGroups(uniqueScored, actor, encounter, 5);
   const scoreFlatness = buildScoreFlatnessDiagnostic(encounter, actor, scored);
   const selectedProtectedAssetSafetyDelta = selected ? protectedAssetSafetyDelta(encounter, actor, selected, doctrineContext) : null;
@@ -3124,7 +3346,7 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
     }));
   }
   const health = diagnostics.candidateSetHealth;
-  if (health && health.status !== 'pass') {
+  if (health && (health.status !== 'pass' || health.holdOnlyReason)) {
     logs.push(createDecisionLogEntry({
       controllerId,
       actorId: actor.id,
@@ -3133,6 +3355,28 @@ function createSupervisorDiagnosticLogs({ controllerId, actor, diagnostics }) {
       message: `${actor.name} candidate health ${health.status.toUpperCase()}: role=${health.role}${health.function ? `; function=${health.function}` : ''}${health.behavior ? `; behavior=${compactBehaviorDiagnostic(health.behavior)}` : ''}; available=${health.availableFamilies.join(', ') || 'none'}; missing=${health.missingExpectedCandidates.join(', ') || 'none'}${health.unsupportedExpectedCandidates?.length ? `; unsupported=${health.unsupportedExpectedCandidates.join(', ')}` : ''}${health.note ? `; note=${health.note}` : ''}.`,
       data: { candidateSetHealth: health }
     }));
+    if (health.holdOnlyReason) {
+      const reasonText = {
+        blocked_by_actors: 'holds because all progress cells are occupied by other actors.',
+        blocked_by_terrain: 'holds because blocking terrain denies every legal pressure lane.',
+        blocked_by_reservations: 'holds because all legal progress cells are reserved.',
+        all_progress_cells_reserved: 'holds because all progress cells are occupied/reserved.',
+        no_path_to_prey: 'holds because no legal path toward nearest prey exists.',
+        no_progress_cell: 'holds because legal movement exists but none reduces distance to nearest prey.',
+        already_exerting_pressure: 'holds while already exerting body pressure.',
+        parity_input_mismatch: 'holds due to SaaS/OSS parity input mismatch.',
+        candidate_generation_gap: 'holds unexpectedly: legal progress cells existed but no advance candidate was emitted.',
+        unknown: 'holds unexpectedly: legal progress explanation is unknown.'
+      }[health.holdOnlyReason] || `holds with reason=${health.holdOnlyReason}.`;
+      logs.push(createDecisionLogEntry({
+        controllerId,
+        actorId: actor.id,
+        phase: 'body_pressure_audit',
+        level: ['candidate_generation_gap', 'parity_input_mismatch', 'unknown'].includes(health.holdOnlyReason) ? 'warning' : 'info',
+        message: `${actor.name} ${reasonText}`,
+        data: { bodyPressureAudit: health.bodyPressureAudit || null }
+      }));
+    }
   }
   const spell = diagnostics.spellTargetExplanation;
   if (spell) {

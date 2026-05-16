@@ -140,6 +140,72 @@ function wolfPackFixture() {
   return parseVisibleEncounterFixture(source);
 }
 
+function zombieActor(id, x, y) {
+  return {
+    id,
+    name: id.replace(/_/g, ' '),
+    side: 'monsters',
+    cell: { x, y },
+    speed: 20,
+    attacks: [{ name: 'Slam', attackKind: 'melee', rangeFt: 5, expectedDamage: 4 }],
+    tactical: {
+      role: 'blocker',
+      function: 'body_pressure',
+      tags: ['body_pressure', 'swarm_member']
+    },
+    behavior: {
+      cognition: 'mindless',
+      drive: 'nearest_living_prey',
+      riskTolerance: 'fearless',
+      coordination: 'none',
+      planningHorizon: 'immediate',
+      targetStickiness: 'high'
+    }
+  };
+}
+
+function denseZombieHordeEncounter() {
+  const actors = [];
+  let index = 1;
+  for (let y = 2; y <= 4; y += 1) {
+    for (let x = 1; x <= 5; x += 1) {
+      actors.push(zombieActor(`z${index}`, x, y));
+      index += 1;
+    }
+  }
+  actors.push(
+    { id: 'hero_a', name: 'Aria', side: 'heroes', cell: { x: 3, y: 0 }, speed: 30, attacks: [] },
+    { id: 'hero_b', name: 'Borin', side: 'heroes', cell: { x: 4, y: 0 }, speed: 30, attacks: [] }
+  );
+  return normalizeEncounterState({
+    id: 'dense-zombie-horde',
+    round: 1,
+    activeActorId: 'z1',
+    activationGroups: [{
+      id: 'dense-zombie-group',
+      actorIds: actors.filter((actor) => actor.side === 'monsters').map((actor) => actor.id),
+      activationMode: 'coordinated_sequential'
+    }],
+    battlefield: { width: 8, height: 8, gridSize: 64, edges: [], tiles: [], interactables: [] },
+    actors
+  });
+}
+
+function zombieGapEncounter() {
+  return normalizeEncounterState({
+    id: 'zombie-gap-lane',
+    round: 1,
+    activeActorId: 'rear',
+    battlefield: { width: 6, height: 6, gridSize: 64, edges: [], tiles: [], interactables: [] },
+    actors: [
+      zombieActor('front_left', 1, 2),
+      zombieActor('front_right', 3, 2),
+      zombieActor('rear', 2, 3),
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 2, y: 0 }, speed: 30, attacks: [] }
+    ]
+  });
+}
+
 function sinkholeWatchFixture() {
   const source = fs.readFileSync(
     path.resolve(__dirname, '../../packages/tactical-ai-content/encounters/files/the-sinkhole-watch-2026-04-29.yaml'),
@@ -2680,6 +2746,74 @@ test('Zombie Doorway Press coordination:none zombies can converge on the same ne
   for (const decision of convergedOnHeroA) {
     assert.equal(decision.scoreBreakdown.behaviorNearestPreyBonus, 6);
   }
+});
+
+test('dense zombie horde rear zombies keep pressure by advancing when earlier zombies clear legal lanes', async () => {
+  const encounter = denseZombieHordeEncounter();
+  const output = await new SupervisorScriptedGroupController().chooseAction({
+    encounter,
+    activationGroup: encounter.activationGroups[0],
+    candidateLimit: 36
+  });
+  const decisionByActorId = new Map(
+    (output.logs || [])
+      .filter((log) => log.phase === 'decision' && log.data?.selected)
+      .map((log) => [log.actorId, log.data.selected])
+  );
+  const rearZombieDecision = decisionByActorId.get('z7');
+
+  assert.equal(decisionByActorId.get('z1')?.family, 'move_and_attack');
+  assert.equal(rearZombieDecision?.family, 'advance_to_attack');
+  assert.ok(
+    ['advance_to_attack', 'move_and_attack'].every((family) => [...decisionByActorId.values()].some((selected) => selected?.family === family)),
+    'expected the horde to include both direct attacks and pressure advances'
+  );
+});
+
+test('rear zombie with an open lane keeps pressure families instead of collapsing to hold-only', () => {
+  const encounter = zombieGapEncounter();
+  const rear = encounter.actors.find((actor) => actor.id === 'rear');
+  const candidates = generateCandidateActions(encounter, rear, { limit: 36 });
+  const families = new Set(candidates.map((candidate) => candidate.family));
+
+  assert.equal(families.has('move_and_attack'), true);
+  assert.equal(families.has('advance_to_attack'), true);
+  assert.notDeepEqual([...families], ['hold_position']);
+});
+
+test('sealed rear zombie holds with blocked_by_actors diagnostics when no legal pressure lane exists', async () => {
+  const encounter = normalizeEncounterState({
+    id: 'sealed-zombie-body-pressure',
+    round: 1,
+    activeActorId: 'center',
+    battlefield: { width: 6, height: 6, gridSize: 64, edges: [], tiles: [], interactables: [] },
+    actors: [
+      zombieActor('center', 2, 2),
+      zombieActor('a', 1, 1),
+      zombieActor('b', 2, 1),
+      zombieActor('c', 3, 1),
+      zombieActor('d', 1, 2),
+      zombieActor('e', 3, 2),
+      zombieActor('f', 1, 3),
+      zombieActor('g', 2, 3),
+      zombieActor('h', 3, 3),
+      { id: 'hero', name: 'Hero', side: 'heroes', cell: { x: 2, y: 0 }, speed: 30, attacks: [] }
+    ]
+  });
+  const output = await new SupervisorScriptedController().chooseAction({
+    encounter,
+    actorId: 'center',
+    candidateLimit: 36
+  });
+  const candidateHealth = output.logs.find((log) => log.phase === 'candidate_health')?.data?.candidateSetHealth;
+  const auditLog = output.logs.find((log) => log.phase === 'body_pressure_audit');
+
+  assert.equal(output.selectedCandidateId, 'hold_position:center');
+  assert.equal(candidateHealth?.holdOnlyReason, 'blocked_by_actors');
+  assert.equal(candidateHealth?.status, 'pass');
+  assert.equal(candidateHealth?.bodyPressureAudit?.legalProgressCells?.length, 0);
+  assert.ok((candidateHealth?.bodyPressureAudit?.rejectedByOccupancy?.length || 0) >= 8);
+  assert.match(String(auditLog?.message || ''), /holds because all progress cells are occupied by other actors/i);
 });
 
 test('Stony Shore bounds include logged coordinates on the exported board', () => {
